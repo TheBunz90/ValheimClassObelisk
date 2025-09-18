@@ -1,0 +1,10 @@
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.csproj.AssemblyReference.cache
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.csproj.CoreCompileInputs.cache
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\ValheimClassObelisk.dll
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\ValheimClassObelisk.pdb
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\Jotunn.dll
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\Jotunn.pdb
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\Jotunn.xml
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimC.64BE9D10.Up2Date
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.dll
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.pdb

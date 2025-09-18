@@ -8,6 +8,10 @@ using Jotunn.Utils;
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using Jotunn.GUI;
+using System.Collections.Generic;
+using Logger = Jotunn.Logger;
 
 [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
 [BepInDependency(Jotunn.Main.ModGuid)]
@@ -17,6 +21,8 @@ internal class ClassObeliskMod : BaseUnityPlugin
     public const string PluginGUID = "com.yourname.classobelisk";
     public const string PluginName = "Class Obelisk";
     public const string PluginVersion = "1.0.0";
+
+    private GameObject TestPanel;
 
     private static ClassObeliskMod _instance;
     private Harmony _harmony;
@@ -166,348 +172,257 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
     private void OpenClassSelectionGUI(Player player)
     {
-        Debug.Log("Opening class selection GUI using Jotunn GUIManager");
+        Debug.Log("Opening enhanced class selection GUI");
 
         // Close any existing GUI first
         CloseClassSelectionGUI();
 
-        // Create the GUI using Jotunn's system
-        CreateJotunnClassSelectionGUI(player);
+        // Create the enhanced GUI
+        CreateEnhancedClassSelectionGUI(player);
     }
 
-    private void CreateJotunnClassSelectionGUI(Player player)
+    private void CreateEnhancedClassSelectionGUI(Player player)
     {
-        // Check if GUIManager is available
-        if (GUIManager.Instance == null)
-        {
-            Debug.LogError("GUIManager.Instance is null!");
-            // Fall back to the old method if Jotunn isn't ready
-            CreateClassSelectionPanel(player);
-            return;
-        }
-
         try
         {
-            Debug.Log("Creating GUI using Jotunn's GUIManager");
+            Debug.Log("Creating enhanced GUI using Jotunn's GUIManager");
 
-            // Create a simple panel using Jotunn
-            var gui = new GameObject("ClassSelectionPanel");
-            gui.transform.SetParent(GUIManager.CustomGUIFront.transform, false);
+            // Create custom wood panel
+            CreateWoodenGUIPanel();
+            //classSelectionPanel = gui;
 
-            // Add RectTransform
-            var rect = gui.AddComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
+            // Create enhanced title with better styling
+            //CreateEnhancedTitle(gui);
 
-            // Add background
-            var bg = gui.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.8f);
+            // Create class selection buttons in 2 columns
+            CreateTwoColumnClassButtons(player);
 
-            classSelectionPanel = gui;
+            // Create enhanced close button
+            CreateEnhancedCloseButton();
 
-            Debug.Log("Created Jotunn GUI panel");
-
-            // Create title using simple method
-            CreateJotunnTitle(gui);
-
-            // Create class selection buttons
-            CreateJotunnClassButtons(gui, player);
-
-            // Create close button using Jotunn's CreateButton
-            var closeButton = GUIManager.Instance.CreateButton(
-                text: "X",
-                parent: gui.transform,
-                anchorMin: new Vector2(0.9f, 0.9f),
-                anchorMax: new Vector2(0.95f, 0.95f),
-                position: Vector2.zero,
-                width: 40,
-                height: 40
-            );
-
-            closeButton.GetComponent<Button>().onClick.AddListener(() => {
-                Debug.Log("Close button clicked");
-                CloseClassSelectionGUI();
-            });
+            // Add some decorative elements
+            //CreateDecorativeElements(gui);
 
             // Block game input while GUI is open
-            GUIManager.BlockInput(true);
+            //GUIManager.BlockInput(true);
         }
         catch (Exception ex)
         {
-            Debug.LogError($"Error creating Jotunn GUI: {ex.Message}");
-            // Fall back to the old method
-            CreateClassSelectionPanel(player);
+            Debug.LogError($"Error creating enhanced GUI: {ex.Message}");
         }
     }
 
-    private void CreateJotunnTitle(GameObject parent)
+    private void CreateWoodenGUIPanel()
     {
-        var titleObj = new GameObject("Title");
-        titleObj.transform.SetParent(parent.transform, false);
-
-        var titleRect = titleObj.AddComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.2f, 0.8f);
-        titleRect.anchorMax = new Vector2(0.8f, 0.9f);
-        titleRect.offsetMin = Vector2.zero;
-        titleRect.offsetMax = Vector2.zero;
-
-        var titleText = titleObj.AddComponent<Text>();
-        titleText.text = "Choose Your Combat Class";
-        titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        titleText.fontSize = 24;
-        titleText.color = Color.white;
-        titleText.alignment = TextAnchor.MiddleCenter;
-    }
-
-    private void CreateJotunnClassButtons(GameObject parent, Player player)
-    {
-        // Create buttons using Jotunn's CreateButton method
-        // Simple vertical layout for better compatibility
-        float buttonHeight = 40f;
-        float buttonWidth = 200f;
-        float spacing = 5f;
-        float startY = 250f;
-
-        for (int i = 0; i < ClassNames.Length; i++)
+        // Create the panel if it does not exist
+        if (!classSelectionPanel)
         {
-            float yPos = startY - (i * (buttonHeight + spacing));
+            if (GUIManager.Instance == null)
+            {
+                Logger.LogError("GUIManager instance is null");
+                return;
+            }
 
-            var button = GUIManager.Instance.CreateButton(
-                text: ClassNames[i],
-                parent: parent.transform,
+            if (!GUIManager.CustomGUIFront)
+            {
+                Logger.LogError("GUIManager CustomGUI is null");
+                return;
+            }
+
+            // Create the panel object
+            classSelectionPanel = GUIManager.Instance.CreateWoodpanel(
+                parent: GUIManager.CustomGUIFront.transform,
                 anchorMin: new Vector2(0.5f, 0.5f),
                 anchorMax: new Vector2(0.5f, 0.5f),
-                position: new Vector2(0f, yPos),
-                width: (int)buttonWidth,
-                height: (int)buttonHeight
-            );
+                position: new Vector2(0, 0),
+                width: 850,
+                height: 600,
+                draggable: false);
+            classSelectionPanel.SetActive(false);
 
-            // Store the class name for the click handler
-            string className = ClassNames[i];
+            // Add the Jötunn draggable Component to the panel
+            // Note: This is normally automatically added when using CreateWoodpanel()
+            classSelectionPanel.AddComponent<DragWindowCntrl>();
 
-            button.GetComponent<Button>().onClick.AddListener(() => {
-                Debug.Log($"Selected class: {className}");
-                OnClassSelected(className, player);
-            });
+            // Create the text object
+            GameObject textObject = GUIManager.Instance.CreateText(
+                text: "Choose a class!",
+                parent: classSelectionPanel.transform,
+                anchorMin: new Vector2(0.5f, 1f),
+                anchorMax: new Vector2(0.5f, 1f),
+                position: new Vector2(0f, -100f),
+                font: GUIManager.Instance.AveriaSerifBold,
+                fontSize: 30,
+                color: GUIManager.Instance.ValheimOrange,
+                outline: true,
+                outlineColor: Color.black,
+                width: 400f,
+                height: 50f,
+                addContentSizeFitter: false);
+
+            textObject.GetComponent<Text>().alignment = TextAnchor.MiddleCenter;
         }
+
+        // Switch the current state
+        bool state = !classSelectionPanel.activeSelf;
+
+        // Set the active state of the panel
+        classSelectionPanel.SetActive(state);
+
+        // Toggle input for the player and camera while displaying the GUI
+        GUIManager.BlockInput(state);
     }
 
-    // Keep your original fallback method in case Jotunn isn't available
-    private void CreateClassSelectionPanel(Player player)
+    private void CreateTwoColumnClassButtons(Player player)
     {
-        Debug.Log("Attempting to find GUI canvas...");
+        // Create container for buttons
+        var buttonContainer = new GameObject("ButtonContainer");
+        buttonContainer.transform.SetParent(classSelectionPanel.transform, false);
 
-        // Try multiple methods to find the correct canvas
-        GameObject hudCanvas = null;
+        var containerRect = buttonContainer.AddComponent<RectTransform>();
+        containerRect.anchorMin = new Vector2(0.1f, 0.2f);
+        containerRect.anchorMax = new Vector2(0.9f, 0.8f);
+        containerRect.offsetMin = Vector2.zero;
+        containerRect.offsetMax = Vector2.zero;
 
-        // Method 1: Look for IngameGui
-        var ingameGui = GameObject.Find("IngameGui");
-        if (ingameGui != null)
-        {
-            hudCanvas = ingameGui;
-            Debug.Log("Found IngameGui canvas");
-        }
+        // Create buttons in 2 columns, 4 rows
+        float buttonWidth = 220f;
+        float buttonHeight = 50f;
+        float columnSpacing = 40f;
+        float rowSpacing = 15f;
 
-        // Method 2: Look for GUI/Canvas structure  
-        if (hudCanvas == null)
-        {
-            var gui = GameObject.Find("GUI");
-            if (gui != null)
-            {
-                var canvas = gui.transform.Find("Canvas");
-                if (canvas != null)
-                {
-                    hudCanvas = canvas.gameObject;
-                    Debug.Log("Found GUI/Canvas structure");
-                }
-            }
-        }
+        // Calculate starting positions for centered layout
+        float totalWidth = (buttonWidth * 2) + columnSpacing;
+        float startX = -totalWidth / 2f + buttonWidth / 2f;
+        float startY = 120f; // Start from top
 
-        // Method 3: Find any Canvas component
-        if (hudCanvas == null)
-        {
-            var allCanvases = GameObject.FindObjectsOfType<Canvas>();
-            foreach (var canvas in allCanvases)
-            {
-                if (canvas.gameObject.activeInHierarchy && canvas.renderMode == RenderMode.ScreenSpaceOverlay)
-                {
-                    hudCanvas = canvas.gameObject;
-                    Debug.Log($"Found Canvas component: {canvas.gameObject.name}");
-                    break;
-                }
-            }
-        }
-
-        if (hudCanvas == null)
-        {
-            Debug.LogError("Could not find any suitable GUI canvas!");
-            return;
-        }
-
-        Debug.Log($"Using canvas: {hudCanvas.name}");
-
-        // Create main panel
-        classSelectionPanel = new GameObject("ClassSelectionPanel");
-        classSelectionPanel.transform.SetParent(hudCanvas.transform, false);
-
-        // Add RectTransform manually
-        var panelRect = classSelectionPanel.AddComponent<RectTransform>();
-        panelRect.anchorMin = new Vector2(0f, 0f);
-        panelRect.anchorMax = new Vector2(1f, 1f);
-        panelRect.offsetMin = Vector2.zero;
-        panelRect.offsetMax = Vector2.zero;
-
-        // Add Canvas Group for fading
-        var canvasGroup = classSelectionPanel.AddComponent<CanvasGroup>();
-        canvasGroup.alpha = 1f;
-
-        // Panel background
-        var panelImage = classSelectionPanel.AddComponent<Image>();
-        panelImage.color = new Color(0f, 0f, 0f, 0.8f); // Semi-transparent black
-
-        Debug.Log("Main panel created, adding title and buttons...");
-
-        // Title
-        CreateTitle(classSelectionPanel);
-
-        // Create button grid
-        CreateClassButtons(classSelectionPanel, player);
-
-        // Close button
-        CreateCloseButton(classSelectionPanel);
-
-        Debug.Log("Class selection panel creation complete");
-    }
-
-    private void CreateTitle(GameObject parent)
-    {
-        var titleObj = new GameObject("Title");
-        titleObj.transform.SetParent(parent.transform, false);
-
-        var titleText = titleObj.AddComponent<Text>();
-        titleText.text = "Select Your Combat Class";
-        titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        titleText.fontSize = 24;
-        titleText.color = Color.white;
-        titleText.alignment = TextAnchor.MiddleCenter;
-
-        var titleRect = titleObj.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0f, 0.8f);
-        titleRect.anchorMax = new Vector2(1f, 0.95f);
-        titleRect.offsetMin = Vector2.zero;
-        titleRect.offsetMax = Vector2.zero;
-    }
-
-    private void CreateClassButtons(GameObject parent, Player player)
-    {
-        Debug.Log($"Starting button creation");
-
-        // Create a simple vertical layout instead of grid
-        float buttonHeight = 35f;
-        float buttonWidth = 250f;
-        float spacing = 5f;
-        float startY = 200f;
-
-        // Create buttons for each class in a simple vertical layout
         for (int i = 0; i < ClassNames.Length; i++)
         {
-            CreateSimpleClassButton(parent, ClassNames[i], i, player, buttonWidth, buttonHeight, startY - (i * (buttonHeight + spacing)));
+            int col = i % 2; // 0 or 1 (left or right column)
+            int row = i / 2; // 0, 1, 2, or 3 (top to bottom)
+
+            float x = startX + (col * (buttonWidth + columnSpacing));
+            float y = startY - (row * (buttonHeight + rowSpacing));
+
+            CreateEnhancedClassButton(buttonContainer, ClassNames[i], player, x, y, buttonWidth, buttonHeight);
         }
     }
 
-    private void CreateSimpleClassButton(GameObject parent, string className, int classIndex, Player player, float width, float height, float yPos)
+    private void CreateEnhancedClassButton(GameObject parent, string className, Player player, float x, float y, float width, float height)
     {
-        Debug.Log($"Creating button for class: {className} (index: {classIndex})");
+        // Use Jotunn's CreateButton for proper styling
+        var button = GUIManager.Instance.CreateButton(
+            text: className,
+            parent: parent.transform,
+            anchorMin: new Vector2(0.5f, 0.5f),
+            anchorMax: new Vector2(0.5f, 0.5f),
+            position: new Vector2(x, y),
+            width: (int)width,
+            height: (int)height
+        );
 
-        var buttonObj = new GameObject($"Button_{className}");
-        buttonObj.transform.SetParent(parent.transform, false);
+        // Enhance the button styling
+        var buttonComponent = button.GetComponent<Button>();
+        var buttonImage = button.GetComponent<Image>();
 
-        // Add RectTransform manually
-        var buttonRect = buttonObj.AddComponent<RectTransform>();
-        buttonRect.anchorMin = new Vector2(0.5f, 0.5f);
-        buttonRect.anchorMax = new Vector2(0.5f, 0.5f);
-        buttonRect.pivot = new Vector2(0.5f, 0.5f);
-        buttonRect.sizeDelta = new Vector2(width, height);
-        buttonRect.anchoredPosition = new Vector2(0f, yPos);
+        //if (buttonImage != null)
+        //{
+        //    // Custom color scheme for class buttons
+        //    buttonImage.color = new Color(0.3f, 0.4f, 0.6f, 0.9f);
 
-        // Button background
-        var buttonImage = buttonObj.AddComponent<Image>();
-        buttonImage.color = new Color(0.2f, 0.3f, 0.5f, 0.9f);
+        //    var colorBlock = buttonComponent.colors;
+        //    colorBlock.normalColor = new Color(0.3f, 0.4f, 0.6f, 0.9f);
+        //    colorBlock.highlightedColor = new Color(0.4f, 0.5f, 0.7f, 1f);
+        //    colorBlock.pressedColor = new Color(0.2f, 0.3f, 0.5f, 1f);
+        //    colorBlock.selectedColor = new Color(0.35f, 0.45f, 0.65f, 1f);
+        //    buttonComponent.colors = colorBlock;
+        //}
 
-        // Button component
-        var button = buttonObj.AddComponent<Button>();
-        button.targetGraphic = buttonImage;
+        // Find and enhance the button text
+        //var textComponent = button.GetComponentInChildren<Text>();
+        //if (textComponent != null)
+        //{
+        //    textComponent.fontSize = 16;
+        //    textComponent.fontStyle = FontStyle.Bold;
+        //    textComponent.color = new Color(1f, 0.95f, 0.8f, 1f); // Warm white
 
-        // Button text
-        var textObj = new GameObject("Text");
-        textObj.transform.SetParent(buttonObj.transform, false);
+        //    // Add text outline for better readability
+        //    var textOutline = textComponent.gameObject.AddComponent<Outline>();
+        //    textOutline.effectColor = new Color(0.1f, 0.05f, 0f, 0.8f);
+        //    textOutline.effectDistance = new Vector2(1f, -1f);
+        //}
 
-        var textRect = textObj.AddComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
+        // Add click handler
+        buttonComponent.onClick.AddListener(() => {
+            Debug.Log($"Selected class: {className}");
+            OnClassSelected(className, player);
+        });
 
-        var buttonText = textObj.AddComponent<Text>();
-        buttonText.text = className;
-        buttonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        buttonText.fontSize = 16;
-        buttonText.color = Color.white;
-        buttonText.alignment = TextAnchor.MiddleCenter;
-
-        // Button click handler
-        button.onClick.AddListener(() => OnClassSelected(className, player));
-
-        // Hover effects
-        var colorBlock = button.colors;
-        colorBlock.highlightedColor = new Color(0.3f, 0.4f, 0.7f, 0.9f);
-        colorBlock.pressedColor = new Color(0.1f, 0.2f, 0.4f, 0.9f);
-        button.colors = colorBlock;
-
-        Debug.Log($"Button {className} created successfully");
+        // Add hover effect
+        button.AddComponent<ButtonHoverEffect>();
     }
 
-    private void CreateCloseButton(GameObject parent)
+    private void CreateEnhancedCloseButton()
     {
-        var closeButtonObj = new GameObject("CloseButton");
-        closeButtonObj.transform.SetParent(parent.transform, false);
+        // Close button with better styling
+        var closeButton = GUIManager.Instance.CreateButton(
+            text: "X",
+            parent: classSelectionPanel.transform,
+            anchorMin: new Vector2(0.92f, 0.92f),
+            anchorMax: new Vector2(0.98f, 0.98f),
+            position: Vector2.zero,
+            width: 35,
+            height: 35
+        );
 
-        // Add RectTransform manually
-        var closeRect = closeButtonObj.AddComponent<RectTransform>();
-        closeRect.anchorMin = new Vector2(0.9f, 0.9f);
-        closeRect.anchorMax = new Vector2(0.95f, 0.95f);
-        closeRect.sizeDelta = new Vector2(30f, 30f);
-        closeRect.anchoredPosition = Vector2.zero;
+        var closeComponent = closeButton.GetComponent<Button>();
+        var closeImage = closeButton.GetComponent<Image>();
 
-        // Button background
-        var closeImage = closeButtonObj.AddComponent<Image>();
-        closeImage.color = new Color(0.8f, 0.2f, 0.2f, 0.9f);
+        if (closeImage != null)
+        {
+            closeImage.color = new Color(0.8f, 0.3f, 0.3f, 0.9f);
 
-        // Button component
-        var closeButton = closeButtonObj.AddComponent<Button>();
-        closeButton.targetGraphic = closeImage;
+            var colorBlock = closeComponent.colors;
+            colorBlock.normalColor = new Color(0.8f, 0.3f, 0.3f, 0.9f);
+            colorBlock.highlightedColor = new Color(0.9f, 0.4f, 0.4f, 1f);
+            colorBlock.pressedColor = new Color(0.7f, 0.2f, 0.2f, 1f);
+            closeComponent.colors = colorBlock;
+        }
 
-        // X text
-        var closeTextObj = new GameObject("Text");
-        closeTextObj.transform.SetParent(closeButtonObj.transform, false);
+        // Enhance close button text
+        var closeText = closeButton.GetComponentInChildren<Text>();
+        if (closeText != null)
+        {
+            closeText.fontSize = 18;
+            closeText.fontStyle = FontStyle.Bold;
+            closeText.color = Color.white;
+        }
 
-        var closeTextRect = closeTextObj.AddComponent<RectTransform>();
-        closeTextRect.anchorMin = Vector2.zero;
-        closeTextRect.anchorMax = Vector2.one;
-        closeTextRect.offsetMin = Vector2.zero;
-        closeTextRect.offsetMax = Vector2.zero;
+        closeComponent.onClick.AddListener(() => {
+            Debug.Log("Enhanced close button clicked");
+            CloseClassSelectionGUI();
+        });
+    }
 
-        var closeText = closeTextObj.AddComponent<Text>();
-        closeText.text = "X";
-        closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        closeText.fontSize = 16;
-        closeText.color = Color.white;
-        closeText.alignment = TextAnchor.MiddleCenter;
+    private void CreateDecorativeElements(GameObject parent)
+    {
+        // Add a subtitle
+        var subtitle = new GameObject("Subtitle");
+        subtitle.transform.SetParent(parent.transform, false);
 
-        // Close button click handler
-        closeButton.onClick.AddListener(CloseClassSelectionGUI);
+        var subtitleRect = subtitle.AddComponent<RectTransform>();
+        subtitleRect.anchorMin = new Vector2(0.2f, 0.78f);
+        subtitleRect.anchorMax = new Vector2(0.8f, 0.82f);
+        subtitleRect.offsetMin = Vector2.zero;
+        subtitleRect.offsetMax = Vector2.zero;
+
+        var subtitleText = subtitle.AddComponent<Text>();
+        subtitleText.text = "Each class specializes in different combat styles";
+        subtitleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        subtitleText.fontSize = 12;
+        subtitleText.color = new Color(0.8f, 0.7f, 0.6f, 0.8f);
+        subtitleText.alignment = TextAnchor.MiddleCenter;
+        subtitleText.fontStyle = FontStyle.Italic;
     }
 
     private void OnClassSelected(string className, Player player)
@@ -535,6 +450,36 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             {
                 GUIManager.BlockInput(false);
             }
+        }
+    }
+}
+
+// Simple hover effect component for buttons
+public class ButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+{
+    private Vector3 originalScale;
+    private bool isHovering = false;
+
+    private void Start()
+    {
+        originalScale = transform.localScale;
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (!isHovering)
+        {
+            isHovering = true;
+            transform.localScale = originalScale * 1.05f;
+        }
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (isHovering)
+        {
+            isHovering = false;
+            transform.localScale = originalScale;
         }
     }
 }

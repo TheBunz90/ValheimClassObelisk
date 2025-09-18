@@ -8,3 +8,4 @@ C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimC.64BE9D10.Up2Date
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.dll
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.pdb
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\UnityEngine.TextRenderingModule.dll

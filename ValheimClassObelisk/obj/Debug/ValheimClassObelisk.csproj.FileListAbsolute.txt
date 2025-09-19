@@ -9,3 +9,5 @@ C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.dll
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\obj\Debug\ValheimClassObelisk.pdb
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\UnityEngine.TextRenderingModule.dll
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\assembly_guiutils.dll
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\assembly_utils.dll

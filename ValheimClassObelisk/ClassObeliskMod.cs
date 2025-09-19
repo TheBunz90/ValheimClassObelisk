@@ -124,6 +124,9 @@ internal class ClassObeliskMod : BaseUnityPlugin
 public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 {
     private static GameObject classSelectionPanel;
+    private static Text descriptionText;
+    private static GameObject selectClassButton;
+    private static string selectedClassName = "";
 
     // Class names for the buttons
     private static readonly string[] ClassNames = {
@@ -137,9 +140,112 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Bulwark"
     };
 
+    // Class descriptions
+    private static readonly Dictionary<string, string> ClassDescriptions = new Dictionary<string, string>
+    {
+        {
+            "Sword Master",
+            "Masters of blade combat with exceptional swordsmanship skills.\n\n" +
+            "Benefits:\n" +
+            "• +15% damage with swords and knives\n" +
+            "• +10% parry efficiency\n" +
+            "• Faster weapon skill progression\n" +
+            "• Special sword techniques unlock at higher levels\n\n" +
+            "Ideal for players who prefer melee combat with finesse and precision."
+        },
+        {
+            "Archer",
+            "Expert marksmen with unparalleled bow mastery.\n\n" +
+            "Benefits:\n" +
+            "• +20% bow damage and accuracy\n" +
+            "• +25% arrow crafting efficiency\n" +
+            "• Reduced stamina cost for bow usage\n" +
+            "• Special arrow types become available\n\n" +
+            "Perfect for players who enjoy ranged combat and hunting."
+        },
+        {
+            "Crusher",
+            "Powerful warriors who excel with heavy weapons.\n\n" +
+            "Benefits:\n" +
+            "• +20% damage with clubs, hammers, and axes\n" +
+            "• +15% knockback power\n" +
+            "• Reduced stamina drain from heavy attacks\n" +
+            "• Area damage bonuses with two-handed weapons\n\n" +
+            "Best suited for players who like devastating melee attacks."
+        },
+        {
+            "Assassin",
+            "Stealthy fighters who strike from the shadows.\n\n" +
+            "Benefits:\n" +
+            "• +30% backstab damage multiplier\n" +
+            "• Improved stealth movement\n" +
+            "• +10% movement speed when crouching\n" +
+            "• Critical hit chance increases at night\n\n" +
+            "Great for players who prefer tactical, stealthy gameplay."
+        },
+        {
+            "Pugilist",
+            "Bare-knuckle brawlers with unmatched unarmed combat skills.\n\n" +
+            "Benefits:\n" +
+            "• +25% unarmed damage\n" +
+            "• Fists scale with unarmed skill level\n" +
+            "• +20% stamina regeneration during combat\n" +
+            "• Stunning attacks with high unarmed skill\n\n" +
+            "For players who want to fight with their fists like a true Viking."
+        },
+        {
+            "Mage",
+            "Mystical practitioners of elemental magic.\n\n" +
+            "Benefits:\n" +
+            "• +15% magic damage with staves\n" +
+            "• +20% eitr (magic stamina) capacity\n" +
+            "• Faster eitr regeneration\n" +
+            "• Enhanced spell effects and duration\n\n" +
+            "Ideal for players who want to master Valheim's magic system."
+        },
+        {
+            "Lancer",
+            "Spear specialists with superior reach and technique.\n\n" +
+            "Benefits:\n" +
+            "• +18% spear damage and thrust speed\n" +
+            "• Extended reach for spear attacks\n" +
+            "• +15% damage when attacking from behind shields\n" +
+            "• Throwing spears deal increased damage\n\n" +
+            "Perfect for players who like versatile polearm combat."
+        },
+        {
+            "Bulwark",
+            "Defensive specialists who excel at protection and tanking.\n\n" +
+            "Benefits:\n" +
+            "• +20% block power with shields\n" +
+            "• +15% armor effectiveness\n" +
+            "• Reduced stamina cost for blocking\n" +
+            "• Taunt ability to draw enemy attention\n\n" +
+            "Best for players who want to be the party's shield and protector."
+        }
+    };
+
     private void Start()
     {
         // Initialize if needed
+    }
+
+    private void Update()
+    {
+        // Check for escape key to close the GUI using Valheim's input system
+        if (classSelectionPanel != null && classSelectionPanel.activeSelf)
+        {
+            // Since our Update function in our BepInEx mod class will load BEFORE Valheim loads,
+            // we need to check that ZInput is ready to use first.
+            if (ZInput.instance != null)
+            {
+                if (ZInput.GetButtonDown("Escape") || ZInput.GetButtonDown("JoyMenu"))
+                {
+                    Debug.Log("Escape/Menu button pressed - closing class selection GUI");
+                    CloseClassSelectionGUI();
+                }
+            }
+        }
     }
 
     public string GetHoverText()
@@ -189,22 +295,23 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
             // Create custom wood panel
             CreateWoodenGUIPanel();
-            //classSelectionPanel = gui;
-
-            // Create enhanced title with better styling
-            //CreateEnhancedTitle(gui);
 
             // Create class selection buttons in 2 columns
             CreateTwoColumnClassButtons(player);
 
+            // Create the description window
+            CreateDescriptionWindow();
+
+            // Create the select class button
+            CreateSelectClassButton(player);
+
             // Create enhanced close button
             CreateEnhancedCloseButton();
 
-            // Add some decorative elements
-            //CreateDecorativeElements(gui);
-
-            // Block game input while GUI is open
-            //GUIManager.BlockInput(true);
+            // Initialize with default message
+            UpdateDescriptionText("Click on a class above to see its description and benefits.");
+            selectedClassName = "";
+            UpdateSelectButton();
         }
         catch (Exception ex)
         {
@@ -229,19 +336,18 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
                 return;
             }
 
-            // Create the panel object
+            // Create the panel object - made it taller for the description window
             classSelectionPanel = GUIManager.Instance.CreateWoodpanel(
                 parent: GUIManager.CustomGUIFront.transform,
                 anchorMin: new Vector2(0.5f, 0.5f),
                 anchorMax: new Vector2(0.5f, 0.5f),
                 position: new Vector2(0, 0),
-                width: 850,
-                height: 600,
+                width: 1300,
+                height: 900, // Increased height for description window
                 draggable: false);
             classSelectionPanel.SetActive(false);
 
             // Add the Jötunn draggable Component to the panel
-            // Note: This is normally automatically added when using CreateWoodpanel()
             classSelectionPanel.AddComponent<DragWindowCntrl>();
 
             // Create the text object
@@ -280,26 +386,26 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         buttonContainer.transform.SetParent(classSelectionPanel.transform, false);
 
         var containerRect = buttonContainer.AddComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0.1f, 0.2f);
-        containerRect.anchorMax = new Vector2(0.9f, 0.8f);
+        containerRect.anchorMin = new Vector2(0.05f, 0.65f);  // Positioned above description window
+        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 4 columns
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
 
-        // Create buttons in 2 columns, 4 rows
-        float buttonWidth = 220f;
-        float buttonHeight = 50f;
-        float columnSpacing = 40f;
-        float rowSpacing = 15f;
+        // Create buttons in 4 columns, 2 rows
+        float buttonWidth = 180f;  // Adjusted for 4 columns
+        float buttonHeight = 50f;  // Slightly taller for better readability
+        float columnSpacing = 25f; // Spacing between columns
+        float rowSpacing = 15f;    // Spacing between rows
 
-        // Calculate starting positions for centered layout
-        float totalWidth = (buttonWidth * 2) + columnSpacing;
+        // Calculate starting positions for centered layout with 4 columns
+        float totalWidth = (buttonWidth * 4) + (columnSpacing * 3);
         float startX = -totalWidth / 2f + buttonWidth / 2f;
-        float startY = 120f; // Start from top
+        float startY = 25f; // Start from center of container
 
         for (int i = 0; i < ClassNames.Length; i++)
         {
-            int col = i % 2; // 0 or 1 (left or right column)
-            int row = i / 2; // 0, 1, 2, or 3 (top to bottom)
+            int col = i % 4; // 0, 1, 2, or 3 (4 columns)
+            int row = i / 4; // 0 or 1 (2 rows)
 
             float x = startX + (col * (buttonWidth + columnSpacing));
             float y = startY - (row * (buttonHeight + rowSpacing));
@@ -321,45 +427,93 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             height: (int)height
         );
 
-        // Enhance the button styling
+        // Get button component
         var buttonComponent = button.GetComponent<Button>();
-        var buttonImage = button.GetComponent<Image>();
 
-        //if (buttonImage != null)
-        //{
-        //    // Custom color scheme for class buttons
-        //    buttonImage.color = new Color(0.3f, 0.4f, 0.6f, 0.9f);
-
-        //    var colorBlock = buttonComponent.colors;
-        //    colorBlock.normalColor = new Color(0.3f, 0.4f, 0.6f, 0.9f);
-        //    colorBlock.highlightedColor = new Color(0.4f, 0.5f, 0.7f, 1f);
-        //    colorBlock.pressedColor = new Color(0.2f, 0.3f, 0.5f, 1f);
-        //    colorBlock.selectedColor = new Color(0.35f, 0.45f, 0.65f, 1f);
-        //    buttonComponent.colors = colorBlock;
-        //}
-
-        // Find and enhance the button text
-        //var textComponent = button.GetComponentInChildren<Text>();
-        //if (textComponent != null)
-        //{
-        //    textComponent.fontSize = 16;
-        //    textComponent.fontStyle = FontStyle.Bold;
-        //    textComponent.color = new Color(1f, 0.95f, 0.8f, 1f); // Warm white
-
-        //    // Add text outline for better readability
-        //    var textOutline = textComponent.gameObject.AddComponent<Outline>();
-        //    textOutline.effectColor = new Color(0.1f, 0.05f, 0f, 0.8f);
-        //    textOutline.effectDistance = new Vector2(1f, -1f);
-        //}
-
-        // Add click handler
+        // Add click handler - now updates description instead of selecting immediately
         buttonComponent.onClick.AddListener(() => {
-            Debug.Log($"Selected class: {className}");
-            OnClassSelected(className, player);
+            Debug.Log($"Viewing class: {className}");
+            OnClassButtonClicked(className);
         });
 
         // Add hover effect
         button.AddComponent<ButtonHoverEffect>();
+    }
+
+    private void CreateDescriptionWindow()
+    {
+        // Create a properly sized description container that fits within the panel
+        var descriptionContainer = new GameObject("DescriptionContainer");
+        descriptionContainer.transform.SetParent(classSelectionPanel.transform, false);
+
+        var containerRect = descriptionContainer.AddComponent<RectTransform>();
+        containerRect.anchorMin = new Vector2(0.15f, 0.15f);  // 5% thinner (was 0.1f to 0.9f)
+        containerRect.anchorMax = new Vector2(0.85f, 0.65f);  // 5% shorter (was 0.25f to 0.55f)
+        containerRect.offsetMin = Vector2.zero;
+        containerRect.offsetMax = Vector2.zero;
+
+        // Add background
+        var containerBg = descriptionContainer.AddComponent<Image>();
+        containerBg.color = new Color(0.1f, 0.1f, 0.1f, 0.8f); // Dark semi-transparent background
+
+        // Create the description text directly using GUIManager
+        GameObject descriptionTextObj = GUIManager.Instance.CreateText(
+            text: "Select a class to view its description...",
+            parent: descriptionContainer.transform,
+            anchorMin: Vector2.zero, // Fill the container
+            anchorMax: Vector2.one,  // Fill the container
+            position: Vector2.zero,
+            font: GUIManager.Instance.AveriaSerif,
+            fontSize: 24,
+            color: new Color(0.9f, 0.9f, 0.9f, 1f),
+            outline: false,
+            outlineColor: Color.black,
+            width: 0, // Use container width
+            height: 0, // Use container height
+            addContentSizeFitter: false);
+
+        // Get the text component reference
+        descriptionText = descriptionTextObj.GetComponent<Text>();
+        descriptionText.alignment = TextAnchor.UpperLeft;
+        descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
+
+        // Add proper padding within the container
+        var textRect = descriptionTextObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = new Vector2(15, 15); // Padding from edges
+        textRect.offsetMax = new Vector2(-15, -15); // Negative padding on right/top
+
+        Debug.Log("Properly sized description text created");
+        Debug.Log("Container rect size: " + containerRect.rect.size);
+        Debug.Log("Text rect size: " + textRect.rect.size);
+    }
+
+    private void CreateSelectClassButton(Player player)
+    {
+        selectClassButton = GUIManager.Instance.CreateButton(
+            text: "Select Class",
+            parent: classSelectionPanel.transform,
+            anchorMin: new Vector2(0.5f, 0.08f), // Moved up slightly from the very bottom
+            anchorMax: new Vector2(0.5f, 0.08f),
+            position: new Vector2(0f, 20f), // Centered with some margin from bottom
+            width: 200,
+            height: 35 // Slightly smaller height
+        );
+
+        var buttonComponent = selectClassButton.GetComponent<Button>();
+
+        // Add click handler
+        buttonComponent.onClick.AddListener(() => {
+            if (!string.IsNullOrEmpty(selectedClassName))
+            {
+                OnClassSelected(selectedClassName, player);
+            }
+        });
+
+        // Initially disable the button
+        UpdateSelectButton();
     }
 
     private void CreateEnhancedCloseButton()
@@ -402,36 +556,91 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             Debug.Log("Enhanced close button clicked");
             CloseClassSelectionGUI();
         });
+
+        closeButton.AddComponent<ButtonHoverEffect>();
     }
 
-    private void CreateDecorativeElements(GameObject parent)
+    private void OnClassButtonClicked(string className)
     {
-        // Add a subtitle
-        var subtitle = new GameObject("Subtitle");
-        subtitle.transform.SetParent(parent.transform, false);
+        selectedClassName = className;
 
-        var subtitleRect = subtitle.AddComponent<RectTransform>();
-        subtitleRect.anchorMin = new Vector2(0.2f, 0.78f);
-        subtitleRect.anchorMax = new Vector2(0.8f, 0.82f);
-        subtitleRect.offsetMin = Vector2.zero;
-        subtitleRect.offsetMax = Vector2.zero;
+        // Update description text
+        if (ClassDescriptions.ContainsKey(className))
+        {
+            UpdateDescriptionText(ClassDescriptions[className]);
+        }
+        else
+        {
+            UpdateDescriptionText($"Description for {className} coming soon...");
+        }
 
-        var subtitleText = subtitle.AddComponent<Text>();
-        subtitleText.text = "Each class specializes in different combat styles";
-        subtitleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        subtitleText.fontSize = 12;
-        subtitleText.color = new Color(0.8f, 0.7f, 0.6f, 0.8f);
-        subtitleText.alignment = TextAnchor.MiddleCenter;
-        subtitleText.fontStyle = FontStyle.Italic;
+        // Update select button state
+        UpdateSelectButton();
+    }
+
+    private void UpdateDescriptionText(string description)
+    {
+        if (descriptionText != null)
+        {
+            Debug.Log($"Updating description text to: {description.Substring(0, Math.Min(50, description.Length))}...");
+            descriptionText.text = description;
+
+            // Force text to wrap properly
+            descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
+
+            // Force canvas update
+            Canvas.ForceUpdateCanvases();
+
+            // Adjust content height based on text
+            //var contentRect = descriptionText.transform.parent.GetComponent<RectTransform>();
+            //if (contentRect != null)
+            //{
+            //    float preferredHeight = Mathf.Max(250, descriptionText.preferredHeight + 30);
+            //    contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, preferredHeight);
+            //    Debug.Log($"Updated content height to: {preferredHeight}");
+            //}
+
+            // Reset scroll position to top
+            var scrollView = classSelectionPanel.GetComponentInChildren<ScrollRect>();
+            if (scrollView != null)
+            {
+                scrollView.normalizedPosition = new Vector2(0, 1);
+            }
+        }
+        else
+        {
+            Debug.LogError("descriptionText is null when trying to update!");
+        }
+    }
+
+    private void UpdateSelectButton()
+    {
+        if (selectClassButton != null)
+        {
+            var buttonComponent = selectClassButton.GetComponent<Button>();
+            var buttonText = selectClassButton.GetComponentInChildren<Text>();
+
+            if (string.IsNullOrEmpty(selectedClassName))
+            {
+                buttonComponent.interactable = false;
+                if (buttonText != null) buttonText.text = "Select a Class";
+            }
+            else
+            {
+                buttonComponent.interactable = true;
+                if (buttonText != null) buttonText.text = $"Select {selectedClassName}";
+            }
+        }
     }
 
     private void OnClassSelected(string className, Player player)
     {
         // Display selection message
-        player.Message(MessageHud.MessageType.Center, $"{className} Selected!");
+        player.Message(MessageHud.MessageType.Center, $"Selected {className} Class!");
 
         // Log for debugging
-        Debug.Log($"Player selected class: {className}");
+        Debug.Log($"Player confirmed selection: {className}");
 
         // Close the GUI
         CloseClassSelectionGUI();
@@ -444,6 +653,9 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             Debug.Log("Closing class selection GUI");
             Destroy(classSelectionPanel);
             classSelectionPanel = null;
+            descriptionText = null;
+            selectClassButton = null;
+            selectedClassName = "";
 
             // Restore game input if we were using Jotunn's system
             if (GUIManager.Instance != null)

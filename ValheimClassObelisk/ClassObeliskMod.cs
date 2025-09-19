@@ -146,82 +146,90 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         {
             "Sword Master",
             "Masters of blade combat with exceptional swordsmanship skills.\n\n" +
-            "Benefits:\n" +
-            "• +15% damage with swords and knives\n" +
-            "• +10% parry efficiency\n" +
-            "• Faster weapon skill progression\n" +
-            "• Special sword techniques unlock at higher levels\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Riposte Training: +10% sword damage. After parrying, next sword hit within 2s deals +25% damage\n" +
+            "• Lv20 – Bleeding Edge: 20% chance to apply Bleed (stacks up to 2x)\n" +
+            "• Lv30 – Fencer's Footwork: -15% sword stamina cost; +10% movement speed for 3s after hits\n" +
+            "• Lv40 – Weakpoint Cut: +15% armor penetration; +25% stagger vs. humanoids/undead\n" +
+            "• Lv50 – Dancing Steel: Consecutive hits grant +5% damage (max +25%)\n\n" +
             "Ideal for players who prefer melee combat with finesse and precision."
         },
         {
             "Archer",
-            "Expert marksmen with unparalleled bow mastery.\n\n" +
-            "Benefits:\n" +
-            "• +20% bow damage and accuracy\n" +
-            "• +25% arrow crafting efficiency\n" +
-            "• Reduced stamina cost for bow usage\n" +
-            "• Special arrow types become available\n\n" +
-            "Perfect for players who enjoy ranged combat and hunting."
+            "Expert marksmen with unparalleled bow and crossbow mastery.\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Steady Draw: -15% stamina drain while drawing; +15% projectile velocity\n" +
+            "• Lv20 – Broadsheads & Bolts: Arrows apply Bleed; crossbow bolts gain +20% knockback\n" +
+            "• Lv30 – Wind Reader: +15% damage beyond 25m; -25% stamina while aiming\n" +
+            "• Lv40 – Trick Shot: 10% chance to pierce additional target (5% for bolts)\n" +
+            "• Lv50 – Eagle Eye: Fully drawn shots deal +20% damage and ignore 15% armor\n\n" +
+            "Perfect for players who enjoy ranged combat and precision shooting."
         },
         {
             "Crusher",
-            "Powerful warriors who excel with heavy weapons.\n\n" +
-            "Benefits:\n" +
-            "• +20% damage with clubs, hammers, and axes\n" +
-            "• +15% knockback power\n" +
-            "• Reduced stamina drain from heavy attacks\n" +
-            "• Area damage bonuses with two-handed weapons\n\n" +
-            "Best suited for players who like devastating melee attacks."
+            "Powerful warriors who excel with heavy blunt weapons.\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Bonebreaker: +12% blunt damage; +25% stagger power\n" +
+            "• Lv20 – Shatter: Hitting staggered enemies causes 2m shockwave\n" +
+            "• Lv30 – Rock Solid: -20% attack stamina cost; -20% incoming knockback\n" +
+            "• Lv40 – Tremor: Leap/heavy attacks slow enemies 30% for 2s; increased knockback\n" +
+            "• Lv50 – Colossus: Staggering enemies grants +20% damage and -20% damage taken for 5s\n\n" +
+            "Best suited for players who like devastating area attacks and crowd control."
         },
         {
             "Assassin",
-            "Stealthy fighters who strike from the shadows.\n\n" +
-            "Benefits:\n" +
-            "• +30% backstab damage multiplier\n" +
-            "• Improved stealth movement\n" +
-            "• +10% movement speed when crouching\n" +
-            "• Critical hit chance increases at night\n\n" +
-            "Great for players who prefer tactical, stealthy gameplay."
+            "Stealthy fighters who strike from the shadows with deadly precision.\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Cutthroat: +12% knife damage; +30% backstab multiplier\n" +
+            "• Lv20 – Hemorrhage: Knife hits apply stacking Bleed; +15% damage vs. low HP enemies\n" +
+            "• Lv30 – Shadowstep: -25% noise radius; +12% crouch speed; -20% sneak stamina\n" +
+            "• Lv40 – Venom Coating: First stealth knife hit applies Poison over 8s\n" +
+            "• Lv50 – Heartseeker: Knife backstabs ignore armor and deal +100% stagger\n\n" +
+            "Great for players who prefer tactical, stealthy gameplay and burst damage."
         },
         {
             "Pugilist",
             "Bare-knuckle brawlers with unmatched unarmed combat skills.\n\n" +
-            "Benefits:\n" +
-            "• +25% unarmed damage\n" +
-            "• Fists scale with unarmed skill level\n" +
-            "• +20% stamina regeneration during combat\n" +
-            "• Stunning attacks with high unarmed skill\n\n" +
-            "For players who want to fight with their fists like a true Viking."
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Iron Fist: +15% unarmed damage; +10% attack speed with fists\n" +
+            "• Lv20 – Counterpunch: After perfect block, next punch deals +50% damage and heavy knockback\n" +
+            "• Lv30 – Brawler's Grit: -25% incoming stagger; +1 HP/s regen out of combat\n" +
+            "• Lv40 – Break Guard: Punches deal +50% stagger and can interrupt basic attacks\n" +
+            "• Lv50 – One-Two Combo: Every 3rd consecutive punch deals +100% damage and restores 5 stamina\n\n" +
+            "For players who want to fight with their fists like a true Viking warrior."
         },
         {
             "Mage",
-            "Mystical practitioners of elemental magic.\n\n" +
-            "Benefits:\n" +
-            "• +15% magic damage with staves\n" +
-            "• +20% eitr (magic stamina) capacity\n" +
-            "• Faster eitr regeneration\n" +
-            "• Enhanced spell effects and duration\n\n" +
-            "Ideal for players who want to master Valheim's magic system."
+            "Mystical practitioners of elemental magic and arcane arts.\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Arcane Attunement: -10% Eitr cost; +8% magic damage\n" +
+            "• Lv20 – Elemental Synergy: Fire burns +20% longer; Frost slows +20% longer; DoTs +15% damage\n" +
+            "• Lv30 – Mana Weave: +20% Eitr regen rate and +30 max Eitr\n" +
+            "• Lv40 – Runic Ward: Above 50% Eitr: -12% damage taken. Below 50%: +12% magic damage\n" +
+            "• Lv50 – Arcane Overload: Every 5th spell within 10s echoes for 50% damage\n\n" +
+            "Ideal for players who want to master Valheim's magic system and elemental combat."
         },
         {
             "Lancer",
-            "Spear specialists with superior reach and technique.\n\n" +
-            "Benefits:\n" +
-            "• +18% spear damage and thrust speed\n" +
-            "• Extended reach for spear attacks\n" +
-            "• +15% damage when attacking from behind shields\n" +
-            "• Throwing spears deal increased damage\n\n" +
-            "Perfect for players who like versatile polearm combat."
+            "Spear specialists with superior reach and polearm technique.\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Reach Advantage: +10% damage; -15% thrust stamina cost\n" +
+            "• Lv20 – Skewer: 25% chance to apply Bleed on thrusts; atgeir sweeps gain +20% stagger\n" +
+            "• Lv30 – Linebreaker: Thrown spears have +20% velocity, -20% gravity; +10% vs. flying enemies\n" +
+            "• Lv40 – Drill: Consecutive hits grant +5% armor penetration (stacks 5 times)\n" +
+            "• Lv50 – Impale: First hit vs. unalerted targets deals +30% damage and massive stagger\n\n" +
+            "Perfect for players who like versatile polearm combat and tactical positioning."
         },
         {
             "Bulwark",
-            "Defensive specialists who excel at protection and tanking.\n\n" +
-            "Benefits:\n" +
-            "• +20% block power with shields\n" +
-            "• +15% armor effectiveness\n" +
-            "• Reduced stamina cost for blocking\n" +
-            "• Taunt ability to draw enemy attention\n\n" +
-            "Best for players who want to be the party's shield and protector."
+            "Defensive specialists who excel at protection and shield mastery.\n\n" +
+            "Passive Perks by Level:\n" +
+            "• Lv10 – Shield Wall: +15% Block Power; -15% block stamina cost\n" +
+            "• Lv20 – Perfect Guard: +20% parry bonus and +100ms parry window\n" +
+            "• Lv30 – Towering Presence: -50% movement penalty while blocking; tower shields gain +10% Block Power\n" +
+            "• Lv40 – Brace for Impact: After blocking 200+ damage in 5s, gain Fortified for 6s\n" +
+            "• Lv50 – Unbreakable: Guard cannot be broken above 20 stamina; blocks restore 3 stamina\n\n" +
+            "Best for players who want to be the party's shield and ultimate protector."
         }
     };
 
@@ -342,7 +350,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
                 anchorMin: new Vector2(0.5f, 0.5f),
                 anchorMax: new Vector2(0.5f, 0.5f),
                 position: new Vector2(0, 0),
-                width: 1300,
+                width: 1450,
                 height: 900, // Increased height for description window
                 draggable: false);
             classSelectionPanel.SetActive(false);
@@ -356,7 +364,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
                 parent: classSelectionPanel.transform,
                 anchorMin: new Vector2(0.5f, 1f),
                 anchorMax: new Vector2(0.5f, 1f),
-                position: new Vector2(0f, -100f),
+                position: new Vector2(0f, -50f),
                 font: GUIManager.Instance.AveriaSerifBold,
                 fontSize: 30,
                 color: GUIManager.Instance.ValheimOrange,
@@ -447,8 +455,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         descriptionContainer.transform.SetParent(classSelectionPanel.transform, false);
 
         var containerRect = descriptionContainer.AddComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0.15f, 0.15f);  // 5% thinner (was 0.1f to 0.9f)
-        containerRect.anchorMax = new Vector2(0.85f, 0.65f);  // 5% shorter (was 0.25f to 0.55f)
+        containerRect.anchorMin = new Vector2(0.15f, 0.275f);  // 5% thinner (was 0.1f to 0.9f)
+        containerRect.anchorMax = new Vector2(0.85f, 0.525f);  // 5% shorter (was 0.25f to 0.55f)
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
 
@@ -464,7 +472,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             anchorMax: Vector2.one,  // Fill the container
             position: Vector2.zero,
             font: GUIManager.Instance.AveriaSerif,
-            fontSize: 24,
+            fontSize: 14,
             color: new Color(0.9f, 0.9f, 0.9f, 1f),
             outline: false,
             outlineColor: Color.black,
@@ -556,8 +564,6 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             Debug.Log("Enhanced close button clicked");
             CloseClassSelectionGUI();
         });
-
-        closeButton.AddComponent<ButtonHoverEffect>();
     }
 
     private void OnClassButtonClicked(string className)
@@ -593,13 +599,13 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             Canvas.ForceUpdateCanvases();
 
             // Adjust content height based on text
-            //var contentRect = descriptionText.transform.parent.GetComponent<RectTransform>();
-            //if (contentRect != null)
-            //{
-            //    float preferredHeight = Mathf.Max(250, descriptionText.preferredHeight + 30);
-            //    contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, preferredHeight);
-            //    Debug.Log($"Updated content height to: {preferredHeight}");
-            //}
+            var contentRect = descriptionText.transform.parent.GetComponent<RectTransform>();
+            if (contentRect != null)
+            {
+                float preferredHeight = Mathf.Max(250, descriptionText.preferredHeight + 30);
+                contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, preferredHeight);
+                Debug.Log($"Updated content height to: {preferredHeight}");
+            }
 
             // Reset scroll position to top
             var scrollView = classSelectionPanel.GetComponentInChildren<ScrollRect>();

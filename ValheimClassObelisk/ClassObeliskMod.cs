@@ -11,6 +11,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Jotunn.GUI;
 using System.Collections.Generic;
+using System.Linq;
 using Logger = Jotunn.Logger;
 
 [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
@@ -123,13 +124,13 @@ internal class ClassObeliskMod : BaseUnityPlugin
 // Class selection interface component
 public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 {
-    private static GameObject classSelectionPanel;
-    private static Text descriptionText;
-    private static GameObject selectClassButton;
-    private static string selectedClassName = "";
+    public static GameObject classSelectionPanel;
+    public static Text descriptionText;
+    public static GameObject selectClassButton;
+    public static string selectedClassName = "";
 
     // Class names for the buttons
-    private static readonly string[] ClassNames = {
+    public static readonly string[] ClassNames = {
         "Sword Master",
         "Archer",
         "Crusher",
@@ -141,7 +142,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     };
 
     // Class descriptions
-    private static readonly Dictionary<string, string> ClassDescriptions = new Dictionary<string, string>
+    public static readonly Dictionary<string, string> ClassDescriptions = new Dictionary<string, string>
     {
         {
             "Sword Master",
@@ -301,6 +302,14 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         {
             Debug.Log("Creating enhanced GUI using Jotunn's GUIManager");
 
+            // Get player class data
+            var playerData = PlayerClassManager.GetPlayerData(player);
+            if (playerData == null)
+            {
+                Debug.LogError("Could not get player data for GUI creation");
+                return;
+            }
+
             // Create custom wood panel
             CreateWoodenGUIPanel();
 
@@ -316,8 +325,9 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             // Create enhanced close button
             CreateEnhancedCloseButton();
 
-            // Initialize with default message
-            UpdateDescriptionText("Click on a class above to see its description and benefits.");
+            // Initialize with current player status
+            var activeClasses = playerData.activeClasses.Count > 0 ? string.Join(", ", playerData.activeClasses) : "None";
+            UpdateDescriptionText($"Current Active Classes: {activeClasses}\n\nClick on a class above to see its description and benefits.");
             selectedClassName = "";
             UpdateSelectButton();
         }
@@ -642,11 +652,34 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
     private void OnClassSelected(string className, Player player)
     {
-        // Display selection message
-        player.Message(MessageHud.MessageType.Center, $"Selected {className} Class!");
+        Debug.Log($"OnClassSelected called with className: '{className}' for player: {player?.GetPlayerName() ?? "null"}");
 
-        // Log for debugging
-        Debug.Log($"Player confirmed selection: {className}");
+        if (string.IsNullOrEmpty(className))
+        {
+            Debug.LogError("Cannot select class: className is null or empty");
+            player?.Message(MessageHud.MessageType.Center, "Error: Invalid class selection");
+            return;
+        }
+
+        // Use the enhanced manager method
+        bool success = PlayerClassManager.SetPlayerActiveClass(player, className);
+
+        if (success)
+        {
+            // Get updated data to confirm change
+            var playerData = PlayerClassManager.GetPlayerData(player);
+            var activeClassesList = string.Join(", ", playerData.activeClasses);
+
+            // Display success message
+            player.Message(MessageHud.MessageType.Center, $"Selected {className} Class! Active: {activeClassesList}");
+
+            Debug.Log($"Successfully selected class {className} for {player.GetPlayerName()}. Active classes: {activeClassesList}");
+        }
+        else
+        {
+            player.Message(MessageHud.MessageType.Center, $"Failed to select {className} class");
+            Debug.LogError($"Failed to set active class {className} for {player.GetPlayerName()}");
+        }
 
         // Close the GUI
         CloseClassSelectionGUI();

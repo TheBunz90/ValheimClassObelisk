@@ -7,8 +7,10 @@ using Logger = Jotunn.Logger;
 // XP System Manager for tracking damage and awarding XP
 public static class ClassXPManager
 {
-    // Track damage dealt to creatures by players
-    private static Dictionary<Character, Dictionary<long, float>> creatureDamageTracker = new Dictionary<Character, Dictionary<long, float>>();
+    // Track damage dealt to creatures by players per class type
+    // Structure: creatureDamageTracker[creature][playerID][className] = damageAmount
+    private static Dictionary<Character, Dictionary<long, Dictionary<string, float>>> creatureDamageTracker =
+        new Dictionary<Character, Dictionary<long, Dictionary<string, float>>>();
 
     // Configuration for XP rates
     public static float DamageToXPRatio = 1f; // 1 damage = 1 XP
@@ -83,26 +85,32 @@ public static class ClassXPManager
         return true;
     }
 
-    // Track damage dealt to a creature
-    public static void TrackDamageToCreature(Character creature, Player attacker, float damage)
+    // Track damage dealt to a creature by class type
+    public static void TrackDamageToCreature(Character creature, Player attacker, float damage, string className)
     {
-        if (creature == null || attacker == null || damage <= 0) return;
+        if (creature == null || attacker == null || damage <= 0 || string.IsNullOrEmpty(className)) return;
 
         long attackerID = attacker.GetPlayerID();
 
+        // Initialize nested dictionaries if needed
         if (!creatureDamageTracker.ContainsKey(creature))
         {
-            creatureDamageTracker[creature] = new Dictionary<long, float>();
+            creatureDamageTracker[creature] = new Dictionary<long, Dictionary<string, float>>();
         }
 
         if (!creatureDamageTracker[creature].ContainsKey(attackerID))
         {
-            creatureDamageTracker[creature][attackerID] = 0f;
+            creatureDamageTracker[creature][attackerID] = new Dictionary<string, float>();
         }
 
-        creatureDamageTracker[creature][attackerID] += damage;
+        if (!creatureDamageTracker[creature][attackerID].ContainsKey(className))
+        {
+            creatureDamageTracker[creature][attackerID][className] = 0f;
+        }
 
-        Debug.Log($"Tracked {damage:F1} damage to {creature.name} by {attacker.GetPlayerName()} (total: {creatureDamageTracker[creature][attackerID]:F1})");
+        creatureDamageTracker[creature][attackerID][className] += damage;
+
+        Debug.Log($"Tracked {damage:F1} damage to {creature.name} by {attacker.GetPlayerName()} using {className} (total: {creatureDamageTracker[creature][attackerID][className]:F1})");
     }
 
     // Award kill bonus XP when a creature dies
@@ -110,51 +118,74 @@ public static class ClassXPManager
     {
         if (deadCreature == null || !creatureDamageTracker.ContainsKey(deadCreature)) return;
 
-        var damageContributors = creatureDamageTracker[deadCreature];
-        if (damageContributors.Count == 0) return;
+        var playerDamageByClass = creatureDamageTracker[deadCreature];
+        if (playerDamageByClass.Count == 0) return;
 
         // Calculate kill bonus based on creature's max health
         float maxHealth = deadCreature.GetMaxHealth();
-        float totalKillBonus = maxHealth * KillBonusMultiplier;
-        float bonusPerPlayer = totalKillBonus / damageContributors.Count;
+        float baseKillBonus = maxHealth * KillBonusMultiplier;
 
-        Debug.Log($"Creature {deadCreature.name} died. Max health: {maxHealth}, kill bonus: {totalKillBonus}, split among {damageContributors.Count} players");
+        Debug.Log($"Creature {deadCreature.name} died. Max health: {maxHealth}, base kill bonus: {baseKillBonus}");
 
-        // Award XP to each contributor
-        foreach (var contributorPair in damageContributors)
+        // Award XP to each player based on classes they used
+        foreach (var playerEntry in playerDamageByClass)
         {
-            long playerID = contributorPair.Key;
-            float damageDealt = contributorPair.Value;
+            long playerID = playerEntry.Key;
+            var classDamageMap = playerEntry.Value;
 
             // Find the player (they might have disconnected)
             Player contributor = Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == playerID);
-            if (contributor == null) return;
+            if (contributor == null) continue;
 
             var playerData = PlayerClassManager.GetPlayerData(contributor);
-            if (playerData == null || playerData.activeClasses.Count == 0) return;
+            if (playerData == null) continue;
 
-            // Award kill bonus to all active classes
-            foreach (string activeClass in playerData.activeClasses)
+            // Find which classes this player used AND are currently active
+            var eligibleClasses = new List<string>();
+            foreach (var classDamageEntry in classDamageMap)
             {
-                int oldLevel = playerData.GetClassLevel(activeClass);
-                playerData.AddClassXP(activeClass, bonusPerPlayer);
-                int newLevel = playerData.GetClassLevel(activeClass);
+                string className = classDamageEntry.Key;
+                float damageDealt = classDamageEntry.Value;
+
+                // Only award to classes that are currently active and dealt damage
+                if (playerData.activeClasses.Contains(className) && damageDealt > 0)
+                {
+                    eligibleClasses.Add(className);
+                }
+            }
+
+            if (eligibleClasses.Count == 0) continue;
+
+            // Split kill bonus among eligible classes
+            float bonusPerClass = baseKillBonus / eligibleClasses.Count;
+
+            Debug.Log($"Player {contributor.GetPlayerName()} eligible for kill bonus with {eligibleClasses.Count} classes: {string.Join(", ", eligibleClasses)}");
+
+            // Award kill bonus to each eligible class
+            foreach (string className in eligibleClasses)
+            {
+                int oldLevel = playerData.GetClassLevel(className);
+                playerData.AddClassXP(className, bonusPerClass);
+                int newLevel = playerData.GetClassLevel(className);
 
                 // Show kill bonus message
-                contributor.Message(MessageHud.MessageType.TopLeft, $"{activeClass}: +{bonusPerPlayer:F0} Kill Bonus");
+                contributor.Message(MessageHud.MessageType.TopLeft,
+                    eligibleClasses.Count > 1
+                        ? $"{className}: +{bonusPerClass:F0} Kill Bonus (Split {eligibleClasses.Count} ways)"
+                        : $"{className}: +{bonusPerClass:F0} Kill Bonus");
 
                 // Show level up message
                 if (newLevel > oldLevel)
                 {
-                    contributor.Message(MessageHud.MessageType.Center, $"{activeClass} Level Up! Level {newLevel}");
+                    contributor.Message(MessageHud.MessageType.Center, $"{className} Level Up! Level {newLevel}");
 
                     if (newLevel % 10 == 0)
                     {
-                        contributor.Message(MessageHud.MessageType.Center, $"New {activeClass} Perk Unlocked!");
+                        contributor.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked!");
                     }
                 }
 
-                Debug.Log($"Awarded {bonusPerPlayer:F1} kill bonus XP to {activeClass} for {contributor.GetPlayerName()}");
+                Debug.Log($"Awarded {bonusPerClass:F1} kill bonus XP to {className} for {contributor.GetPlayerName()}");
             }
         }
 
@@ -268,25 +299,23 @@ public static class XPTrackingPatches
             // Only award XP for player attacks on non-player creatures
             if (hit.GetAttacker() is Player attacker && __instance != null && !(__instance is Player))
             {
-                // Award XP for damage dealt (now includes target validation)
                 ItemDrop.ItemData weapon = attacker.GetCurrentWeapon();
-
-                if (weapon != null) return;
+                if (weapon == null) return;
 
                 var playerData = PlayerClassManager.GetPlayerData(attacker);
-                var activeClasses = playerData.activeClasses;
-                var isWeaponActive = false;
-                foreach (var activeClass in activeClasses)
-                {
-                    if (ClassXPManager.IsWeaponAppropriateForClass(weapon, activeClass)) isWeaponActive = true;
-                }
+                if (playerData == null || playerData.activeClasses.Count == 0) return;
 
-                if (isWeaponActive)
+                // Check each active class to see if the weapon is appropriate
+                foreach (string activeClass in playerData.activeClasses)
                 {
-                    ClassXPManager.AwardDamageXP(attacker, weapon, hit.GetTotalDamage(), __instance);
+                    if (ClassXPManager.IsWeaponAppropriateForClass(weapon, activeClass))
+                    {
+                        // Award damage XP for this specific class
+                        ClassXPManager.AwardDamageXP(attacker, weapon, hit.GetTotalDamage(), __instance);
 
-                    // Track damage for kill bonus calculation
-                    ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage());
+                        // Track damage for kill bonus calculation (per class)
+                        ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage(), activeClass);
+                    }
                 }
             }
         }

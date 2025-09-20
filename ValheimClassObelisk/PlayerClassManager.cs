@@ -170,9 +170,9 @@ public class PlayerClassData
         if (currentLevel >= 50) return; // Max level
 
         float currentXP = GetClassXP(className);
-        float requiredXP = GetXPRequiredForLevel(currentLevel + 1);
+        float totalXPForNextLevel = XPCurveHelper.GetTotalXPForLevel(currentLevel + 1);
 
-        if (currentXP >= requiredXP)
+        if (currentXP >= totalXPForNextLevel)
         {
             classLevels[className] = currentLevel + 1;
             Debug.Log($"Class {className} leveled up to {currentLevel + 1}!");
@@ -186,12 +186,6 @@ public class PlayerClassData
             // Save progress immediately on level up
             PlayerClassManager.SavePlayerData();
         }
-    }
-
-    private float GetXPRequiredForLevel(int level)
-    {
-        // Simple XP curve - can be adjusted later
-        return level * 100f;
     }
 }
 

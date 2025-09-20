@@ -92,9 +92,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ClassCombatManager.cs" />
     <Compile Include="ClassObeliskMod.cs" />
     <Compile Include="PlayerClassManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="XPSystemManager.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

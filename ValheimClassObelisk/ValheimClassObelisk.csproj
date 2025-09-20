@@ -93,6 +93,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClassCombatManager.cs" />
+    <Compile Include="ClassDamageBonusSystem.cs" />
     <Compile Include="ClassObeliskMod.cs" />
     <Compile Include="PlayerClassManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

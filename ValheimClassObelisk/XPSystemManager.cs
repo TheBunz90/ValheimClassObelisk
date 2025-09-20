@@ -28,7 +28,7 @@ public static class ClassXPManager
         // Award XP to appropriate active classes based on weapon type
         foreach (string activeClass in playerData.activeClasses)
         {
-            if (!IsWeaponAppropriateForClass(weapon, activeClass)) continue;
+            if (!IsWeaponAppropriateForClass(weapon, activeClass)) return;
 
             // Award XP based on damage dealt (no cooldown restrictions)
             float xpToAward = damageDealt * DamageToXPRatio;
@@ -128,10 +128,10 @@ public static class ClassXPManager
 
             // Find the player (they might have disconnected)
             Player contributor = Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == playerID);
-            if (contributor == null) continue;
+            if (contributor == null) return;
 
             var playerData = PlayerClassManager.GetPlayerData(contributor);
-            if (playerData == null || playerData.activeClasses.Count == 0) continue;
+            if (playerData == null || playerData.activeClasses.Count == 0) return;
 
             // Award kill bonus to all active classes
             foreach (string activeClass in playerData.activeClasses)
@@ -163,7 +163,7 @@ public static class ClassXPManager
     }
 
     // Check if a weapon is appropriate for a class
-    private static bool IsWeaponAppropriateForClass(ItemDrop.ItemData weapon, string className)
+    public static bool IsWeaponAppropriateForClass(ItemDrop.ItemData weapon, string className)
     {
         switch (className)
         {
@@ -270,10 +270,24 @@ public static class XPTrackingPatches
             {
                 // Award XP for damage dealt (now includes target validation)
                 ItemDrop.ItemData weapon = attacker.GetCurrentWeapon();
-                ClassXPManager.AwardDamageXP(attacker, weapon, hit.GetTotalDamage(), __instance);
 
-                // Track damage for kill bonus calculation
-                ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage());
+                if (weapon != null) return;
+
+                var playerData = PlayerClassManager.GetPlayerData(attacker);
+                var activeClasses = playerData.activeClasses;
+                var isWeaponActive = false;
+                foreach (var activeClass in activeClasses)
+                {
+                    if (ClassXPManager.IsWeaponAppropriateForClass(weapon, activeClass)) isWeaponActive = true;
+                }
+
+                if (isWeaponActive)
+                {
+                    ClassXPManager.AwardDamageXP(attacker, weapon, hit.GetTotalDamage(), __instance);
+
+                    // Track damage for kill bonus calculation
+                    ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage());
+                }
             }
         }
         catch (System.Exception ex)

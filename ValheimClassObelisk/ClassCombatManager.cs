@@ -334,11 +334,8 @@ public static class CombatPatches
         }
     }
 
-    // Note: Projectile damage patching for arrows and thrown weapons
-    // We'll try a different approach by patching the projectile damage method
-
     // Helper method to get weapon type name for feedback
-    public static string GetWeaponTypeName(ItemDrop.ItemData weapon)
+    private static string GetWeaponTypeName(ItemDrop.ItemData weapon)
     {
         if (ClassCombatManager.IsSwordWeapon(weapon)) return "Sword";
         if (ClassCombatManager.IsBowWeapon(weapon)) return "Bow";
@@ -351,97 +348,176 @@ public static class CombatPatches
     }
 }
 
-// Additional patches for projectile damage
+// Projectile damage tracking - inspired by your HarpoonFish mod approach
 [HarmonyPatch]
 public static class ProjectilePatches
 {
-    // Try patching the projectile DoAreaDamage method instead
-    [HarmonyPatch(typeof(Projectile), "DoAreaDamage")]
-    [HarmonyPrefix]
-    public static void Projectile_DoAreaDamage_Prefix(Projectile __instance, ref HitData hit, Vector3 center, float radius)
+    // Track active projectiles and their owners
+    private static Dictionary<int, ProjectileInfo> trackedProjectiles = new Dictionary<int, ProjectileInfo>();
+
+    private class ProjectileInfo
+    {
+        public Player owner;
+        public ItemDrop.ItemData weapon;
+        public float createdTime;
+        public string projectileName;
+    }
+
+    // Patch projectile creation/setup methods to register them
+    [HarmonyPatch(typeof(Projectile), "Setup")]
+    [HarmonyPostfix]
+    public static void Projectile_Setup_Postfix(Projectile __instance, Character owner, Vector3 velocity, float hitNoise, HitData hitData, ItemDrop.ItemData item)
     {
         try
         {
-            // Check if this projectile was fired by a player
-            Character owner = GetProjectileOwner(__instance);
-            if (owner is Player player)
+            if (owner is Player player && __instance != null)
             {
-                // Determine weapon type based on projectile
-                ItemDrop.ItemData weapon = GetWeaponFromProjectile(__instance, player);
+                // Determine weapon type from the projectile
+                ItemDrop.ItemData weapon = GetWeaponFromProjectileContext(player, __instance, item);
 
-                // Calculate class-based damage multiplier
-                float multiplier = ClassCombatManager.GetClassDamageMultiplier(player, weapon);
-
-                if (multiplier > 1f)
+                var projectileInfo = new ProjectileInfo
                 {
-                    // Apply the multiplier to projectile damage
-                    hit.m_damage.m_pierce *= multiplier;
-                    hit.m_damage.m_slash *= multiplier;
-                    hit.m_damage.m_blunt *= multiplier;
+                    owner = player,
+                    weapon = weapon,
+                    createdTime = Time.time,
+                    projectileName = __instance.name
+                };
 
-                    // Show feedback message
-                    string weaponType = CombatPatches.GetWeaponTypeName(weapon);
-                    ClassCombatManager.ShowDamageBonusMessage(player, multiplier, weaponType);
+                trackedProjectiles[__instance.GetInstanceID()] = projectileInfo;
 
-                    Debug.Log($"Applied {multiplier:F2}x projectile damage multiplier for {player.GetPlayerName()} using {weaponType}");
-                }
+                Debug.Log($"Registered projectile {__instance.name} for {player.GetPlayerName()} with weapon type {weapon?.m_shared?.m_name ?? "unknown"}");
             }
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Projectile_DoAreaDamage_Prefix: {ex.Message}");
+            Logger.LogError($"Error in Projectile_Setup_Postfix: {ex.Message}");
         }
     }
 
-    // Alternative approach - patch the main projectile hit method with correct signature
-    [HarmonyPatch(typeof(Projectile), "OnHit", new System.Type[] { typeof(Collider), typeof(Vector3), typeof(bool) })]
-    [HarmonyPrefix]
-    public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, bool water)
+    // Alternative patch for projectiles that don't use Setup
+    [HarmonyPatch(typeof(Projectile), "Awake")]
+    [HarmonyPostfix]
+    public static void Projectile_Awake_Postfix(Projectile __instance)
     {
         try
         {
-            // Only process hits on characters
-            Character hitCharacter = collider?.GetComponent<Character>();
-            if (hitCharacter == null) return;
-
-            // Check if this projectile was fired by a player
-            Character owner = GetProjectileOwner(__instance);
-            if (owner is Player player)
+            // Some projectiles might not go through Setup, try to get owner info later
+            if (__instance != null && !trackedProjectiles.ContainsKey(__instance.GetInstanceID()))
             {
-                // For XP tracking, we need to create a hit data approximation
-                // This is more complex since we don't have the actual HitData yet
-                // We'll handle this in a postfix to get the damage after it's calculated
+                // We'll try to resolve the owner when the projectile hits something
+                var projectileInfo = new ProjectileInfo
+                {
+                    owner = null, // Will resolve on hit
+                    weapon = null,
+                    createdTime = Time.time,
+                    projectileName = __instance.name
+                };
+
+                trackedProjectiles[__instance.GetInstanceID()] = projectileInfo;
             }
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Projectile_OnHit_Prefix: {ex.Message}");
+            Logger.LogError($"Error in Projectile_Awake_Postfix: {ex.Message}");
         }
     }
 
-    // Helper method to get projectile owner
-    private static Character GetProjectileOwner(Projectile projectile)
+    // Patch the projectile hit with the correct signature
+    //[HarmonyPatch(typeof(Projectile), "OnHit", new System.Type[] { typeof(Collider), typeof(Vector3), typeof(bool) })]
+    //[HarmonyPrefix]
+    //public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, bool water)
+    //{
+    //    try
+    //    {
+    //        if (__instance == null) return;
+
+    //        int projectileId = __instance.GetInstanceID();
+    //        if (!trackedProjectiles.TryGetValue(projectileId, out ProjectileInfo info)) return;
+
+    //        // Try to resolve owner if we don't have it
+    //        if (info.owner == null)
+    //        {
+    //            info.owner = ResolveProjectileOwner(__instance);
+    //            info.weapon = GetWeaponFromProjectileContext(info.owner, __instance, null);
+    //        }
+
+    //        if (info.owner == null) return;
+
+    //        // Check if we hit a valid creature
+    //        Character hitCharacter = collider?.GetComponent<Character>();
+    //        if (hitCharacter == null || hitCharacter is Player) return;
+
+    //        // Calculate damage multiplier for projectile
+    //        float multiplier = ClassCombatManager.GetClassDamageMultiplier(info.owner, info.weapon);
+
+    //        if (multiplier > 1f)
+    //        {
+    //            Debug.Log($"Projectile {info.projectileName} hit {hitCharacter.name}, would apply {multiplier:F2}x multiplier");
+    //            // Note: We can't modify the damage here as it hasn't been calculated yet
+    //            // The damage bonus will need to be applied elsewhere
+    //        }
+
+    //        // Clean up tracking
+    //        trackedProjectiles.Remove(projectileId);
+    //    }
+    //    catch (System.Exception ex)
+    //    {
+    //        Logger.LogError($"Error in Projectile_OnHit_Prefix: {ex.Message}");
+    //    }
+    //}
+
+    // Helper method to determine weapon from projectile context
+    private static ItemDrop.ItemData GetWeaponFromProjectileContext(Player player, Projectile projectile, ItemDrop.ItemData item)
+    {
+        if (item != null) return item; // Use provided item if available
+        if (player == null || projectile == null) return null;
+
+        string projectileName = projectile.name.ToLower();
+
+        // Check for arrow projectiles
+        if (projectileName.Contains("arrow"))
+        {
+            // Find bow in player's inventory
+            return player.GetInventory().GetAllItems()
+                .FirstOrDefault(i => i.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow);
+        }
+
+        // Check for spear projectiles
+        if (projectileName.Contains("spear") || projectileName.Contains("harpoon"))
+        {
+            // Create dummy spear weapon for damage calculation
+            var dummySpear = new ItemDrop.ItemData();
+            dummySpear.m_shared = new ItemDrop.ItemData.SharedData();
+            dummySpear.m_shared.m_itemType = ItemDrop.ItemData.ItemType.TwoHandedWeapon;
+            dummySpear.m_shared.m_name = "spear";
+            return dummySpear;
+        }
+
+        // Fallback: check player's current weapon
+        return player.GetCurrentWeapon();
+    }
+
+    // Helper method to resolve projectile owner (similar to your HarpoonFish approach)
+    private static Player ResolveProjectileOwner(Projectile projectile)
     {
         try
         {
-            // Try different ways to get the owner
-            //if (projectile.m_owner != null)
-            //    return projectile.m_owner;
-
-            // Alternative: check for ZNetView and get owner from that
+            // Try to get owner from ZNetView
             var znetView = projectile.GetComponent<ZNetView>();
             if (znetView != null && znetView.IsValid())
             {
                 long ownerID = znetView.GetZDO().GetLong("owner");
                 if (ownerID != 0)
                 {
-                    // Find player by ID
-                    foreach (Player p in Player.GetAllPlayers())
-                    {
-                        if (p.GetPlayerID() == ownerID)
-                            return p;
-                    }
+                    return Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == ownerID);
                 }
+            }
+
+            // Fallback to local player if nearby
+            var localPlayer = Player.m_localPlayer;
+            if (localPlayer != null && Vector3.Distance(localPlayer.transform.position, projectile.transform.position) < 50f)
+            {
+                return localPlayer;
             }
 
             return null;
@@ -452,35 +528,34 @@ public static class ProjectilePatches
         }
     }
 
-    // Helper method to determine weapon type from projectile
-    private static ItemDrop.ItemData GetWeaponFromProjectile(Projectile projectile, Player owner)
+    // Cleanup old projectiles periodically
+    [HarmonyPatch(typeof(Game), "Update")]
+    [HarmonyPostfix]
+    public static void Game_Update_Postfix()
     {
         try
         {
-            // Check projectile name to determine weapon type
-            string projectileName = projectile.name.ToLower();
+            if (Time.frameCount % 300 != 0) return; // Check every 300 frames (~5 seconds)
 
-            if (projectileName.Contains("arrow"))
+            var toRemove = new List<int>();
+            float currentTime = Time.time;
+
+            foreach (var kvp in trackedProjectiles)
             {
-                // Find bow in player's inventory
-                return owner.GetInventory().GetAllItems()
-                    .FirstOrDefault(item => item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Bow);
-            }
-            else if (projectileName.Contains("spear"))
-            {
-                // Create dummy spear weapon
-                var dummySpear = new ItemDrop.ItemData();
-                dummySpear.m_shared = new ItemDrop.ItemData.SharedData();
-                dummySpear.m_shared.m_itemType = ItemDrop.ItemData.ItemType.TwoHandedWeapon;
-                dummySpear.m_shared.m_name = "spear";
-                return dummySpear;
+                if (currentTime - kvp.Value.createdTime > 30f) // Remove after 30 seconds
+                {
+                    toRemove.Add(kvp.Key);
+                }
             }
 
-            return null;
+            foreach (int id in toRemove)
+            {
+                trackedProjectiles.Remove(id);
+            }
         }
-        catch
+        catch (System.Exception ex)
         {
-            return null;
+            Logger.LogError($"Error in Game_Update_Postfix (projectile cleanup): {ex.Message}");
         }
     }
 }

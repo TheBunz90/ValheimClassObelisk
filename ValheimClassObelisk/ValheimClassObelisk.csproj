@@ -92,6 +92,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ApiDiscoveryCommands.cs" />
+    <Compile Include="BowTestingCommands.cs" />
     <Compile Include="ClassCombatManager.cs" />
     <Compile Include="ClassDamageBonusSystem.cs" />
     <Compile Include="ClassObeliskMod.cs" />

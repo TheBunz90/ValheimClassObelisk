@@ -9,34 +9,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|c:\\users\\thebu\\projects\\valheim mods\\valheimclassobelisk\\valheimclassobelisk\\apidiscoverycommands.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\apidiscoverycommands.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\bowtestingcommands.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\bowtestingcommands.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\classdamagebonussystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\classdamagebonussystem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\xpsystemmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\xpsystemmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\playerclassmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\playerclassmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\classcombatmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\classcombatmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\valheimdebugutility.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\valheimdebugutility.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\classobeliskmod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\classobeliskmod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -60,9 +32,9 @@
               "RelativeDocumentMoniker": "ValheimClassObelisk\\ArcherPerkManager.cs",
               "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ArcherPerkManager.cs",
               "RelativeToolTip": "ValheimClassObelisk\\ArcherPerkManager.cs",
-              "ViewState": "AgIAAA8CAAAAAAAAAAAIwDYCAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAAUCAAAAAAAAAAAIwBYCAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-22T03:41:41.213Z",
+              "WhenOpened": "2025-09-23T02:52:55.265Z",
               "EditorCaption": ""
             },
             {
@@ -73,94 +45,10 @@
               "RelativeDocumentMoniker": "ValheimClassObelisk\\ApiDiscoveryCommands.cs",
               "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ApiDiscoveryCommands.cs",
               "RelativeToolTip": "ValheimClassObelisk\\ApiDiscoveryCommands.cs",
-              "ViewState": "AgIAADIBAAAAAAAAAAAlwCUBAAAuAAAAAAAAAA==",
+              "ViewState": "AgIAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-22T03:16:21.153Z",
+              "WhenOpened": "2025-09-23T02:42:40.285Z",
               "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "BowTestingCommands.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\BowTestingCommands.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\BowTestingCommands.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\BowTestingCommands.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\BowTestingCommands.cs",
-              "ViewState": "AgIAAK0AAAAAAAAAAAAuwMoAAAAHAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-21T17:19:18.255Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "ClassDamageBonusSystem.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassDamageBonusSystem.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\ClassDamageBonusSystem.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassDamageBonusSystem.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\ClassDamageBonusSystem.cs",
-              "ViewState": "AgIAAOIAAAAAAAAAAAAcwAUBAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-20T23:27:17.792Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "ValheimDebugUtility.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ValheimDebugUtility.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\ValheimDebugUtility.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ValheimDebugUtility.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\ValheimDebugUtility.cs",
-              "ViewState": "AgIAAI8AAAAAAAAAAAAwwBABAAAOAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-20T16:14:04.689Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "XPSystemManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\XPSystemManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\XPSystemManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\XPSystemManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\XPSystemManager.cs",
-              "ViewState": "AgIAAKMBAAAAAAAAAAAYwMYBAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-20T13:43:05.561Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "ClassCombatManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassCombatManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\ClassCombatManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassCombatManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\ClassCombatManager.cs",
-              "ViewState": "AgIAADYAAAAAAAAAAAAmwBUAAAAXAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-20T01:16:28.422Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 5,
-              "Title": "PlayerClassManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PlayerClassManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\PlayerClassManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PlayerClassManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\PlayerClassManager.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAvAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-19T21:01:40.171Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 8,
-              "Title": "ClassObeliskMod.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassObeliskMod.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\ClassObeliskMod.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassObeliskMod.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\ClassObeliskMod.cs",
-              "ViewState": "AgIAAB0AAAAAAAAAAAApwK0CAAAFAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-09-11T00:06:05.985Z"
             }
           ]
         }

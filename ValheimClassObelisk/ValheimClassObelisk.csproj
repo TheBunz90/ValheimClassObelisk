@@ -100,6 +100,7 @@
     <Compile Include="ClassObeliskMod.cs" />
     <Compile Include="PlayerClassManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SwordMasterPerkManager.cs" />
     <Compile Include="ValheimDebugUtility.cs" />
     <Compile Include="XPSystemManager.cs" />
   </ItemGroup>

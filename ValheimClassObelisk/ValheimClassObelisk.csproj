@@ -98,6 +98,7 @@
     <Compile Include="ClassCombatManager.cs" />
     <Compile Include="ClassDamageBonusSystem.cs" />
     <Compile Include="ClassObeliskMod.cs" />
+    <Compile Include="CrusherPerkManager.cs" />
     <Compile Include="PlayerClass.cs" />
     <Compile Include="PlayerClassManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

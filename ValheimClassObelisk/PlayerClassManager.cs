@@ -8,6 +8,7 @@ using Logger = Jotunn.Logger;
 [Serializable]
 public class PlayerClassData
 {
+    // Internal storage still uses string for backwards compatibility with save data
     public Dictionary<string, int> classLevels = new Dictionary<string, int>();
     public Dictionary<string, float> classXP = new Dictionary<string, float>();
     public List<string> activeClasses = new List<string>();
@@ -26,9 +27,10 @@ public class PlayerClassData
 
     private void InitializeAllClasses()
     {
-        // Initialize all classes
-        foreach (var className in PlayerClassManager.GetAllClassNames())
+        // Initialize all classes using enum
+        foreach (var playerClass in PlayerClassHelper.GetAllClasses())
         {
+            string className = PlayerClassHelper.GetInternalName(playerClass);
             if (!classLevels.ContainsKey(className))
                 classLevels[className] = 0;
             if (!classXP.ContainsKey(className))
@@ -83,20 +85,29 @@ public class PlayerClassData
         return CanSelectSecondClass() ? 2 : 1;
     }
 
+    public bool IsClassActive(PlayerClass playerClass)
+    {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
+        return activeClasses.Contains(className);
+    }
+
+    // Overload for backwards compatibility
     public bool IsClassActive(string className)
     {
         return activeClasses.Contains(className);
     }
 
-    public bool CanActivateClass(string className)
+    public bool CanActivateClass(PlayerClass playerClass)
     {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
         if (!classUnlocked.ContainsKey(className) || !classUnlocked[className]) return false;
-        if (IsClassActive(className)) return false;
+        if (IsClassActive(playerClass)) return false;
         return activeClasses.Count < GetMaxActiveClasses();
     }
 
-    public void SetActiveClass(string className)
+    public void SetActiveClass(PlayerClass playerClass)
     {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
         if (!classUnlocked.ContainsKey(className) || !classUnlocked[className])
         {
             Debug.LogWarning($"Cannot set active class {className}: class not unlocked");
@@ -114,14 +125,15 @@ public class PlayerClassData
         PlayerClassManager.SavePlayerData();
     }
 
-    public void AddActiveClass(string className)
+    public void AddActiveClass(PlayerClass playerClass)
     {
-        if (!CanActivateClass(className))
+        if (!CanActivateClass(playerClass))
         {
-            Debug.LogWarning($"Cannot activate class {className}");
+            Debug.LogWarning($"Cannot activate class {playerClass}");
             return;
         }
 
+        string className = PlayerClassHelper.GetInternalName(playerClass);
         if (!activeClasses.Contains(className))
         {
             activeClasses.Add(className);
@@ -132,8 +144,9 @@ public class PlayerClassData
         }
     }
 
-    public void RemoveActiveClass(string className)
+    public void RemoveActiveClass(PlayerClass playerClass)
     {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
         if (activeClasses.Remove(className))
         {
             Debug.Log($"Removed active class: {className}. Active classes: {string.Join(", ", activeClasses)}");
@@ -143,16 +156,43 @@ public class PlayerClassData
         }
     }
 
+    public int GetClassLevel(PlayerClass playerClass)
+    {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
+        return classLevels.ContainsKey(className) ? classLevels[className] : 0;
+    }
+
+    // Overload for backwards compatibility
     public int GetClassLevel(string className)
     {
         return classLevels.ContainsKey(className) ? classLevels[className] : 0;
     }
 
+    public float GetClassXP(PlayerClass playerClass)
+    {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
+        return classXP.ContainsKey(className) ? classXP[className] : 0f;
+    }
+
+    // Overload for backwards compatibility
     public float GetClassXP(string className)
     {
         return classXP.ContainsKey(className) ? classXP[className] : 0f;
     }
 
+    public void AddClassXP(PlayerClass playerClass, float xpAmount)
+    {
+        string className = PlayerClassHelper.GetInternalName(playerClass);
+        if (!classXP.ContainsKey(className))
+        {
+            classXP[className] = 0f;
+        }
+
+        classXP[className] += xpAmount;
+        CheckForLevelUp(className);
+    }
+
+    // Overload for backwards compatibility
     public void AddClassXP(string className, float xpAmount)
     {
         if (!classXP.ContainsKey(className))
@@ -187,6 +227,12 @@ public class PlayerClassData
             PlayerClassManager.SavePlayerData();
         }
     }
+
+    // Get active classes as PlayerClass enums
+    public List<PlayerClass> GetActiveClassEnums()
+    {
+        return PlayerClassHelper.FromInternalNames(activeClasses);
+    }
 }
 
 // Enhanced class data manager with persistent storage
@@ -194,23 +240,6 @@ public static class PlayerClassManager
 {
     private static Dictionary<long, PlayerClassData> playerData = new Dictionary<long, PlayerClassData>();
     private const string SAVE_KEY_PREFIX = "ClassObelisk_PlayerData_";
-
-    // Class names array - matches the main mod
-    public static readonly string[] AllClassNames = {
-        "Sword Master",
-        "Archer",
-        "Crusher",
-        "Assassin",
-        "Pugilist",
-        "Mage",
-        "Lancer",
-        "Bulwark"
-    };
-
-    public static string[] GetAllClassNames()
-    {
-        return AllClassNames;
-    }
 
     public static PlayerClassData GetPlayerData(Player player)
     {
@@ -376,8 +405,8 @@ public static class PlayerClassManager
         // Data is loaded on-demand when GetPlayerData is called
     }
 
-    // Enhanced class selection method with better debugging
-    public static bool SetPlayerActiveClass(Player player, string className)
+    // Enhanced class selection method with enum support
+    public static bool SetPlayerActiveClass(Player player, PlayerClass playerClass)
     {
         var data = GetPlayerData(player);
         if (data == null)
@@ -386,51 +415,51 @@ public static class PlayerClassManager
             return false;
         }
 
-        if (!AllClassNames.Contains(className))
-        {
-            Debug.LogError($"Invalid class name: {className}");
-            return false;
-        }
-
         // Get previous state for debugging
         var previousClasses = string.Join(", ", data.activeClasses);
 
         // Set the class
-        data.SetActiveClass(className);
+        data.SetActiveClass(playerClass);
 
         // Verify the change was applied
         var newClasses = string.Join(", ", data.activeClasses);
 
         Debug.Log($"Class change for {player.GetPlayerName()}: '{previousClasses}' -> '{newClasses}'");
 
-        return data.IsClassActive(className);
+        return data.IsClassActive(playerClass);
     }
 
-    // Utility methods for checking class types
-    public static bool IsSwordClass(string className) => className == "Sword Master";
-    public static bool IsRangedClass(string className) => className == "Archer";
-    public static bool IsBluntClass(string className) => className == "Crusher";
-    public static bool IsStealthClass(string className) => className == "Assassin";
-    public static bool IsUnarmedClass(string className) => className == "Pugilist";
-    public static bool IsMagicClass(string className) => className == "Mage";
-    public static bool IsSpearClass(string className) => className == "Lancer";
-    public static bool IsShieldClass(string className) => className == "Bulwark";
+    // Overload for backwards compatibility with string
+    public static bool SetPlayerActiveClass(Player player, string className)
+    {
+        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
+        if (!playerClass.HasValue)
+        {
+            Debug.LogError($"Invalid class name: {className}");
+            return false;
+        }
 
-    // Get weapon type for a class
+        return SetPlayerActiveClass(player, playerClass.Value);
+    }
+
+    // Get all class names (for backwards compatibility)
+    public static string[] GetAllClassNames()
+    {
+        return PlayerClassHelper.GetAllDisplayNames();
+    }
+
+    // Get weapon type for a class using enum
+    public static string GetWeaponTypeForClass(PlayerClass playerClass)
+    {
+        return PlayerClassHelper.GetWeaponType(playerClass);
+    }
+
+    // Overload for backwards compatibility
     public static string GetWeaponTypeForClass(string className)
     {
-        switch (className)
-        {
-            case "Sword Master": return "Swords";
-            case "Archer": return "Bows & Crossbows";
-            case "Crusher": return "Maces & Hammers";
-            case "Assassin": return "Knives";
-            case "Pugilist": return "Unarmed";
-            case "Mage": return "Staves";
-            case "Lancer": return "Spears & Polearms";
-            case "Bulwark": return "Shields";
-            default: return "Unknown";
-        }
+        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
+        if (!playerClass.HasValue) return "Unknown";
+        return PlayerClassHelper.GetWeaponType(playerClass.Value);
     }
 
     // Check if player has any active classes

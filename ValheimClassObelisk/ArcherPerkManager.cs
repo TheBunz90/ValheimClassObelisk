@@ -26,9 +26,9 @@ public static class ArcherPerkManager
         if (player == null) return false;
 
         var playerData = PlayerClassManager.GetPlayerData(player);
-        if (playerData == null || !playerData.IsClassActive("Archer")) return false;
+        if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer)) return false;
 
-        return playerData.GetClassLevel("Archer") >= requiredLevel;
+        return playerData.GetClassLevel(PlayerClass.Archer) >= requiredLevel;
     }
 
     #region Level 10 - Steady Draw
@@ -284,7 +284,7 @@ public static class ArcherPerkPatches
 
             // Only trigger for players with Archer class active
             var playerData = PlayerClassManager.GetPlayerData(archer);
-            if (playerData == null || !playerData.IsClassActive("Archer")) return;
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer)) return;
 
             // Restore draw duration after shot (clean slate for next shot)
             var currentWeapon = archer.GetCurrentWeapon();
@@ -307,22 +307,6 @@ public static class ArcherPerkPatches
         }
     }
 
-    //public static void RestoreMagicAmmo(Projectile ammo)
-    //{
-    //    if (ammo == null) return;
-    //    var player = Player.m_localPlayer;
-
-    //    if (!ArcherPerkManager.ShouldConsumeArrow(player))
-    //    {
-    //        var inventory = player.GetInventory();
-    //        var itemInInventory = inventory.GetAmmoItem(ammo.name);
-    //        if (itemInInventory != null)
-    //        {
-    //            //
-    //        }
-    //    }
-    //}
-
     /// <summary>
     /// Apply Wind Reader damage bonus to projectile hits
     /// Only applies when using bows/crossbows
@@ -343,7 +327,7 @@ public static class ArcherPerkPatches
             if (!ClassCombatManager.IsBowWeapon(currentWeapon)) return;
 
             var playerData = PlayerClassManager.GetPlayerData(archer);
-            if (playerData == null || !playerData.IsClassActive("Archer")) return;
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer)) return;
 
             // Apply Wind Reader damage bonus
             float originalDamage = hit.GetTotalDamage();
@@ -466,13 +450,7 @@ public static class ArcherPerkPatches
     }
     #endregion
 
-    // Add this to your ArcherPerkPatches class, replacing the previous Magic Shot implementation
-
-    #region Magic Shot Implementation - UseItem Approach
-
-    /// <summary>
-    /// Updated Magic Shot implementation using smart arrow restoration
-    /// </summary>
+    #region Magic Shot Implementation
     /// <summary>
     /// Simplified Magic Shot implementation - just add to existing stacks (allow temporary overflow)
     /// </summary>
@@ -561,7 +539,7 @@ public static class ArcherPerkCommands
                 }
 
                 var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                if (playerData == null || !playerData.IsClassActive("Archer"))
+                if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer))
                 {
                     args.Context.AddString("Archer class not active!");
                     return;
@@ -608,8 +586,8 @@ public static class ArcherPerkCommands
                     return;
                 }
 
-                int archerLevel = playerData.GetClassLevel("Archer");
-                bool isActive = playerData.IsClassActive("Archer");
+                int archerLevel = playerData.GetClassLevel(PlayerClass.Archer);
+                bool isActive = playerData.IsClassActive(PlayerClass.Archer);
 
                 args.Context.AddString($"=== Archer Status ===");
                 args.Context.AddString($"Class Active: {isActive}");

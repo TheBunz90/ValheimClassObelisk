@@ -109,8 +109,106 @@ public static class ArcherPerkManager
         if (!arrowSlingerBuffs.ContainsKey(playerID) || arrowSlingerBuffs[playerID] < buffEndTime)
         {
             arrowSlingerBuffs[playerID] = buffEndTime;
+
+            // Add visual status effect
+            AddArrowSlingerStatusEffect(archer);
+
             archer.Message(MessageHud.MessageType.TopLeft, "Arrow Slinger: 50% faster draw for 10s!");
             Debug.Log($"Triggered Arrow Slinger buff for {archer.GetPlayerName()}");
+        }
+    }
+
+    /// <summary>
+    /// Add visual status effect for Arrow Slinger buff
+    /// </summary>
+    public static void AddArrowSlingerStatusEffect(Player player)
+    {
+        try
+        {
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            // Remove existing arrow slinger effect if present
+            RemoveArrowSlingerStatusEffect(player);
+
+            // Get current weapon icon (bow)
+            var weapon = player.GetCurrentWeapon();
+            Sprite weaponIcon = weapon?.GetIcon();
+
+            // Fallback to a default icon if weapon has no icon
+            if (weaponIcon == null)
+            {
+                weaponIcon = GetDefaultBowIcon();
+            }
+
+            // Create status effect
+            var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
+            statusEffect.name = "SE_ArrowSlinger";
+            statusEffect.m_name = "Arrow Slinger";
+            statusEffect.m_tooltip = "Draw speed increased by 50%";
+            statusEffect.m_icon = weaponIcon;
+            statusEffect.m_ttl = ARROW_SLINGER_DURATION;
+            statusEffect.m_startMessage = "";
+            statusEffect.m_startMessageType = MessageHud.MessageType.Center;
+            statusEffect.m_stopMessage = "";
+            statusEffect.m_stopMessageType = MessageHud.MessageType.Center;
+
+            // Add the status effect
+            seman.AddStatusEffect(statusEffect, resetTime: true);
+
+            Logger.LogInfo($"Added Arrow Slinger visual status effect for {player.GetPlayerName()}");
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error adding Arrow Slinger status effect: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Remove Arrow Slinger status effect
+    /// </summary>
+    private static void RemoveArrowSlingerStatusEffect(Player player)
+    {
+        try
+        {
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            seman.RemoveStatusEffect("SE_ArrowSlinger".GetStableHashCode(), quiet: true);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error removing Arrow Slinger status effect: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Get a default bow icon as fallback
+    /// </summary>
+    private static Sprite GetDefaultBowIcon()
+    {
+        try
+        {
+            // Try to find a bow prefab and get its icon
+            string[] bowNames = { "Bow", "BowFineWood", "BowHuntsman", "BowDraugrFang", "CrossbowArbalest" };
+            foreach (string bowName in bowNames)
+            {
+                var prefab = ObjectDB.instance?.GetItemPrefab(bowName);
+                if (prefab != null)
+                {
+                    var itemDrop = prefab.GetComponent<ItemDrop>();
+                    if (itemDrop?.m_itemData?.GetIcon() != null)
+                    {
+                        return itemDrop.m_itemData.GetIcon();
+                    }
+                }
+            }
+
+            return null; // No fallback found
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -228,6 +326,14 @@ public static class ArcherPerkManager
         foreach (var playerID in expiredBuffs)
         {
             arrowSlingerBuffs.Remove(playerID);
+
+            // Remove visual status effect from the player if they're still in game
+            var player = Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == playerID);
+            if (player != null)
+            {
+                RemoveArrowSlingerStatusEffect(player);
+            }
+
             Debug.Log($"Arrow Slinger buff expired for player {playerID}");
         }
     }

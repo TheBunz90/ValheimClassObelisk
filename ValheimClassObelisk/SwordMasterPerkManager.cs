@@ -424,7 +424,8 @@ public static class SwordMasterPerkPatches
 
     #region Parry Patches
     /// <summary>
-    /// Trigger riposte buff when player successfully blocks/parries using Humanoid.BlockAttack
+    /// Trigger riposte buff when player successfully parries (not just blocks) using Humanoid.BlockAttack
+    /// We need to check if it was a timed block (parry) by accessing the block timer
     /// </summary>
     [HarmonyPatch(typeof(Humanoid), "BlockAttack")]
     [HarmonyPostfix]
@@ -432,10 +433,8 @@ public static class SwordMasterPerkPatches
     {
         try
         {
-            Logger.LogInfo("A block has occured.");
             if (!__result || !(__instance is Player player))
             {
-                Logger.LogInfo("Block was not done by a player.");
                 return; // Only proceed if block was successful and it's a player
             }
 
@@ -443,24 +442,118 @@ public static class SwordMasterPerkPatches
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsSwordWeapon(weapon))
             {
-                Logger.LogInfo("[SWORD MASTER] Not a sword!");
                 return;
             }
 
             var playerData = PlayerClassManager.GetPlayerData(player);
             if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster))
             {
-                Logger.LogInfo("[SWORD MASTER] Not a sword master!");
                 return;
             }
 
-            // Trigger riposte buff on successful block/parry
-            SwordMasterPerkManager.TriggerRiposteBuff(player);
+            // Get the current blocker item to check for timed block capability
+            var currentBlocker = GetCurrentBlocker(__instance);
+            if (currentBlocker == null)
+            {
+                return;
+            }
+
+            // Check if this was a parry (timed block)
+            // A parry occurs when:
+            // 1. The weapon has a timed block bonus > 1
+            // 2. The block timer is active (not -1)
+            // 3. The block timer is less than 0.25 seconds
+            bool wasParry = false;
+
+            // Try to access the m_blockTimer field using reflection
+            var blockTimerField = typeof(Humanoid).GetField("m_blockTimer",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (blockTimerField != null)
+            {
+                float blockTimer = (float)blockTimerField.GetValue(__instance);
+
+                // Check if it was a timed block (parry) - matching Valheim's logic
+                wasParry = currentBlocker.m_shared.m_timedBlockBonus > 1f &&
+                          blockTimer != -1f &&
+                          blockTimer < 0.25f;
+
+                Logger.LogInfo($"[SWORD MASTER] Block detected - Timer: {blockTimer:F3}, Timed Bonus: {currentBlocker.m_shared.m_timedBlockBonus:F1}, Was Parry: {wasParry}");
+            }
+            else
+            {
+                Logger.LogWarning("[SWORD MASTER] Could not access m_blockTimer field - falling back to detecting all blocks");
+                // Fallback: if we can't access the timer, don't trigger on blocks
+                return;
+            }
+
+            // Only trigger riposte buff on successful parry, not regular blocks
+            if (wasParry)
+            {
+                SwordMasterPerkManager.TriggerRiposteBuff(player);
+                Logger.LogInfo($"[SWORD MASTER] Parry detected! Triggering riposte buff for {player.GetPlayerName()}");
+            }
+            else
+            {
+                Logger.LogInfo("[SWORD MASTER] Regular block detected - not triggering riposte");
+            }
 
         }
         catch (System.Exception ex)
         {
             Logger.LogError($"Error in Humanoid_BlockAttack_SwordMaster_Postfix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Helper method to get the current blocker item (shield or weapon) using reflection
+    /// </summary>
+    private static ItemDrop.ItemData GetCurrentBlocker(Humanoid humanoid)
+    {
+        try
+        {
+            // Try to call GetCurrentBlocker method using reflection
+            var getBlockerMethod = typeof(Humanoid).GetMethod("GetCurrentBlocker",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.Public);
+
+            if (getBlockerMethod != null)
+            {
+                return (ItemDrop.ItemData)getBlockerMethod.Invoke(humanoid, null);
+            }
+
+            // Fallback: use reflection to access protected fields
+            var leftItemField = typeof(Humanoid).GetField("m_leftItem",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var rightItemField = typeof(Humanoid).GetField("m_rightItem",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (leftItemField != null)
+            {
+                var leftItem = (ItemDrop.ItemData)leftItemField.GetValue(humanoid);
+                // Shields are typically in left hand
+                if (leftItem != null && leftItem.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Shield)
+                {
+                    return leftItem;
+                }
+            }
+
+            if (rightItemField != null)
+            {
+                var rightItem = (ItemDrop.ItemData)rightItemField.GetValue(humanoid);
+                // Some weapons can block (especially swords)
+                if (rightItem != null && rightItem.m_shared.m_blockPower > 0)
+                {
+                    return rightItem;
+                }
+            }
+
+            return null;
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in GetCurrentBlocker: {ex.Message}");
+            return null;
         }
     }
     #endregion

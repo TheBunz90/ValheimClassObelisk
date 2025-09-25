@@ -25,9 +25,9 @@ public static class SwordMasterPerkManager
         if (player == null) return false;
 
         var playerData = PlayerClassManager.GetPlayerData(player);
-        if (playerData == null || !playerData.IsClassActive("Sword Master")) return false;
+        if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster)) return false;
 
-        return playerData.GetClassLevel("Sword Master") >= requiredLevel;
+        return playerData.GetClassLevel(PlayerClass.SwordMaster) >= requiredLevel;
     }
 
     #region Level 10 - Riposte Training
@@ -384,7 +384,7 @@ public static class SwordMasterPerkPatches
             if (!ClassCombatManager.IsSwordWeapon(weapon)) return;
 
             var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive("SwordMaster")) return;
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster)) return;
 
             float originalDamage = hit.GetTotalDamage();
 
@@ -448,7 +448,7 @@ public static class SwordMasterPerkPatches
             }
 
             var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive("Sword Master"))
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster))
             {
                 Logger.LogInfo("[SWORD MASTER] Not a sword master!");
                 return;
@@ -482,7 +482,7 @@ public static class SwordMasterPerkPatches
             if (!ClassCombatManager.IsSwordWeapon(weapon)) return;
 
             var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive("SwordMaster")) return;
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster)) return;
 
             // Trigger Fencer's Footwork movement buff
             SwordMasterPerkManager.TriggerFencerFootworkBuff(player);
@@ -627,7 +627,7 @@ public static class SwordMasterPerkCommands
                 }
 
                 var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                if (playerData == null || !playerData.IsClassActive("SwordMaster"))
+                if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster))
                 {
                     args.Context.AddString("Sword Master class not active!");
                     return;
@@ -674,8 +674,8 @@ public static class SwordMasterPerkCommands
                     return;
                 }
 
-                int swordLevel = playerData.GetClassLevel("SwordMaster");
-                bool isActive = playerData.IsClassActive("SwordMaster");
+                int swordLevel = playerData.GetClassLevel(PlayerClass.SwordMaster);
+                bool isActive = playerData.IsClassActive(PlayerClass.SwordMaster);
 
                 args.Context.AddString($"=== Sword Master Status ===");
                 args.Context.AddString($"Class Active: {isActive}");

@@ -94,6 +94,7 @@
   <ItemGroup>
     <Compile Include="ApiDiscoveryCommands.cs" />
     <Compile Include="ArcherPerkManager.cs" />
+    <Compile Include="AssassinPerkManager.cs" />
     <Compile Include="BowTestingCommands.cs" />
     <Compile Include="ClassCombatManager.cs" />
     <Compile Include="ClassDamageBonusSystem.cs" />

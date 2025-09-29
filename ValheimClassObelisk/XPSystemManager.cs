@@ -110,7 +110,7 @@ public static class ClassXPManager
 
         creatureDamageTracker[creature][attackerID][className] += damage;
 
-        Debug.Log($"Tracked {damage:F1} damage to {creature.name} by {attacker.GetPlayerName()} using {className} (total: {creatureDamageTracker[creature][attackerID][className]:F1})");
+        //Debug.Log($"Tracked {damage:F1} damage to {creature.name} by {attacker.GetPlayerName()} using {className} (total: {creatureDamageTracker[creature][attackerID][className]:F1})");
     }
 
     // Award kill bonus XP when a creature dies

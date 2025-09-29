@@ -35,14 +35,14 @@ public static class ClassDamageBonusManager
                 totalBonus += classBonus;
                 foundMatchingClass = true;
 
-                Debug.Log($"Applied {classBonus * 100f:F1}% damage bonus from {activeClass} level {classLevel}");
+                //Debug.Log($"Applied {classBonus * 100f:F1}% damage bonus from {activeClass} level {classLevel}");
             }
         }
 
         // Only log if we found a matching class
         if (foundMatchingClass)
         {
-            Debug.Log($"Total damage multiplier for {attacker.GetPlayerName()}: {totalBonus:F3}x ({(totalBonus - 1f) * 100f:F1}% bonus)");
+            //Debug.Log($"Total damage multiplier for {attacker.GetPlayerName()}: {totalBonus:F3}x ({(totalBonus - 1f) * 100f:F1}% bonus)");
         }
 
         return totalBonus;
@@ -152,7 +152,7 @@ public static class DamageBonusPatches
                 hit.m_damage.m_poison *= damageMultiplier;
                 hit.m_damage.m_spirit *= damageMultiplier;
 
-                Debug.Log($"Applied {damageMultiplier:F3}x damage multiplier to {attacker.GetPlayerName()}'s attack");
+                // Debug.Log($"Applied {damageMultiplier:F3}x damage multiplier to {attacker.GetPlayerName()}'s attack");
             }
         }
         catch (System.Exception ex)

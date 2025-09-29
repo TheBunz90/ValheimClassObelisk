@@ -11,7 +11,7 @@ using System.Runtime.CompilerServices;
 public static class AssassinPerkManager
 {
     // Poison tracking - tracks poison stacks per creature
-    private static Dictionary<Character, PoisonData> poisonTracking = new Dictionary<Character, PoisonData>();
+    public static Dictionary<Character, PoisonData> poisonTracking = new Dictionary<Character, PoisonData>();
 
     // Assassination buff tracking (attack speed after stealth hit)
     private static Dictionary<long, float> assassinationBuffs = new Dictionary<long, float>(); // playerID -> buff end time
@@ -19,13 +19,17 @@ public static class AssassinPerkManager
     // Configuration
     public const int   MAX_POISON_STACKS = 3;
     public const float POISON_DURATION = 10f;
-    public const float ASSASSINATION_SPEED_DURATION = 5f;
-    public const float ASSASSINATION_SPEED_BONUS = 0.25f; // 25% attack speed
-    public const float ENVENOMOUS_SLOW_PER_STACK = 0.15f; // 15% slow per stack
+    // public const float ASSASSINATION_SPEED_DURATION = 5f; // Disabled because hard to implement.
+    // public const float ASSASSINATION_SPEED_BONUS = 0.25f; // 25% attack speed NOTE: disabled because this is hard to implement.
+    public const float ENVENOMOUS_SLOW_PER_STACK = 0.20f; // 20% slow per stack
     public const float TWIST_KNIFE_DAMAGE_BONUS = 0.25f; // 25% more damage to poisoned
-    public const float TWIST_KNIFE_DAMAGE_REDUCTION = 0.10f; // poisoned enemies deal 10% less
+    public const float TWIST_KNIFE_DAMAGE_REDUCTION = 0.15f; // poisoned enemies deal 15% less
+    public const float ASSASSIN_BACKSTAB_BONUS = 0.3f;
+    public const float ASSASSIN_CUT_THROAT_BONUS = 0.15f;
+    public const float ASSASSIN_STEALTH_BONUS = 1.0f;
+    public static bool DAMAGE_MODS_ON = true;
 
-    private class PoisonData
+    public class PoisonData
     {
         public int stacks = 0;
         public float endTime = 0f;
@@ -33,6 +37,8 @@ public static class AssassinPerkManager
         public float damagePerTick = 0f;
         public float totalDamage = 0f;
         public Player source = null;
+        public float originalSpeed = 0f;
+        public float originalRunSpeed = 0f;
     }
 
     /// <summary>
@@ -48,25 +54,6 @@ public static class AssassinPerkManager
         return playerData.GetClassLevel(PlayerClass.Assassin) >= requiredLevel;
     }
 
-    #region Level 10 - Cutthroat
-    /// <summary>
-    /// Lv10 – Cutthroat: +15% knife damage; +30% backstab multiplier with knives
-    /// </summary>
-    public static float ApplyLv10_CutthroatDamage(Player player, float baseDamage)
-    {
-        if (!HasAssassinPerk(player, 10)) return baseDamage;
-
-        return baseDamage * 1.15f; // 15% increased knife damage
-    }
-
-    public static float ApplyLv10_CutthroatBackstab(Player player, float baseBackstabBonus)
-    {
-        if (!HasAssassinPerk(player, 10)) return baseBackstabBonus;
-
-        return baseBackstabBonus * 1.30f; // 30% increased backstab multiplier
-    }
-    #endregion
-
     #region Level 20 - Venom Coating
     /// <summary>
     /// Lv20 – Venom Coating: Knife hits apply a stacking Poison (up to 3 stacks). 
@@ -78,8 +65,8 @@ public static class AssassinPerkManager
 
         // Get knife skill level for poison damage calculation
         float knifeSkillLevel = player.GetSkillLevel(Skills.SkillType.Knives);
-        float poisonDamagePerStack = 10; // Total damage over 5 seconds
-        float damagePerTick = 10 / POISON_DURATION; // 1 tick per second
+        float poisonDamagePerStack = knifeSkillLevel; // Total damage over 10 seconds
+        float damagePerTick = poisonDamagePerStack / POISON_DURATION; // 1 tick per second
 
         // Get or create poison data for this target
         if (!poisonTracking.ContainsKey(target))
@@ -107,14 +94,19 @@ public static class AssassinPerkManager
         poisonData.source = player;
         poisonData.totalDamage = poisonDamagePerStack * poisonData.stacks;
 
-        // TODO: Actually poison the target.
         StatusEffect currentPoison = target.GetSEMan().GetStatusEffect("Poison".GetStableHashCode());
 
-        
-        //hit.m_damage.m_poison = poisonData.totalDamage;
-        Logger.LogInfo($"[POISON TRACKING] Venom applied: {poisonData.totalDamage}.");
-        Logger.LogInfo($"Applied Venom Coating to {target.name}: {poisonData.stacks} stacks, {poisonData.damagePerTick:F1} DPS");
-        //return hit;
+        //Logger.LogInfo($"[POISON TRACKING] Venom applied: {poisonData.totalDamage}.");
+        //Logger.LogInfo($"Applied Venom Coating to {target.name}: {poisonData.stacks} stacks, {poisonData.damagePerTick:F1} DPS");
+
+        // Calculate slow multiplier
+        var debuffMult = 1 - (poisonData.stacks * ENVENOMOUS_SLOW_PER_STACK);
+        // Apply Movement speed slow.
+        poisonData.originalSpeed = target.m_speed;
+        target.m_speed *= debuffMult;
+        // Apply run speed slow.
+        poisonData.originalRunSpeed = target.m_runSpeed;
+        target.m_runSpeed *= debuffMult;
     }
 
     private static void AddPoisonStatusEffect(Character target, int stacks)
@@ -248,60 +240,6 @@ public static class AssassinPerkManager
             Logger.LogError($"Error adding assassination status effect: {ex.Message}");
         }
     }
-
-    public static float ApplyLv40_AssassinationAttackSpeed(Player player, float baseSpeed)
-    {
-        if (!HasAssassinPerk(player, 40)) return baseSpeed;
-
-        long playerID = player.GetPlayerID();
-        if (assassinationBuffs.ContainsKey(playerID) && Time.time < assassinationBuffs[playerID])
-        {
-            return baseSpeed * (1f + ASSASSINATION_SPEED_BONUS);
-        }
-
-        return baseSpeed;
-    }
-    #endregion
-
-    #region Level 50 - Twist the Knife
-    /// <summary>
-    /// Lv50 – Twist the Knife: +25% damage to poisoned targets and poisoned targets deal -10% damage
-    /// </summary>
-    public static float ApplyLv50_TwistKnifeDamageBonus(Player player, Character target, float baseDamage)
-    {
-        if (!HasAssassinPerk(player, 50)) return baseDamage;
-
-        // Check if target is poisoned
-        if (poisonTracking.ContainsKey(target) && poisonTracking[target].stacks > 0)
-        {
-            float bonusDamage = baseDamage * (1f + TWIST_KNIFE_DAMAGE_BONUS);
-
-            // Show message occasionally
-            if (Random.Range(0f, 1f) < 0.2f)
-            {
-                player.Message(MessageHud.MessageType.TopLeft, $"Twist the Knife! +{TWIST_KNIFE_DAMAGE_BONUS * 100f}% damage");
-            }
-
-            return bonusDamage;
-        }
-
-        return baseDamage;
-    }
-
-    public static float ApplyLv50_TwistKnifeDamageReduction(Character attacker, float damage)
-    {
-        // Check if attacker is poisoned
-        if (attacker != null && poisonTracking.ContainsKey(attacker))
-        {
-            var poisonData = poisonTracking[attacker];
-            if (poisonData.stacks > 0 && poisonData.source != null && HasAssassinPerk(poisonData.source, 50))
-            {
-                return damage * (1f - TWIST_KNIFE_DAMAGE_REDUCTION);
-            }
-        }
-
-        return damage;
-    }
     #endregion
 
     #region Utility Methods
@@ -321,6 +259,7 @@ public static class AssassinPerkManager
             // Check if target is dead or poison expired
             if (target == null || target.IsDead() || currentTime > poisonData.endTime)
             {
+                ClearSpeedDebuff(target, poisonData.originalSpeed, poisonData.originalRunSpeed);
                 toRemove.Add(target);
                 continue;
             }
@@ -355,6 +294,14 @@ public static class AssassinPerkManager
         }
     }
 
+    public static void ClearSpeedDebuff(Character target, float originalSpeed, float originalRunSpeed)
+    {
+        if (!target.IsDead()) {
+            target.m_speed = originalSpeed;
+            target.m_runSpeed = originalRunSpeed;
+        }
+    }
+
     /// <summary>
     /// Check if a hit is from stealth (enemy was unaware)
     /// </summary>
@@ -385,6 +332,20 @@ public static class AssassinPerkManager
 
         // Backstab if hit from behind (more than 120 degrees from front)
         return angle > 120f;
+    }
+
+    public static HitData ModDamage(HitData hit, float mod)
+    {
+        if (hit == null || mod == null) return hit;
+        hit.m_damage.m_damage *= mod;
+        hit.m_damage.m_slash *= mod;
+        hit.m_damage.m_pierce *= mod;
+        hit.m_damage.m_blunt *= mod;
+        hit.m_damage.m_fire *= mod;
+        hit.m_damage.m_frost *= mod;
+        hit.m_damage.m_spirit *= mod;
+        hit.m_damage.m_poison *= mod;
+        return hit;
     }
 
     /// <summary>
@@ -427,65 +388,53 @@ public static class AssassinPerkPatches
     {
         try
         {
-            if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
-
-            // Only apply to knife damage
-            var weapon = player.GetCurrentWeapon();
-            if (!ClassCombatManager.IsKnifeWeapon(weapon)) return;
-
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Assassin)) return;
-
-            float originalDamage = hit.GetTotalDamage();
-
-            // Apply Cutthroat damage bonus (Level 10)
-            float modifiedDamage = AssassinPerkManager.ApplyLv10_CutthroatDamage(player, originalDamage);
-
-            // Check for backstab and apply bonus (Level 10)
-            if (AssassinPerkManager.IsBackstab(hit.m_point, __instance))
+            // Skip applying buffs if it's just poison ticking.
+            if (hit.m_damage.m_poison > 0) return;
+            // If Player is being damaged check for and apply damage reduction from poison.
+            if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player)
             {
-                float backstabBonus = hit.m_backstabBonus;
-                backstabBonus = AssassinPerkManager.ApplyLv10_CutthroatBackstab(player, backstabBonus);
-                modifiedDamage *= backstabBonus;
+                // Get Attack and check if they are poisoned.
+                var attacker = hit.GetAttacker();
+                var characterIsPoisoned = AssassinPerkManager.poisonTracking.ContainsKey(attacker);
 
-                // Visual feedback
-                player.Message(MessageHud.MessageType.TopLeft, "Backstab!");
+                if (characterIsPoisoned)
+                {
+                    // Apply Twist the Knife damage reduction from poisoned enemies (Level 50)
+                    var reductionMultiplier = AssassinPerkManager.TWIST_KNIFE_DAMAGE_REDUCTION;
+                    hit = AssassinPerkManager.ModDamage(hit, reductionMultiplier);
+                }
             }
-
-            // Check for stealth hit and apply Assassination (Level 40)
-            bool isStealthHit = AssassinPerkManager.IsStealthHit(player, __instance);
-            if (isStealthHit)
+            else
             {
-                modifiedDamage = AssassinPerkManager.ApplyLv40_AssassinationDamage(player, modifiedDamage);
+                // Apply damage boosts from Assassin skills.
+                var weapon = player.GetCurrentWeapon();
+                if (!ClassCombatManager.IsKnifeWeapon(weapon)) return;
+
+                var playerData = PlayerClassManager.GetPlayerData(player);
+                if (playerData == null || !playerData.IsClassActive(PlayerClass.Assassin)) return;
+
+                float multiplier = 0f;
+
+                // Apply Cutthroat damage bonus (Level 10)
+                if (AssassinPerkManager.HasAssassinPerk(player, 10)) multiplier += AssassinPerkManager.ASSASSIN_CUT_THROAT_BONUS;
+
+                // Check for backstab and apply bonus (Level 10)
+                if (AssassinPerkManager.IsBackstab(hit.m_point, __instance) && AssassinPerkManager.HasAssassinPerk(player, 10)) multiplier += AssassinPerkManager.ASSASSIN_BACKSTAB_BONUS;
+
+                // Check for stealth hit and apply Assassination (Level 40)
+                bool isStealthHit = AssassinPerkManager.IsStealthHit(player, __instance);
+                if (isStealthHit && AssassinPerkManager.HasAssassinPerk(player, 40)) multiplier += AssassinPerkManager.ASSASSIN_STEALTH_BONUS;
+
+                // Apply Twist the Knife damage bonus to poisoned targets (Level 50)
+                if (AssassinPerkManager.HasAssassinPerk(player, 50)) multiplier += AssassinPerkManager.TWIST_KNIFE_DAMAGE_BONUS;
+
+                var originalSlash = hit.m_damage.m_slash;
+                var originalPierce = hit.m_damage.m_pierce;
+                if (AssassinPerkManager.DAMAGE_MODS_ON) hit = AssassinPerkManager.ModDamage(hit, multiplier+1f);
+
+                Logger.LogInfo($"Assassin damage mods applied slash: {originalSlash} increased to {hit.m_damage.m_slash}");
+                Logger.LogInfo($"Assassin damage mods applied pierce: {originalPierce} increased to {hit.m_damage.m_pierce}");
             }
-
-            // Apply Twist the Knife damage bonus to poisoned targets (Level 50)
-            modifiedDamage = AssassinPerkManager.ApplyLv50_TwistKnifeDamageBonus(player, __instance, modifiedDamage);
-
-            // Apply the modified damage
-            if (modifiedDamage != originalDamage)
-            {
-                float multiplier = modifiedDamage / originalDamage;
-                hit.m_damage.m_damage *= multiplier;
-                hit.m_damage.m_slash *= multiplier;
-                hit.m_damage.m_pierce *= multiplier;
-            }
-
-            // Apply Twist the Knife damage reduction from poisoned enemies (Level 50)
-            // TODO: This section is not right.
-            //float incomingDamage = hit.GetTotalDamage();
-            //incomingDamage = AssassinPerkManager.ApplyLv50_TwistKnifeDamageReduction(__instance, incomingDamage);
-            //if (incomingDamage != hit.GetTotalDamage())
-            //{
-            //    float reductionMultiplier = incomingDamage / hit.GetTotalDamage();
-            //    hit.m_damage.m_damage *= reductionMultiplier;
-            //    hit.m_damage.m_slash *= reductionMultiplier;
-            //    hit.m_damage.m_pierce *= reductionMultiplier;
-            //    hit.m_damage.m_blunt *= reductionMultiplier;
-            //}
-
-            // TODO: Add poison damage to hit.
-            // hit = AssassinPerkManager.ApplyLv20_VenomCoating(player, __instance, hit);
         }
         catch (System.Exception ex)
         {
@@ -502,6 +451,10 @@ public static class AssassinPerkPatches
     {
         try
         {
+            // Skip poison ticks.
+            if (hit.m_damage.m_poison > 0) return;
+
+            // Skip this section if it's not a player.
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
 
             // Only apply to knife damage that actually dealt damage
@@ -517,10 +470,6 @@ public static class AssassinPerkPatches
             if (playerData == null || !playerData.IsClassActive(PlayerClass.Assassin)) return;
 
             // Apply Venom Coating poison (Level 20)
-
-            Logger.LogInfo($"[POISON LOGGING] SlashDamage: {hit.m_damage.m_slash}");
-            Logger.LogInfo($"[POISON LOGGING] PierceDamage: {hit.m_damage.m_pierce}");
-            Logger.LogInfo($"[POISON LOGGING] BluntDamage: {hit.m_damage.m_blunt}");
             AssassinPerkManager.ApplyLv20_VenomCoating(player, __instance, hit);
         }
         catch (System.Exception ex)
@@ -528,66 +477,6 @@ public static class AssassinPerkPatches
             Logger.LogError($"Error in Character_Damage_Assassin_Postfix: {ex.Message}");
         }
     }
-
-    //[HarmonyPatch(typeof(HitData), "OnHit")]
-    //[HarmonyPostfix]
-    //public static void HitData_OnHit_Postfix()
-    //{
-    //    try
-    //    {
-    //        //
-    //    }
-    //    catch (System.Exception ex)
-    //    {
-    //        Logger.LogError($"Error occured in HitData_OnHit_Postfix: {ex.Message}");
-    //    }
-    //}
-    #endregion
-
-    #region Movement Speed Patches
-    /// <summary>
-    /// Apply Envenomous movement slow to poisoned enemies
-    /// </summary>
-    //[HarmonyPatch(typeof(Character), "GetRunSpeedFactor")]
-    //[HarmonyPostfix]
-    //public static void Character_GetRunSpeedFactor_Assassin_Postfix(Character __instance, ref float __result)
-    //{
-    //    try
-    //    {
-    //        if (__instance == null || __instance is Player) return;
-
-    //        __result = AssassinPerkManager.ApplyLv30_EnvenomousMovementSlow(__instance, __result);
-    //    }
-    //    catch (System.Exception ex)
-    //    {
-    //        Logger.LogError($"Error in Character_GetRunSpeedFactor_Assassin_Postfix: {ex.Message}");
-    //    }
-    //}
-    #endregion
-
-    #region Attack Speed Patches
-    /// <summary>
-    /// Apply Assassination attack speed bonus
-    /// </summary>
-    //[HarmonyPatch(typeof(Attack), "DoMeleeAttack")]
-    //[HarmonyPostfix]
-    //public static void Attack_DoMeleeAttack_Prefix(Attack attack)
-    //{
-    //    try
-    //    {
-    //        var player = Player.m_localPlayer;
-    //        if (player == null) return;
-
-    //        // TODO: Get Attack Base Speed.
-
-    //        //TODO: Update the speed based with AssassinationAttackSpeed.
-    //        var speedBuff = AssassinPerkManager.ApplyLv40_AssassinationAttackSpeed(player, baseSpeed);
-    //    }
-    //    catch (System.Exception ex)
-    //    {
-    //        Logger.LogError($"Error in Player_GetAttackSpeedFactorMovement_Assassin_Postfix: {ex.Message}");
-    //    }
-    //}
     #endregion
 
     #region Periodic Updates
@@ -704,6 +593,13 @@ public static class AssassinPerkCommands
 
                 args.Context.AddString("");
                 args.Context.AddString($"Sneaking: {Player.m_localPlayer.IsSneaking()}");
+            }
+        );
+
+        new Terminal.ConsoleCommand("setdamage", "Enabled / disable damage mods for assassin.",
+            delegate (Terminal.ConsoleEventArgs args)
+            {
+                AssassinPerkManager.DAMAGE_MODS_ON = !AssassinPerkManager.DAMAGE_MODS_ON;
             }
         );
     }

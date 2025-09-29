@@ -324,7 +324,7 @@ public static class CombatPatches
                     ClassCombatManager.ShowDamageBonusMessage(player, multiplier, weaponType);
 
                     // Debug logging
-                    Debug.Log($"Applied {multiplier:F2}x damage multiplier for {player.GetPlayerName()} using {weaponType}");
+                    // Debug.Log($"Applied {multiplier:F2}x damage multiplier for {player.GetPlayerName()} using {weaponType}");
                 }
             }
         }

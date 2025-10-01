@@ -53,7 +53,9 @@ public static class ClassCombatManager
 
     public static bool IsUnarmedAttack(ItemDrop.ItemData weapon)
     {
-        return weapon == null || weapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.None;
+        return  weapon == null || 
+                weapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.None || 
+                weapon.m_shared.m_name?.ToLower().Contains("claws") == true;
     }
 
     public static bool IsMagicWeapon(ItemDrop.ItemData weapon)

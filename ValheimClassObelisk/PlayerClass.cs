@@ -11,7 +11,7 @@ public enum PlayerClass
     Archer,
     Crusher,
     Assassin,
-    Pugilist,
+    Brawler,
     Mage,
     Lancer,
     Bulwark
@@ -29,7 +29,7 @@ public static class PlayerClassHelper
         { PlayerClass.Archer, "Archer" },
         { PlayerClass.Crusher, "Crusher" },
         { PlayerClass.Assassin, "Assassin" },
-        { PlayerClass.Pugilist, "Pugilist" },
+        { PlayerClass.Brawler, "Brawler" },
         { PlayerClass.Mage, "Mage" },
         { PlayerClass.Lancer, "Lancer" },
         { PlayerClass.Bulwark, "Bulwark" }
@@ -42,7 +42,7 @@ public static class PlayerClassHelper
         { PlayerClass.Archer, "Archer" },
         { PlayerClass.Crusher, "Crusher" },
         { PlayerClass.Assassin, "Assassin" },
-        { PlayerClass.Pugilist, "Pugilist" },
+        { PlayerClass.Brawler, "Brawler" },
         { PlayerClass.Mage, "Mage" },
         { PlayerClass.Lancer, "Lancer" },
         { PlayerClass.Bulwark, "Bulwark" }
@@ -55,7 +55,7 @@ public static class PlayerClassHelper
         { PlayerClass.Archer, "Bows & Crossbows" },
         { PlayerClass.Crusher, "Maces & Hammers" },
         { PlayerClass.Assassin, "Knives" },
-        { PlayerClass.Pugilist, "Unarmed" },
+        { PlayerClass.Brawler, "Unarmed" },
         { PlayerClass.Mage, "Staves" },
         { PlayerClass.Lancer, "Spears & Polearms" },
         { PlayerClass.Bulwark, "Shields" }
@@ -158,7 +158,7 @@ public static class PlayerClassHelper
                 return ClassCombatManager.IsBluntWeapon(weapon);
             case PlayerClass.Assassin:
                 return ClassCombatManager.IsKnifeWeapon(weapon);
-            case PlayerClass.Pugilist:
+            case PlayerClass.Brawler:
                 return ClassCombatManager.IsUnarmedAttack(weapon);
             case PlayerClass.Mage:
                 return ClassCombatManager.IsMagicWeapon(weapon);

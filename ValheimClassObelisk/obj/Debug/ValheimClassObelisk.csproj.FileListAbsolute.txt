@@ -12,3 +12,4 @@ C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\assembly_guiutils.dll
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\assembly_utils.dll
 C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\UnityEngine.JSONSerializeModule.dll
+C:\Users\thebu\Projects\Valheim Mods\ValheimClassObelisk\ValheimClassObelisk\bin\Debug\UnityEngine.AnimationModule.dll

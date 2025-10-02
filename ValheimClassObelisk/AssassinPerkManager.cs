@@ -23,7 +23,7 @@ public static class AssassinPerkManager
     public const int   MAX_POISON_STACKS = 3;
     public const float POISON_DURATION = 10f;
     public const float ASSASSINATION_SPEED_DURATION = 5f;
-    public const float ASSASSINATION_SPEED_BONUS = 1.00f; // 100% attack speed
+    public const float ASSASSINATION_SPEED_BONUS = 2.00f; // 100% attack speed
     public const float ENVENOMOUS_SLOW_PER_STACK = 0.20f; // 20% slow per stack
     public const float TWIST_KNIFE_DAMAGE_BONUS = 0.25f; // 25% more damage to poisoned
     public const float TWIST_KNIFE_DAMAGE_REDUCTION = 0.15f; // poisoned enemies deal 15% less

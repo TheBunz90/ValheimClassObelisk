@@ -135,7 +135,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Archer",
         "Crusher",
         "Assassin",
-        "Pugilist",
+        "Brawler",
         "Mage",
         "Lancer",
         "Bulwark"
@@ -189,7 +189,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             "Great for players who prefer tactical, stealthy gameplay and burst damage."
         },
         {
-            "Pugilist",
+            "Brawler",
             "Bare-knuckle brawlers with unmatched unarmed combat skills.\n\n" +
             "Passive Perks by Level:\n" +
             "• Lv10 – Iron Fist: +15% unarmed damage; +10% attack speed with fists\n" +

@@ -112,10 +112,14 @@ namespace ValheimClassObelisk
         public static void Set(Character c, string key, float multiplier)
         {
             if (c == null || string.IsNullOrEmpty(key)) return;
-            if (multiplier <= 0f) multiplier = 0.0001f; // avoid zero/negatives
+            if (multiplier <= 0f)
+            {
+                Logger.LogInfo("Setting attack speed buffer");
+                multiplier = 0.0001f; // avoid zero/negatives
+            }
 
             var bag = _perChar.GetOrCreateValue(c);
-            bag.Set(key, multiplier+1f);
+            bag.Set(key, multiplier);
         }
 
         /// <summary>
@@ -156,9 +160,14 @@ namespace ValheimClassObelisk
 
         public static float GetFistMultiplier(Character c)
         {
-            if (c == null) return 1f;
+            if (c == null)
+            {
+                return 1f;
+            }
             if (_perChar.TryGetValue(c, out var bag))
+            {
                 return bag.CombinedFistAttackSpeed;
+            }
             return 1f;
         }
 
@@ -205,7 +214,7 @@ namespace ValheimClassObelisk
                         float prod = 1f;
                         foreach (var kv in _sources)
                         {
-                            if (kv.Key.Contains("_Fist_AS")) prod *= kv.Value;
+                            if (kv.Key.Contains("Fist")) prod *= kv.Value;
                         }
                         _cachedProduct = prod;
                         _dirty = false;

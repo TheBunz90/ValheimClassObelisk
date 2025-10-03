@@ -61,7 +61,7 @@ public static class ClassDamageBonusManager
                 return ClassCombatManager.IsBluntWeapon(weapon);
             case "Assassin":
                 return ClassCombatManager.IsKnifeWeapon(weapon);
-            case "Pugilist":
+            case "Brawler":
                 return ClassCombatManager.IsUnarmedAttack(weapon);
             case "Mage":
                 return ClassCombatManager.IsMagicWeapon(weapon);

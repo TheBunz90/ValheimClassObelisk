@@ -55,7 +55,8 @@ public static class ClassCombatManager
     {
         return  weapon == null || 
                 weapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.None || 
-                weapon.m_shared.m_name?.ToLower().Contains("claws") == true;
+                weapon.m_shared.m_name?.ToLower().Contains("claws") == true ||
+                weapon.m_shared.m_name == "Unarmed";
     }
 
     public static bool IsMagicWeapon(ItemDrop.ItemData weapon)
@@ -106,8 +107,8 @@ public static class ClassCombatManager
             case "Assassin":
                 return GetAssassinDamageBonus(classLevel, weapon);
 
-            case "Pugilist":
-                return GetPugilistDamageBonus(classLevel, weapon);
+            case "Brawler":
+                return GetBrawlerDamageBonus(classLevel, weapon);
 
             case "Mage":
                 return GetMageDamageBonus(classLevel, weapon);
@@ -187,7 +188,7 @@ public static class ClassCombatManager
         return 1f + bonus;
     }
 
-    private static float GetPugilistDamageBonus(int level, ItemDrop.ItemData weapon)
+    private static float GetBrawlerDamageBonus(int level, ItemDrop.ItemData weapon)
     {
         if (!IsUnarmedAttack(weapon)) return 1f;
 
@@ -275,8 +276,8 @@ public static class ClassCombatManager
             case "Assassin":
                 return GetAssassinDamageBonus(classLevel, weapon);
 
-            case "Pugilist":
-                return GetPugilistDamageBonus(classLevel, weapon);
+            case "Brawler":
+                return GetBrawlerDamageBonus(classLevel, weapon);
 
             case "Mage":
                 return GetMageDamageBonus(classLevel, weapon);

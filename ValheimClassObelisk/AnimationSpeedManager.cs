@@ -184,7 +184,9 @@ namespace ValheimClassObelisk
         private sealed class PerCharacterBag
         {
             private readonly Dictionary<string, float> _sources = new Dictionary<string, float>(StringComparer.Ordinal);
-            private float _cachedProduct = 1f;
+            private float _cachedKnifeProduct = 1f;
+            private float _cachedFistProduct = 1f;
+            private float _cachedMoveProduct = 1f;
             private bool _dirty = false;
 
             public float CombinedKnifeAttackSpeed
@@ -193,15 +195,9 @@ namespace ValheimClassObelisk
                 {
                     if (_dirty)
                     {
-                        float prod = 1f;
-                        foreach (var kv in _sources)
-                        {
-                            if (kv.Key.Contains("_Knife_AS")) prod *= kv.Value;
-                        }
-                        _cachedProduct = prod;
-                        _dirty = false;
+                        RecalculateAll();
                     }
-                    return _cachedProduct;
+                    return _cachedKnifeProduct;
                 }
             }
 
@@ -211,15 +207,9 @@ namespace ValheimClassObelisk
                 {
                     if (_dirty)
                     {
-                        float prod = 1f;
-                        foreach (var kv in _sources)
-                        {
-                            if (kv.Key.Contains("Fist")) prod *= kv.Value;
-                        }
-                        _cachedProduct = prod;
-                        _dirty = false;
+                        RecalculateAll();
                     }
-                    return _cachedProduct;
+                    return _cachedFistProduct;
                 }
             }
 
@@ -229,16 +219,32 @@ namespace ValheimClassObelisk
                 {
                     if (_dirty)
                     {
-                        float prod = 1f;
-                        foreach (var kv in _sources)
-                        {
-                            if (kv.Key.Contains("_MS")) prod *= kv.Value;
-                        }
-                        _cachedProduct = prod;
-                        _dirty = false;
+                        RecalculateAll();
                     }
-                    return _cachedProduct;
+                    return _cachedMoveProduct;
                 }
+            }
+
+            private void RecalculateAll()
+            {
+                float knifeProduct = 1f;
+                float fistProduct = 1f;
+                float moveProduct = 1f;
+
+                foreach (var kv in _sources)
+                {
+                    if (kv.Key.Contains("_Knife_AS"))
+                        knifeProduct *= kv.Value;
+                    else if (kv.Key.Contains("Fist"))
+                        fistProduct *= kv.Value;
+                    else if (kv.Key.Contains("_MS"))
+                        moveProduct *= kv.Value;
+                }
+
+                _cachedKnifeProduct = knifeProduct;
+                _cachedFistProduct = fistProduct;
+                _cachedMoveProduct = moveProduct;
+                _dirty = false;
             }
 
             public void Set(string key, float mult)
@@ -267,6 +273,16 @@ namespace ValheimClassObelisk
                 _sources.Clear();
                 _dirty = true;
             }
+
+            public string GetDebugInfo()
+            {
+                var sb = new System.Text.StringBuilder();
+                foreach (var kv in _sources)
+                {
+                    sb.AppendLine($"  Key: {kv.Key}, Mult: {kv.Value}");
+                }
+                return sb.ToString();
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -276,32 +292,62 @@ namespace ValheimClassObelisk
         {
             if (!Enabled || c == null) return;
 
-            var anim = GetAnimator(c);       // your existing safe getter (GetComponentInChildren<Animator>())
+            var anim = GetAnimator(c);
             if (anim == null) return;
 
-            bool attacking = IsAttackActive(c);     // <- use the helper above
+            bool attacking = IsAttackActive(c);
 
             Player player = Player.m_localPlayer;
             if (player == null) return;
+
             var currentWeapon = player.GetCurrentWeapon();
-            float mult = 0f;
 
+            // Log weapon info
+            string weaponName = currentWeapon?.m_shared?.m_name ?? "null";
+            bool isKnife = ClassCombatManager.IsKnifeWeapon(currentWeapon);
+            bool isUnarmed = ClassCombatManager.IsUnarmedAttack(currentWeapon);
 
-            if (ClassCombatManager.IsKnifeWeapon(currentWeapon)) mult = GetKnifeMultiplier(c);  // product of Set() calls (e.g., 1.20f)
-            if (ClassCombatManager.IsUnarmedAttack(currentWeapon)) mult = GetFistMultiplier(c);
+            float mult = 1f; // Default to 1f (no modification)
+            string modifierSource = "none";
 
-            if (mult == 0f) return;
+            // Check weapon type and get appropriate multiplier
+            if (isKnife)
+            {
+                mult = GetKnifeMultiplier(c);
+                modifierSource = "knife";
+            }
+            else if (isUnarmed)
+            {
+                mult = GetFistMultiplier(c);
+                modifierSource = "fist";
+            }
+
+            // If mult is still 1f (no modifiers active), ensure animator is at normal speed
+            if (Mathf.Abs(mult - 1f) < 0.001f)
+            {
+                if (!attacking && Mathf.Abs(anim.speed - 1f) > 0.001f)
+                {
+                    anim.speed = 1f;
+                }
+                return;
+            }
 
             float target = Mathf.Max(0.0001f, mult);
 
             if (attacking)
             {
-                if (Mathf.Abs(anim.speed - target) > 0.001f) anim.speed = target;
+                if (Mathf.Abs(anim.speed - target) > 0.001f)
+                {
+                    anim.speed = target;
+                }
             }
             else
             {
-                // ensure locomotion/etc. stays normal when not attacking
-                if (Mathf.Abs(anim.speed - 1f) > 0.001f) anim.speed = 1f;
+                // Ensure locomotion stays normal when not attacking
+                if (Mathf.Abs(anim.speed - 1f) > 0.001f)
+                {
+                    anim.speed = 1f;
+                }
             }
         }
     }

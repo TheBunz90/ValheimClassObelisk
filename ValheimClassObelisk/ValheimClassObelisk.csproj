@@ -112,5 +112,8 @@
     <Compile Include="ValheimDebugUtility.cs" />
     <Compile Include="XPSystemManager.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\rage_icon_128.png" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

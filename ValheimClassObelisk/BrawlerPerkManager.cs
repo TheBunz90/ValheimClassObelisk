@@ -89,6 +89,33 @@ namespace ValheimClassObelisk
             AnimationSpeedManager.Set(player, RAGE_AS_KEY, RAGE_ATTACK_SPEED);
         }
 
+        private static void ApplyRageBuffIcon(Player player)
+        {
+            try
+            {
+                var seman = player.GetSEMan();
+
+                if (seman == null) return;
+
+                // Remove existing effect to refresh
+                seman.RemoveStatusEffect("SE_Rage".GetStableHashCode(), quiet: true);
+
+                var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
+                statusEffect.name = "SE_Rage";
+                statusEffect.m_name = "Rage";
+                statusEffect.m_tooltip = "+50% Attack Speed, +50% Physical Resist, +25% Damage.";
+                //statusEffect.m_icon = ;
+                statusEffect.m_ttl = RAGE_DURATION;
+
+                seman.AddStatusEffect(statusEffect, resetTime: true);
+                //Logger.LogInfo($"Buff Applied: {statusEffect.m_speedModifier}");
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error adding rage status effect: {ex.Message}");
+            }
+        }
+
         public static bool ShouldApplyIronFist(Player player)
         {
             if (player == null) return false;

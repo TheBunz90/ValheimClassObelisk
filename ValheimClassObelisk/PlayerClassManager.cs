@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using HarmonyLib;
 using Logger = Jotunn.Logger;
 
 // Player class data storage with persistence
@@ -120,9 +121,6 @@ public class PlayerClassData
         activeClasses.Add(className);
 
         Debug.Log($"Set active class: {className} (was: {string.Join(", ", previousClasses)})");
-
-        // Force save immediately after class change
-        PlayerClassManager.SavePlayerData();
     }
 
     public void AddActiveClass(PlayerClass playerClass)
@@ -138,9 +136,6 @@ public class PlayerClassData
         {
             activeClasses.Add(className);
             Debug.Log($"Added active class: {className}. Active classes: {string.Join(", ", activeClasses)}");
-
-            // Force save immediately after class change
-            PlayerClassManager.SavePlayerData();
         }
     }
 
@@ -150,9 +145,6 @@ public class PlayerClassData
         if (activeClasses.Remove(className))
         {
             Debug.Log($"Removed active class: {className}. Active classes: {string.Join(", ", activeClasses)}");
-
-            // Force save immediately after class change
-            PlayerClassManager.SavePlayerData();
         }
     }
 
@@ -222,9 +214,6 @@ public class PlayerClassData
             {
                 Debug.Log($"New perk unlocked for {className} at level {currentLevel + 1}!");
             }
-
-            // Save progress immediately on level up
-            PlayerClassManager.SavePlayerData();
         }
     }
 
@@ -235,11 +224,10 @@ public class PlayerClassData
     }
 }
 
-// Enhanced class data manager with persistent storage
+// Enhanced class data manager with persistent storage via Harmony patches
 public static class PlayerClassManager
 {
     private static Dictionary<long, PlayerClassData> playerData = new Dictionary<long, PlayerClassData>();
-    private const string SAVE_KEY_PREFIX = "ClassObelisk_PlayerData_";
 
     public static PlayerClassData GetPlayerData(Player player)
     {
@@ -253,156 +241,19 @@ public static class PlayerClassManager
 
         if (!playerData.ContainsKey(playerId))
         {
-            // Try to load from persistent storage first
-            var loadedData = LoadPlayerDataFromStorage(playerId);
-            if (loadedData != null)
-            {
-                playerData[playerId] = loadedData;
-                Debug.Log($"Loaded existing class data for player {player.GetPlayerName()} (ID: {playerId})");
-            }
-            else
-            {
-                // Create new data if none exists
-                playerData[playerId] = new PlayerClassData();
-                Debug.Log($"Created new class data for player {player.GetPlayerName()} (ID: {playerId})");
-                SavePlayerDataToStorage(playerId, playerData[playerId]);
-            }
+            // Create new data - will be loaded by the Load patch if save exists
+            playerData[playerId] = new PlayerClassData();
+            Debug.Log($"Created new class data for player {player.GetPlayerName()} (ID: {playerId})");
         }
 
         return playerData[playerId];
     }
 
-    public static void SavePlayerData()
+    // Called by the Load patch to set loaded data
+    public static void SetPlayerDataDirectly(long playerId, PlayerClassData data)
     {
-        foreach (var kvp in playerData)
-        {
-            SavePlayerDataToStorage(kvp.Key, kvp.Value);
-        }
-        Debug.Log($"Saved class data for {playerData.Count} players");
-    }
-
-    private static void SavePlayerDataToStorage(long playerId, PlayerClassData data)
-    {
-        try
-        {
-            // Prepare data for serialization
-            data.PrepareForSerialization();
-
-            // Convert to JSON
-            string jsonData = JsonUtility.ToJson(data, true);
-
-            // Save to player's custom data
-            string saveKey = SAVE_KEY_PREFIX + playerId;
-
-            // Use Valheim's custom data system
-            if (Player.m_localPlayer != null && Player.m_localPlayer.GetPlayerID() == playerId)
-            {
-                Player.m_localPlayer.m_customData[saveKey] = jsonData;
-                Debug.Log($"Saved class data to local player custom data for ID: {playerId}");
-            }
-            else
-            {
-                // For other players, save to global custom data or file system
-                SaveToGlobalCustomData(saveKey, jsonData);
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Error saving player data for ID {playerId}: {ex.Message}");
-        }
-    }
-
-    private static PlayerClassData LoadPlayerDataFromStorage(long playerId)
-    {
-        try
-        {
-            string saveKey = SAVE_KEY_PREFIX + playerId;
-            string jsonData = null;
-
-            // Try to load from local player first
-            if (Player.m_localPlayer != null && Player.m_localPlayer.GetPlayerID() == playerId)
-            {
-                if (Player.m_localPlayer.m_customData.TryGetValue(saveKey, out jsonData))
-                {
-                    Debug.Log($"Found class data in local player custom data for ID: {playerId}");
-                }
-            }
-
-            // If not found locally, try global custom data
-            if (string.IsNullOrEmpty(jsonData))
-            {
-                jsonData = LoadFromGlobalCustomData(saveKey);
-            }
-
-            if (!string.IsNullOrEmpty(jsonData))
-            {
-                var data = JsonUtility.FromJson<PlayerClassData>(jsonData);
-                data.RestoreFromSerialization();
-                Debug.Log($"Successfully loaded class data for player ID: {playerId}");
-                return data;
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Error loading player data for ID {playerId}: {ex.Message}");
-        }
-
-        return null;
-    }
-
-    private static void SaveToGlobalCustomData(string key, string data)
-    {
-        // Save to world's custom data or a global file
-        try
-        {
-            if (ZNet.instance?.GetWorldUID() != 0)
-            {
-                // Use world-specific storage
-                var worldId = ZNet.instance.GetWorldUID();
-                var worldKey = $"World_{worldId}_{key}";
-
-                // For now, we'll use a simple file-based approach
-                var savePath = System.IO.Path.Combine(Utils.GetSaveDataPath(FileHelpers.FileSource.Local), $"{worldKey}.json");
-                System.IO.File.WriteAllText(savePath, data);
-                Debug.Log($"Saved to world file: {savePath}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Error saving to global storage: {ex.Message}");
-        }
-    }
-
-    private static string LoadFromGlobalCustomData(string key)
-    {
-        try
-        {
-            if (ZNet.instance?.GetWorldUID() != 0)
-            {
-                var worldId = ZNet.instance.GetWorldUID();
-                var worldKey = $"World_{worldId}_{key}";
-                var savePath = System.IO.Path.Combine(Utils.GetSaveDataPath(FileHelpers.FileSource.Local), $"{worldKey}.json");
-
-                if (System.IO.File.Exists(savePath))
-                {
-                    var data = System.IO.File.ReadAllText(savePath);
-                    Debug.Log($"Loaded from world file: {savePath}");
-                    return data;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"Error loading from global storage: {ex.Message}");
-        }
-
-        return null;
-    }
-
-    public static void LoadPlayerData()
-    {
-        Debug.Log("PlayerClassManager: Loading all player class data");
-        // Data is loaded on-demand when GetPlayerData is called
+        playerData[playerId] = data;
+        Debug.Log($"[MANAGER] Directly set class data for player ID: {playerId}");
     }
 
     // Enhanced class selection method with enum support
@@ -497,8 +348,88 @@ public static class PlayerClassManager
             playerData.Remove(playerId);
         }
 
-        // This will force a reload from storage
+        // This will create fresh data - will be populated by Load patch on next load
         GetPlayerData(player);
         Debug.Log($"Reloaded data for player {player.GetPlayerName()}");
+    }
+}
+
+// Write AFTER Valheim has written its data
+[HarmonyPatch(typeof(Player), nameof(Player.Save))]
+public static class Player_Save_Patch
+{
+    private static void Postfix(Player __instance, ZPackage pkg)
+    {
+        try
+        {
+            Debug.Log($"[PATCH:SAVE] Saving class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
+
+            var playerData = PlayerClassManager.GetPlayerData(__instance);
+            if (playerData != null)
+            {
+                playerData.PrepareForSerialization();
+                string jsonData = JsonUtility.ToJson(playerData, false);
+
+                // Write to the package AFTER all vanilla data
+                pkg.Write(jsonData);
+
+                Debug.Log($"[PATCH:SAVE] ✓ Wrote {jsonData.Length} bytes. Active classes: {string.Join(", ", playerData.activeClasses)}");
+            }
+            else
+            {
+                pkg.Write("");
+                Debug.LogWarning($"[PATCH:SAVE] No class data to save for {__instance.GetPlayerName()}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PATCH:SAVE] Error saving class data: {ex}");
+            // Don't write anything on error - the save is already complete
+        }
+    }
+}
+
+// Read AFTER Valheim has read its data
+[HarmonyPatch(typeof(Player), nameof(Player.Load))]
+public static class Player_Load_Patch
+{
+    private static void Postfix(Player __instance, ZPackage pkg)
+    {
+        try
+        {
+            Debug.Log($"[PATCH:LOAD] Loading class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
+
+            // Check if there's more data to read
+            if (pkg.GetPos() >= pkg.Size())
+            {
+                Debug.Log($"[PATCH:LOAD] No class data in save (pre-mod character or new character)");
+                return;
+            }
+
+            // Read the JSON data from the save package
+            string jsonData = pkg.ReadString();
+
+            if (!string.IsNullOrEmpty(jsonData))
+            {
+                Debug.Log($"[PATCH:LOAD] Found saved data: {jsonData.Length} bytes");
+
+                var playerData = JsonUtility.FromJson<PlayerClassData>(jsonData);
+                playerData.RestoreFromSerialization();
+
+                // Store in the manager's dictionary
+                long playerId = __instance.GetPlayerID();
+                PlayerClassManager.SetPlayerDataDirectly(playerId, playerData);
+
+                Debug.Log($"[PATCH:LOAD] ✓ Loaded successfully. Active classes: {string.Join(", ", playerData.activeClasses)}");
+            }
+            else
+            {
+                Debug.Log($"[PATCH:LOAD] Empty class data string");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[PATCH:LOAD] Error loading class data: {ex}");
+        }
     }
 }

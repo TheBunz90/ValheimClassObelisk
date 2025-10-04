@@ -1,16 +1,22 @@
-﻿using HarmonyLib;
+﻿// BrawlerPerkManager.cs (updated)
+// NOTE: Be sure your PNG is added as an Embedded Resource at: Resources/Icons/rage_icon.png
+//       And confirm the resource name below matches your project’s root namespace + folders.
+
+using HarmonyLib;
 using UnityEngine;
-using System.Collections.Generic;
-using System.Linq;
 using Logger = Jotunn.Logger;
 using System;
+using System.IO;              // NEW: for stream / bytes utilities
+using System.Reflection;      // NEW: for Assembly.GetExecutingAssembly()
 
 namespace ValheimClassObelisk
 {
     [HarmonyPatch]
     public static class BrawlerPerkManager
     {
-        // Set Brawler Modifier values
+        // ==============================
+        // Brawler Modifier values
+        // ==============================
         private static float ONE_TWO_COMBO_DAMAGE = 1.0f;
         private static float ONE_TWO_COMBO_STAMINA = 0.05f;
         private static float BREAK_GUARD_DAMAGE = 0.5f;
@@ -21,20 +27,104 @@ namespace ValheimClassObelisk
         private static float RAGE_DAMAGE_REDUCTION = 0.5f;
         private static float RAGE_ATTACK_SPEED = 1.5f;
         private static float RAGE_DAMAGE_BUFF = 0.25f;
-        private static float RAGE_COOLDOWN_TIME = 15.0f;
+        private static float RAGE_COOLDOWN_TIME = 30.0f;
 
-        // Set Brawler Attributes
+        // ==============================
+        // Brawler Attributes
+        // ==============================
         private static int conPunches = 0;
         private static float rageEndTime;
+        private static float rageInternalCD;
         private static bool rageIsActive = false;
         private static bool ironFistIsActive = false;
 
-        // Set constant strings
+        // ==============================
+        // Constant strings / keys
+        // ==============================
         private static string RAGE_AS_KEY = "Brawler_RageFist_AS";
         private static string IRON_FIST_AS_KEY = "Brawler_IronFist_AS";
 
+        // Embedded resource name for the Rage icon.
+        // IMPORTANT: Replace "ValheimClassObelisk" below if your project root namespace differs.
+        // Example folder structure: Resources/Icons/rage_icon.png
+        // => "ValheimClassObelisk.Resources.Icons.rage_icon.png"
+        private const string RAGE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.rage_viking_128.rgba";
+
         [ThreadStatic] private static bool _inEquipHooks;
 
+        // Cache the loaded Rage icon so we don't recreate it repeatedly
+        private static Sprite _cachedRageIcon;
+
+        // ------------------------------------------------------------
+        // Loads and returns the Rage icon Sprite from the embedded PNG
+        // ------------------------------------------------------------
+        private static Sprite GetRageIcon()
+        {
+            if (_cachedRageIcon != null) return _cachedRageIcon;
+
+            try
+            {
+                var asm = Assembly.GetExecutingAssembly();
+                using (Stream s = asm.GetManifestResourceStream(RAGE_ICON_RESOURCE))
+                {
+                    if (s == null)
+                    {
+                        Jotunn.Logger.LogWarning($"[Brawler] Embedded icon not found: {RAGE_ICON_RESOURCE}");
+                        return null;
+                    }
+
+                    // Read header (width, height)
+                    byte[] header = new byte[8];
+                    int read = s.Read(header, 0, 8);
+                    if (read != 8)
+                    {
+                        Jotunn.Logger.LogWarning("[Brawler] Rage icon header corrupt.");
+                        return null;
+                    }
+
+                    // little-endian UInt32 width/height
+                    int width = BitConverter.ToInt32(header, 0);
+                    int height = BitConverter.ToInt32(header, 4);
+                    int expectedBytes = width * height * 4;
+
+                    // Read raw RGBA32 pixels
+                    byte[] pixels = new byte[expectedBytes];
+                    int off = 0;
+                    while (off < expectedBytes)
+                    {
+                        int n = s.Read(pixels, off, expectedBytes - off);
+                        if (n <= 0) break;
+                        off += n;
+                    }
+                    if (off != expectedBytes)
+                    {
+                        Jotunn.Logger.LogWarning($"[Brawler] Rage icon pixel data incomplete ({off}/{expectedBytes}).");
+                        return null;
+                    }
+
+                    // Create Texture2D and upload raw data (no ImageConversion needed)
+                    Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                    tex.wrapMode = TextureWrapMode.Clamp;
+                    tex.filterMode = FilterMode.Bilinear;
+                    tex.LoadRawTextureData(pixels);
+                    tex.Apply(false, false);
+
+                    // Create UI sprite
+                    _cachedRageIcon = Sprite.Create(
+                        tex,
+                        new Rect(0, 0, width, height),
+                        new Vector2(0.5f, 0.5f),
+                        100f // pixels per unit; fine for inventory/status icons
+                    );
+                    return _cachedRageIcon;
+                }
+            }
+            catch (Exception ex)
+            {
+                Jotunn.Logger.LogError($"[Brawler] Failed to load Rage icon: {ex}");
+                return null;
+            }
+        }
 
         #region Brawler Services
         public static bool HasBrawlerPerk(Player player, int requiredLevel)
@@ -49,6 +139,7 @@ namespace ValheimClassObelisk
 
         public static float IronFistDamage(Player player)
         {
+            // Calculate bonus damage from the player's max HP
             float damage = 0f;
             if (player == null) return damage;
 
@@ -60,6 +151,7 @@ namespace ValheimClassObelisk
 
         public static HitData ModDamage(HitData hit, float mod)
         {
+            // Multiplies all damage types by 'mod'
             if (hit == null || mod == 0f) return hit;
             hit.m_damage.m_damage *= mod;
             hit.m_damage.m_slash *= mod;
@@ -74,6 +166,7 @@ namespace ValheimClassObelisk
 
         public static HitData ModPhysicalDamage(HitData hit, float mod)
         {
+            // Multiplies physical damage types by 'mod' only
             if (hit == null || mod == 0f) return hit;
             hit.m_damage.m_damage *= mod;
             hit.m_damage.m_slash *= mod;
@@ -84,53 +177,57 @@ namespace ValheimClassObelisk
 
         public static void ApplyRageAttackSpeed(Player player)
         {
+            // Activate Rage state and set the AnimationSpeed modifier
             rageIsActive = true;
             rageEndTime = Time.time + RAGE_DURATION;
+            rageInternalCD = Time.time + RAGE_COOLDOWN_TIME;
             AnimationSpeedManager.Set(player, RAGE_AS_KEY, RAGE_ATTACK_SPEED);
+
+            // Also apply a visible status effect with the embedded icon
+            ApplyRageBuffIcon(player);
         }
 
+        // ------------------------------------------------------------------
+        // Creates and applies a temporary SE_Stats "Rage" with our custom icon
+        // ------------------------------------------------------------------
         private static void ApplyRageBuffIcon(Player player)
         {
             try
             {
                 var seman = player.GetSEMan();
-
                 if (seman == null) return;
 
-                // Remove existing effect to refresh
-                seman.RemoveStatusEffect("SE_Rage".GetStableHashCode(), quiet: true);
+                seman.RemoveStatusEffect("SE_Rage".GetStableHashCode(), true);
 
                 var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
                 statusEffect.name = "SE_Rage";
                 statusEffect.m_name = "Rage";
                 statusEffect.m_tooltip = "+50% Attack Speed, +50% Physical Resist, +25% Damage.";
-                //statusEffect.m_icon = ;
                 statusEffect.m_ttl = RAGE_DURATION;
 
-                seman.AddStatusEffect(statusEffect, resetTime: true);
-                //Logger.LogInfo($"Buff Applied: {statusEffect.m_speedModifier}");
+                // Use the embedded .rgba sprite
+                statusEffect.m_icon = GetRageIcon();
+
+                seman.AddStatusEffect(statusEffect, true);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                Logger.LogError($"Error adding rage status effect: {ex.Message}");
+                Jotunn.Logger.LogError($"[Brawler] Error adding Rage status effect: {ex}");
             }
         }
 
         public static bool ShouldApplyIronFist(Player player)
         {
             if (player == null) return false;
-            //Logger.LogInfo("[ShouldApplyIronFist] Player Not Null");
-            // Only when the *current* attack is unarmed/fists by your own definition
             var current = player.GetCurrentWeapon();
             bool hasPerk = HasBrawlerPerk(player, 30);
             bool isFistWeapon = ClassCombatManager.IsUnarmedAttack(current);
-            //Logger.LogInfo($"[ShouldApplyIronFist] hasPerk: {hasPerk} / isFistWeapon: {isFistWeapon}");
-            //Logger.LogInfo($"[ShouldApplyIronFist] current: {current.m_shared.m_name}");
             return hasPerk && isFistWeapon;
         }
 
         public static void CleanupBuffs()
         {
+            // Reconcile expiring state; clear the Rage attack speed when TTL passes
             float currentTime = Time.time;
             Player player = Player.m_localPlayer;
             if (rageIsActive && rageEndTime < currentTime)
@@ -161,7 +258,7 @@ namespace ValheimClassObelisk
                 Player player = attacker as Player;
                 if (isPlayer)
                 {
-                    // Apply OneTwoCombo Effects.
+                    // One-Two-Combo perk: every 3rd punch increases damage and gives stamina
                     if (HasBrawlerPerk(player, 10))
                     {
                         if (conPunches == 2)
@@ -177,23 +274,37 @@ namespace ValheimClassObelisk
                             conPunches++;
                         }
                     }
-                    // Apply Iron Fist Effects.
+
+                    // Iron Fist perk: add bonus damage based on max HP
                     if (HasBrawlerPerk(player, 30)) additionalDamage += IronFistDamage(player);
-                    // Apply Rage Effects.
+
+                    // Rage perk: live damage buff + start Rage state
                     if (HasBrawlerPerk(player, 50))
                     {
                         damageMult += rageIsActive ? RAGE_DAMAGE_BUFF : 0f;
-                        ApplyRageAttackSpeed(player);
                     }
                 }
-                
+
                 if (target == Player.m_localPlayer)
                 {
                     // Iron Skin
                     if (HasBrawlerPerk(player, 40)) reduceMult -= IRON_SKIN_ARMOR;
-                    // Rage
-                    if (HasBrawlerPerk(player, 50)) reduceMult -= RAGE_DAMAGE_REDUCTION;
+
+                    // Rage: reduce incoming physical damage while active
+                    if (HasBrawlerPerk(player, 50) && rageIsActive)
+                    {
+                        var currentTime = Time.time;
+                        if (rageIsActive) reduceMult -= RAGE_DAMAGE_REDUCTION;
+                        else if (currentTime > rageInternalCD) ApplyRageAttackSpeed(player);
+                    }
+
                     ModPhysicalDamage(hit, reduceMult);
+                }
+
+                // Apply additive bonus (e.g., Iron Fist) AFTER multipliers
+                if (additionalDamage > 0f)
+                {
+                    hit.m_damage.m_blunt += additionalDamage; // fists are blunt in Valheim
                 }
             }
             catch (System.Exception ex)
@@ -211,12 +322,10 @@ namespace ValheimClassObelisk
                 if (_inEquipHooks) return;
                 _inEquipHooks = true;
 
-                // Check is player has colossus perk.
                 var player = Player.m_localPlayer;
-                if(player == null || __instance != player) return;
-                //Logger.LogInfo("[Equip Patch] EquipItem");
+                if (player == null || __instance != player) return;
+
                 bool wantIronFist = ShouldApplyIronFist(player);
-                //Logger.LogInfo($"[Equip Patch] wantIronFist: {wantIronFist} / ironFistIsActive: {ironFistIsActive}");
                 if (!wantIronFist && ironFistIsActive)
                 {
                     ironFistIsActive = false;
@@ -245,12 +354,8 @@ namespace ValheimClassObelisk
 
                 var player = Player.m_localPlayer;
                 if (player == null || __instance != player) return;
-                //Logger.LogInfo("[UnEquip Patch] UnEquipItem");
 
-                // Minimal work; let EquipItem reconcile after the game picks a new "current" weapon.
-                // (Optionally force a single reconciliation here using the same ShouldApplyIronFistAS)
                 bool wantIronFist = ShouldApplyIronFist(player);
-                //Logger.LogInfo($"[UnEquip Patch] wantIronFist: {wantIronFist} / ironFistIsActive: {ironFistIsActive}");
                 if (wantIronFist && !ironFistIsActive)
                 {
                     ironFistIsActive = true;
@@ -274,7 +379,7 @@ namespace ValheimClassObelisk
         {
             try
             {
-                // Clean up buffs every second
+                // Periodically clean up expiring buffs (once a second)
                 if (Time.time % 1f < Time.deltaTime)
                 {
                     CleanupBuffs();
@@ -289,10 +394,7 @@ namespace ValheimClassObelisk
         #endregion
 
         #region Terminal Commands
-        // TODO: Add testing commands in needed.
+        // TODO: Add testing commands if needed.
         #endregion
     }
-
-
-
 }

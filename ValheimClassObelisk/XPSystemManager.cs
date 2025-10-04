@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Logger = Jotunn.Logger;
+using System;
+using static ClassXPManager;
 
 // XP System Manager for tracking damage and awarding XP
 public static class ClassXPManager
@@ -15,6 +17,131 @@ public static class ClassXPManager
     // Configuration for XP rates
     public static float DamageToXPRatio = 1f; // 1 damage = 1 XP
     public static float KillBonusMultiplier = 1f; // Kill bonus = creature max health * this multiplier
+
+    // NOTE: No Newtonsoft, no IO, no Reflection needed.
+    // Keep the same public API so XPCurveHelper and the rest of your code keep working.
+
+    internal static class XPRequirements
+    {
+        // This is the canonical cumulative "total XP required to reach level N" table.
+        // Values copied 1:1 from XP_To_Level.json (levels 1..50).
+        // If you expand later, just extend this table.
+        private static readonly SortedDictionary<int, int> _thresholds =
+            new SortedDictionary<int, int>
+            {
+                {  1,      180 },
+                {  2,      409 },
+                {  3,      695 },
+                {  4,     1044 },
+                {  5,     1468 },
+                {  6,     1975 },
+                {  7,     2579 },
+                {  8,     3292 },
+                {  9,     4129 },
+                { 10,     5106 },
+                { 11,     6243 },
+                { 12,     7559 },
+                { 13,     9078 },
+                { 14,    10825 },
+                { 15,    12830 },
+                { 16,    15125 },
+                { 17,    17745 },
+                { 18,    20731 },
+                { 19,    24128 },
+                { 20,    27984 },
+                { 21,    32355 },
+                { 22,    37303 },
+                { 23,    42897 },
+                { 24,    49211 },
+                { 25,    56331 },
+                { 26,    64350 },
+                { 27,    73374 },
+                { 28,    83516 },
+                { 29,    94907 },
+                { 30,   107688 },
+                { 31,   122017 },
+                { 32,   138069 },
+                { 33,   156039 },
+                { 34,   176142 },
+                { 35,   198616 },
+                { 36,   223726 },
+                { 37,   251762 },
+                { 38,   283050 },
+                { 39,   317946 },
+                { 40,   356848 },
+                { 41,   400193 },
+                { 42,   448466 },
+                { 43,   502203 },
+                { 44,   561997 },
+                { 45,   628502 },
+                { 46,   702443 },
+                { 47,   784619 },
+                { 48,   875913 },
+                { 49,   977301 },
+                { 50,  1089861 },
+            };
+
+        /// <summary>
+        /// Total XP required to *reach* a level (cumulative threshold).
+        /// Level <= 0 returns 0. Levels above the table clamp to the table's max.
+        /// </summary>
+        public static int GetTotalXPForLevel(int level)
+        {
+            if (level <= 0) return 0;
+
+            int maxKnownLevel = _thresholds.Keys.Max();
+            if (level >= maxKnownLevel) return _thresholds[maxKnownLevel];
+
+            return _thresholds.TryGetValue(level, out int total) ? total : 0;
+        }
+
+        /// <summary>
+        /// XP required *within* a given level (delta from previous level's total).
+        /// Example: L10 delta = total(10) - total(9) = 978 - 837 = 141.
+        /// </summary>
+        public static int GetDeltaXPForLevel(int level)
+        {
+            if (level <= 0) return 0;
+
+            int prevTotal = (level <= 1) ? 0 : GetTotalXPForLevel(level - 1);
+            int thisTotal = GetTotalXPForLevel(level);
+            return Math.Max(0, thisTotal - prevTotal);
+        }
+
+        /// <summary>
+        /// Highest level whose total requirement is <= totalXP.
+        /// </summary>
+        public static int GetLevelFromTotalXP(float totalXP)
+        {
+            int current = 0;
+            foreach (var kv in _thresholds)
+            {
+                if (totalXP >= kv.Value) current = kv.Key; else break;
+            }
+            return current;
+        }
+
+        /// <summary>
+        /// Progress within the current level for UI bars:
+        /// returns (currentProgress, requiredForLevelUp).
+        /// </summary>
+        public static (float current, float required) GetProgress(float totalXP, int currentLevel)
+        {
+            int maxLevel = _thresholds.Keys.Max();
+            int nextLevel = Math.Min(currentLevel + 1, maxLevel);
+
+            int xpForCurrent = (currentLevel <= 0) ? 0 : GetTotalXPForLevel(currentLevel);
+            int xpForNext = GetTotalXPForLevel(nextLevel);
+
+            float current = Math.Max(0f, totalXP - xpForCurrent);
+            float required = Math.Max(1f, xpForNext - xpForCurrent); // avoid divide-by-zero in UIs
+            return (current, required);
+        }
+
+        /// <summary>Maximum level defined by the table.</summary>
+        public static int GetMaxLevel() => _thresholds.Keys.Max();
+    }
+
 
     // Award XP for damage dealt with appropriate weapon (only for creatures)
     public static void AwardDamageXP(Player player, ItemDrop.ItemData weapon, float damageDealt, Character target)
@@ -43,7 +170,7 @@ public static class ClassXPManager
             int newLevel = playerData.GetClassLevel(activeClass);
 
             // Show XP gain message (occasionally to avoid spam)
-            if (Random.Range(0f, 1f) < 0.15f) // 15% chance
+            if (UnityEngine.Random.Range(0f, 1f) < 0.15f) // 15% chance
             {
                 player.Message(MessageHud.MessageType.TopLeft, $"{activeClass}: +{xpToAward:F0} XP");
             }
@@ -230,57 +357,39 @@ public static class ClassXPManager
     }
 }
 
-// Updated PlayerClassData with exponential XP curve
+// XPSystemManager.cs (snippet) — replace XPCurveHelper internals
 public static class XPCurveHelper
 {
-    // Calculate XP required for a specific level (exponential curve)
+    // Previously: level^2 * 50. Now: read from embedded XP table.
     public static float GetXPRequiredForLevel(int level)
     {
-        if (level <= 1) return 0f;
-
-        // Exponential curve: level^2 * 50
-        // Level 10 = 5,000 XP
-        // Level 20 = 20,000 XP  
-        // Level 30 = 45,000 XP
-        // Level 40 = 80,000 XP
-        // Level 50 = 125,000 XP
-        return level * level * 50f;
+        // We interpret "required for level" as the *delta* inside the level
+        // = total(level) - total(level-1)
+        return XPRequirements.GetDeltaXPForLevel(level);
     }
 
-    // Calculate total XP needed to reach a level (sum of all previous levels)
+    // Now returns the *cumulative* threshold to reach a level, from the JSON table
     public static float GetTotalXPForLevel(int level)
     {
-        float total = 0f;
-        for (int i = 2; i <= level; i++)
-        {
-            total += GetXPRequiredForLevel(i);
-        }
-        return total;
+        return XPRequirements.GetTotalXPForLevel(level);
     }
 
-    // Get level from total XP
     public static int GetLevelFromXP(float totalXP)
     {
-        for (int level = 1; level <= 50; level++)
-        {
-            if (totalXP < GetTotalXPForLevel(level + 1))
-                return level;
-        }
-        return 50; // Max level
+        // Highest level with total <= totalXP
+        int lvl = XPRequirements.GetLevelFromTotalXP(totalXP);
+
+        // Clamp to the table’s max, just like your old behavior capped at 50
+        int max = XPRequirements.GetMaxLevel();
+        return Math.Min(lvl, max);
     }
 
-    // Get XP progress toward next level
     public static (float current, float required) GetXPProgress(float totalXP, int currentLevel)
     {
-        float xpForCurrentLevel = GetTotalXPForLevel(currentLevel);
-        float xpForNextLevel = GetTotalXPForLevel(currentLevel + 1);
-
-        float currentProgress = totalXP - xpForCurrentLevel;
-        float requiredForNext = xpForNextLevel - xpForCurrentLevel;
-
-        return (currentProgress, requiredForNext);
+        return XPRequirements.GetProgress(totalXP, currentLevel);
     }
 }
+
 
 // Enhanced XP tracking patches
 [HarmonyPatch]

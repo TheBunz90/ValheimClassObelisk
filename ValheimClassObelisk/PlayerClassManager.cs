@@ -352,6 +352,38 @@ public static class PlayerClassManager
         GetPlayerData(player);
         Debug.Log($"Reloaded data for player {player.GetPlayerName()}");
     }
+
+    // Resets the specified ACTIVE class to level 0 and 0 XP, keeping it active.
+    // Returns true if reset succeeded; false otherwise.
+    public static bool ResetActiveClassProgress(Player player, string activeClassInternalName)
+    {
+        // Defensive checks
+        var data = GetPlayerData(player);
+        if (player == null || data == null || string.IsNullOrWhiteSpace(activeClassInternalName))
+            return false;
+
+        // Only allow resetting if this class is currently active
+        if (!data.activeClasses.Contains(activeClassInternalName))
+            return false;
+
+        // Ensure dictionaries contain the class key
+        if (!data.classLevels.ContainsKey(activeClassInternalName))
+            data.classLevels[activeClassInternalName] = 0;
+        if (!data.classXP.ContainsKey(activeClassInternalName))
+            data.classXP[activeClassInternalName] = 0f;
+
+        // Perform the reset
+        data.classLevels[activeClassInternalName] = 0;
+        data.classXP[activeClassInternalName] = 0f;
+
+        // Keep it active (no changes needed), but ensure it's present
+        if (!data.activeClasses.Contains(activeClassInternalName))
+            data.activeClasses.Add(activeClassInternalName);
+
+        // NOTE: Persistence: your Save/Load patches will persist this on next save.
+        return true;
+    }
+
 }
 
 // Write AFTER Valheim has written its data

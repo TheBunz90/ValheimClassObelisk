@@ -6,8 +6,8 @@ using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 using System;
-using System.IO;              // NEW: for stream / bytes utilities
-using System.Reflection;      // NEW: for Assembly.GetExecutingAssembly()
+using System.IO;
+using System.Reflection;
 
 namespace ValheimClassObelisk
 {

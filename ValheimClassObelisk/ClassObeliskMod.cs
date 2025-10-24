@@ -142,97 +142,98 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     };
 
     // Class descriptions
+    // Class descriptions
     public static readonly Dictionary<string, string> ClassDescriptions = new Dictionary<string, string>
+{
     {
-        {
-            "Sword Master",
-            "Masters of blade combat with exceptional swordsmanship skills.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Riposte Training: +10% sword damage. After parrying, next sword hit within 2s deals +25% damage\n" +
-            "• Lv20 – Bleeding Edge: 20% chance to apply Bleed (stacks up to 2x)\n" +
-            "• Lv30 – Fencer's Footwork: -15% sword stamina cost; +10% movement speed for 3s after hits\n" +
-            "• Lv40 – Weakpoint Cut: +15% armor penetration; +25% stagger vs. humanoids/undead\n" +
-            "• Lv50 – Dancing Steel: Consecutive hits grant +5% damage (max +25%)\n\n" +
-            "Ideal for players who prefer melee combat with finesse and precision."
-        },
-        {
-            "Archer",
-            "Expert marksmen with unparalleled bow and crossbow mastery.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Steady Draw: -15% stamina drain while drawing; +15% projectile velocity\n" +
-            "• Lv20 – Broadsheads & Bolts: Arrows apply Bleed; crossbow bolts gain +20% knockback\n" +
-            "• Lv30 – Wind Reader: +15% damage beyond 25m; -25% stamina while aiming\n" +
-            "• Lv40 – Trick Shot: 10% chance to pierce additional target (5% for bolts)\n" +
-            "• Lv50 – Eagle Eye: Fully drawn shots deal +20% damage and ignore 15% armor\n\n" +
-            "Perfect for players who enjoy ranged combat and precision shooting."
-        },
-        {
-            "Crusher",
-            "Powerful warriors who excel with heavy blunt weapons.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Bonebreaker: +12% blunt damage; +25% stagger power\n" +
-            "• Lv20 – Shatter: Hitting staggered enemies causes 2m shockwave\n" +
-            "• Lv30 – Rock Solid: -20% attack stamina cost; -20% incoming knockback\n" +
-            "• Lv40 – Tremor: Leap/heavy attacks slow enemies 30% for 2s; increased knockback\n" +
-            "• Lv50 – Colossus: Staggering enemies grants +20% damage and -20% damage taken for 5s\n\n" +
-            "Best suited for players who like devastating area attacks and crowd control."
-        },
-        {
-            "Assassin",
-            "Stealthy fighters who strike from the shadows with deadly precision.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Cutthroat: +12% knife damage; +30% backstab multiplier\n" +
-            "• Lv20 – Hemorrhage: Knife hits apply stacking Bleed; +15% damage vs. low HP enemies\n" +
-            "• Lv30 – Shadowstep: -25% noise radius; +12% crouch speed; -20% sneak stamina\n" +
-            "• Lv40 – Venom Coating: First stealth knife hit applies Poison over 8s\n" +
-            "• Lv50 – Heartseeker: Knife backstabs ignore armor and deal +100% stagger\n\n" +
-            "Great for players who prefer tactical, stealthy gameplay and burst damage."
-        },
-        {
-            "Brawler",
-            "Bare-knuckle brawlers with unmatched unarmed combat skills.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Iron Fist: +15% unarmed damage; +10% attack speed with fists\n" +
-            "• Lv20 – Counterpunch: After perfect block, next punch deals +50% damage and heavy knockback\n" +
-            "• Lv30 – Brawler's Grit: -25% incoming stagger; +1 HP/s regen out of combat\n" +
-            "• Lv40 – Break Guard: Punches deal +50% stagger and can interrupt basic attacks\n" +
-            "• Lv50 – One-Two Combo: Every 3rd consecutive punch deals +100% damage and restores 5 stamina\n\n" +
-            "For players who want to fight with their fists like a true Viking warrior."
-        },
-        {
-            "Mage",
-            "Mystical practitioners of elemental magic and arcane arts.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Arcane Attunement: -10% Eitr cost; +8% magic damage\n" +
-            "• Lv20 – Elemental Synergy: Fire burns +20% longer; Frost slows +20% longer; DoTs +15% damage\n" +
-            "• Lv30 – Mana Weave: +20% Eitr regen rate and +30 max Eitr\n" +
-            "• Lv40 – Runic Ward: Above 50% Eitr: -12% damage taken. Below 50%: +12% magic damage\n" +
-            "• Lv50 – Arcane Overload: Every 5th spell within 10s echoes for 50% damage\n\n" +
-            "Ideal for players who want to master Valheim's magic system and elemental combat."
-        },
-        {
-            "Lancer",
-            "Spear specialists with superior reach and polearm technique.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Reach Advantage: +10% damage; -15% thrust stamina cost\n" +
-            "• Lv20 – Skewer: 25% chance to apply Bleed on thrusts; atgeir sweeps gain +20% stagger\n" +
-            "• Lv30 – Linebreaker: Thrown spears have +20% velocity, -20% gravity; +10% vs. flying enemies\n" +
-            "• Lv40 – Drill: Consecutive hits grant +5% armor penetration (stacks 5 times)\n" +
-            "• Lv50 – Impale: First hit vs. unalerted targets deals +30% damage and massive stagger\n\n" +
-            "Perfect for players who like versatile polearm combat and tactical positioning."
-        },
-        {
-            "Bulwark",
-            "Defensive specialists who excel at protection and shield mastery.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Shield Wall: +15% Block Power; -15% block stamina cost\n" +
-            "• Lv20 – Perfect Guard: +20% parry bonus and +100ms parry window\n" +
-            "• Lv30 – Towering Presence: -50% movement penalty while blocking; tower shields gain +10% Block Power\n" +
-            "• Lv40 – Brace for Impact: After blocking 200+ damage in 5s, gain Fortified for 6s\n" +
-            "• Lv50 – Unbreakable: Guard cannot be broken above 20 stamina; blocks restore 3 stamina\n\n" +
-            "Best for players who want to be the party's shield and ultimate protector."
-        }
-    };
+        "Sword Master",
+        "Masters of blade combat with exceptional swordsmanship skills.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Riposte Training: +10% sword damage. After you parry, next sword hit within 2s deals +25% damage\n" +
+        "• Lv20 – Dancing Steel: 15% increased attack speed with swords\n" +
+        "• Lv30 – Fencer's Footwork: -15% sword stamina cost; +10% movement speed for 3s after hits\n" +
+        "• Lv40 – Weakpoint Cut: +15% armor penetration; +25% stagger vs. humanoids/undead\n" +
+        "• Lv50 – Counter Attacker: +50% Parry Bonus, +40 Block Power with all swords\n\n" +
+        "Ideal for players who prefer melee combat with finesse and precision."
+    },
+    {
+        "Archer",
+        "Expert marksmen with unparalleled bow and crossbow mastery.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Steady Draw: -15% stamina drain while drawing\n" +
+        "• Lv20 – Arrow Slinger: Arrows give a buff on hit that reduces draw time by 50% for 10 seconds\n" +
+        "• Lv30 – Wind Reader: +15% damage beyond 25m; -25% stamina while aiming\n" +
+        "• Lv40 – Magic Shot: 50% chance to not consume an arrow on attack\n" +
+        "• Lv50 – Adrenaline Rush: Consecutive hits return 5% stamina\n\n" +
+        "Perfect for players who enjoy ranged combat and precision shooting."
+    },
+    {
+        "Crusher",
+        "Powerful warriors who excel with heavy blunt weapons.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Bonebreaker: +15% blunt damage; +25% stagger power\n" +
+        "• Lv20 – Cold Steel: Melee attacks imbued with frost dealing +20% weapon damage as frost\n" +
+        "• Lv30 – Thundering Blows: Heavy melee attacks generate 2m shockwave of lightning damage\n" +
+        "• Lv40 – Might of the Earth: -30% stamina drain on attacks from wielding heavy weapons\n" +
+        "• Lv50 – Colossus: Ignore movement speed penalties from armor weight\n\n" +
+        "Best suited for players who like devastating area attacks and crowd control."
+    },
+    {
+        "Assassin",
+        "Stealthy fighters who strike from the shadows with deadly precision.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Cutthroat: +15% knife damage; +30% backstab multiplier\n" +
+        "• Lv20 – Venom Coating: Knife hits apply stacking Poison (up to 3 stacks) based on skill level\n" +
+        "• Lv30 – Envenomous: Poisons apply 15% movement speed slow per stack\n" +
+        "• Lv40 – Assassination: First knife hit from stealth deals +100% damage\n" +
+        "• Lv50 – Twist the Knife: +25% damage to poisoned targets; poisoned enemies deal -10% damage\n\n" +
+        "Great for players who prefer tactical, stealthy gameplay and damage over time."
+    },
+    {
+        "Brawler",
+        "Bare-knuckle brawlers with unmatched unarmed combat skills.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – One-Two Combo: Every 3rd consecutive punch deals +100% damage and restores 5% stamina\n" +
+        "• Lv20 – Break Guard: Fist attacks deal +50% stagger damage\n" +
+        "• Lv30 – Iron Fist: Fist attacks deal extra damage equal to 10% max health; +20% attack speed\n" +
+        "• Lv40 – Tough: When not wearing chest piece, gain +25% physical damage resistance\n" +
+        "• Lv50 – Rage: After unblocked damage, enter 5s rage: +50% attack speed, +50% damage resist, +25% fist damage (15s cooldown)\n\n" +
+        "For players who want to fight with their fists like a true Viking warrior."
+    },
+    {
+        "Mage",
+        "Mystical practitioners of elemental magic and arcane arts.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Eitr Weave: +25% Eitr regeneration\n" +
+        "• Lv20 – Icy Hot: +25% Fire and Frost damage\n" +
+        "• Lv30 – Hungry For Knowledge: +25% more Eitr from food sources\n" +
+        "• Lv40 – Frost Armor: Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity\n" +
+        "• Lv50 – Immolation Aura: Dealing 500 fire damage triggers Immolation Aura (30s): +25% speed, 15 fire DPS to nearby enemies\n\n" +
+        "Ideal for players who want to master Valheim's magic system and elemental combat."
+    },
+    {
+        "Lancer",
+        "Spear specialists with superior reach and polearm technique.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Reach Advantage: +10% damage; -15% thrust stamina cost\n" +
+        "• Lv20 – Drill: Consecutive hits grant +5% armor penetration (stacks 5 times, refreshes on hit)\n" +
+        "• Lv30 – Impale: First hit vs. unalerted targets deals +30% damage and +100% stagger\n" +
+        "• Lv40 – Knightly: Blocking charges spear; first attack after block has +100% stagger damage\n" +
+        "• Lv50 – Opportunist: Attacks against staggered targets deal +50% damage\n\n" +
+        "Perfect for players who like versatile polearm combat and tactical positioning."
+    },
+    {
+        "Bulwark",
+        "Defensive specialists who excel at protection and shield mastery.\n\n" +
+        "Passive Perks by Level:\n" +
+        "• Lv10 – Shield Wall: +15% Block Power; -15% block stamina cost\n" +
+        "• Lv20 – Perfect Guard: 260° block radius; blocked attacks restore 5 stamina\n" +
+        "• Lv30 – Towering Presence: -50% movement penalty while blocking; tower shields gain +10% Block Power\n" +
+        "• Lv40 – Thorns: Blocked attacks return 50% damage with increased stagger\n" +
+        "• Lv50 – Reverb!: After blocking 200 damage, release shockwave dealing 200 blunt damage in 2m (10s cooldown)\n\n" +
+        "Best for players who want to be the party's shield and ultimate protector."
+    }
+};
 
     private void Start()
     {

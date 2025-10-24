@@ -387,8 +387,14 @@ public static class AssassinPerkManager
     {
         try
         {
+            // TODO: We need to patch this so it doesn't throw errors for eating puke berries.
+            Player localPlayer = Player.m_localPlayer;
+            var playerData = PlayerClassManager.GetPlayerData(localPlayer);
+            if (!playerData.IsClassActive("Assassin")) return;
+
             // Skip applying buffs if it's just poison ticking.
             if (hit.m_damage.m_poison > 0) return;
+
             // If Player is being damaged check for and apply damage reduction from poison.
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player)
             {
@@ -409,7 +415,6 @@ public static class AssassinPerkManager
                 var weapon = player.GetCurrentWeapon();
                 if (!ClassCombatManager.IsKnifeWeapon(weapon)) return;
 
-                var playerData = PlayerClassManager.GetPlayerData(player);
                 if (playerData == null || !playerData.IsClassActive(PlayerClass.Assassin)) return;
 
                 float multiplier = 0f;

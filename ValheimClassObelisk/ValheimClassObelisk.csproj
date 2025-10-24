@@ -128,5 +128,8 @@
     <EmbeddedResource Include="Resources\Icons\frost_armor_128.rgba" />
     <EmbeddedResource Include="Resources\Icons\immolation_aura_128.rgba" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\eitrweave_fist.rgba" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

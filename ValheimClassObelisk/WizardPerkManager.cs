@@ -12,11 +12,11 @@ namespace ValheimClassObelisk
     public static class WizardPerkManager
     {
         // Initialize Constants
-        private static float EITR_WEAVE_REGEN = 0.25f;
         private static float ICY_HOT = 0.25f;
         private static float ESSENCE_LEECH = 0.05f;
         private static float AURA_DURATION = 30.0f;
         private static float FROST_ARMOR = 0.25f;
+        private static float EITR_WEAVE_PASSIVE = 0.50f; // 50% eitr regen bonus for level 10
 
         // Initialize trackers
         private static float _frostDamage = 0f;
@@ -25,10 +25,12 @@ namespace ValheimClassObelisk
         // Icon Resources
         private const string FROST_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.frost_armor_128.rgba";
         private const string FIRE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.immolation_aura_128.rgba";
+        private const string EITR_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.eitrweave_fist.rgba";
 
         // Sprites
         private static Sprite _cachedFrostIcon;
         private static Sprite _cachedFireIcon;
+        private static Sprite _cachedEitrIcon;
 
         #region Wizard Service Classes
         public static bool HasWizardPerk(Player player, int requiredLevel)
@@ -183,7 +185,75 @@ namespace ValheimClassObelisk
             }
             catch (Exception ex)
             {
-                Jotunn.Logger.LogError($"[Wizard] Failed to load Frost icon: {ex}");
+                Jotunn.Logger.LogError($"[Wizard] Failed to load Fire icon: {ex}");
+                return null;
+            }
+        }
+
+        private static Sprite GetEitrIcon()
+        {
+            if (_cachedEitrIcon != null) return _cachedEitrIcon;
+
+            try
+            {
+                var asm = Assembly.GetExecutingAssembly();
+                using (Stream s = asm.GetManifestResourceStream(EITR_ICON_RESOURCE))
+                {
+                    if (s == null)
+                    {
+                        Jotunn.Logger.LogWarning($"[Wizard] Embedded icon not found: {EITR_ICON_RESOURCE}");
+                        return null;
+                    }
+
+                    // Read header (width, height)
+                    byte[] header = new byte[8];
+                    int read = s.Read(header, 0, 8);
+                    if (read != 8)
+                    {
+                        Jotunn.Logger.LogWarning("[Wizard] Eitr icon header corrupt.");
+                        return null;
+                    }
+
+                    // little-endian UInt32 width/height
+                    int width = BitConverter.ToInt32(header, 0);
+                    int height = BitConverter.ToInt32(header, 4);
+                    int expectedBytes = width * height * 4;
+
+                    // Read raw RGBA32 pixels
+                    byte[] pixels = new byte[expectedBytes];
+                    int off = 0;
+                    while (off < expectedBytes)
+                    {
+                        int n = s.Read(pixels, off, expectedBytes - off);
+                        if (n <= 0) break;
+                        off += n;
+                    }
+                    if (off != expectedBytes)
+                    {
+                        Jotunn.Logger.LogWarning($"[Wizard] Eitr icon pixel data incomplete ({off}/{expectedBytes}).");
+                        return null;
+                    }
+
+                    // Create Texture2D and upload raw data (no ImageConversion needed)
+                    Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                    tex.wrapMode = TextureWrapMode.Clamp;
+                    tex.filterMode = FilterMode.Bilinear;
+                    tex.LoadRawTextureData(pixels);
+                    tex.Apply(false, false);
+
+                    // Create UI sprite
+                    _cachedEitrIcon = Sprite.Create(
+                        tex,
+                        new Rect(0, 0, width, height),
+                        new Vector2(0.5f, 0.5f),
+                        100f // pixels per unit; fine for inventory/status icons
+                    );
+                    return _cachedEitrIcon;
+                }
+            }
+            catch (Exception ex)
+            {
+                Jotunn.Logger.LogError($"[Wizard] Failed to load Eitr icon: {ex}");
                 return null;
             }
         }
@@ -212,27 +282,26 @@ namespace ValheimClassObelisk
         public static void ApplyImmolationAura(Player player)
         {
             var seman = player.GetSEMan();
+
             if (seman == null) return;
 
-            string statusName = "SE_ImmolationAura";
-            int statusHash = statusName.GetStableHashCode();
-
-            seman.RemoveStatusEffect(statusHash, quiet: true);
+            // Remove existing effect to refresh
+            seman.RemoveStatusEffect("SE_ImmolationAura".GetStableHashCode(), quiet: true);
 
             var statusEffect = ScriptableObject.CreateInstance<SE_ImmolationAura>();
-            statusEffect.name = statusName;
+            statusEffect.name = "SE_ImmolationAura";
             statusEffect.m_name = "Immolation Aura";
-            statusEffect.m_tooltip = $"+25% movespeed.\nDeals fire damage to nearby enemies";
+            statusEffect.m_tooltip = "+25% Speed, Damage nearby enemies with fire";
             statusEffect.m_icon = GetFireIcon();
             statusEffect.m_ttl = AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
+            Logger.LogInfo($"Immolation Aura Applied");
             _fireDamage = 0;
         }
 
-        public static HitData ModDamage(HitData hit, float mod)
+        public static HitData ApplyDamageMod(HitData hit, float mod)
         {
-            // Multiplies all damage types by 'mod'
             if (hit == null || mod == 0f) return hit;
             hit.m_damage.m_damage *= mod;
             hit.m_damage.m_slash *= mod;
@@ -255,7 +324,7 @@ namespace ValheimClassObelisk
 
             // Calculate 5% of the total damage dealt
             float totalDamage = hit.GetTotalDamage();
-            float eitrReward = totalDamage * 0.05f;
+            float eitrReward = totalDamage * ESSENCE_LEECH;
 
             // Only award eitr if there's actual damage and reward > 0
             if (eitrReward > 0f)
@@ -264,6 +333,46 @@ namespace ValheimClassObelisk
                 player.AddEitr(eitrReward);
             }
 
+        }
+
+        // Apply Eitr Weave Passive buff for level 10+ wizards
+        public static void ApplyEitrWeavePassive(Player player)
+        {
+            if (player == null) return;
+
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            string passiveBuffName = "SE_EitrWeavePassive";
+            bool hasPassiveBuff = seman.HaveStatusEffect(passiveBuffName.GetStableHashCode());
+
+            // Check if player is level 10+ wizard
+            if (HasWizardPerk(player, 10))
+            {
+                // Apply the passive buff if not already present
+                if (!hasPassiveBuff)
+                {
+                    var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
+                    statusEffect.name = passiveBuffName;
+                    statusEffect.m_name = "Eitr Weave";
+                    statusEffect.m_tooltip = "+50% Eitr Regeneration";
+                    statusEffect.m_eitrRegenMultiplier = 1f + EITR_WEAVE_PASSIVE;
+                    statusEffect.m_icon = GetEitrIcon();
+                    statusEffect.m_ttl = 0f; // Permanent while conditions are met
+
+                    seman.AddStatusEffect(statusEffect, resetTime: false);
+                    Logger.LogInfo($"Applied Eitr Weave passive to {player.GetPlayerName()} (Level 10+ Wizard)");
+                }
+            }
+            else
+            {
+                // Remove the buff if player no longer meets requirements
+                if (hasPassiveBuff)
+                {
+                    seman.RemoveStatusEffect(passiveBuffName.GetStableHashCode(), quiet: true);
+                    Logger.LogInfo($"Removed Eitr Weave passive from {player.GetPlayerName()} (No longer Level 10+ Wizard)");
+                }
+            }
         }
         #endregion
 
@@ -343,7 +452,8 @@ namespace ValheimClassObelisk
                 // Check If player has buff.
                 SEMan seman = __instance.GetSEMan();
                 string statusName = "SE_FrostArmor";
-                if (seman.HaveStatusEffect(statusName.GetStableHashCode())) {
+                if (seman.HaveStatusEffect(statusName.GetStableHashCode()))
+                {
                     // player has the buff
                     // Multiply total armor by (1 + Percent).
                     // Example: base armor 60, Percent = 0.25 => 60 * 1.25 = 75
@@ -355,6 +465,54 @@ namespace ValheimClassObelisk
             {
                 Logger.LogError($"Error when trying to apply frost armor bonus: {ex.Message}");
             }
+        }
+
+        // Summary
+        // Apply wizard buffs when player levels up - patch the XP system's level up logic
+        [HarmonyPatch(typeof(ClassXPManager), "AwardDamageXP")]
+        [HarmonyPostfix]
+        public static void Wizard_LevelUp_Postfix(Player player, ItemDrop.ItemData weapon, float damageDealt, Character target)
+        {
+            try
+            {
+                // Apply all wizard passive buffs after potential level up
+                ApplyAllWizardPassiveBuffs(player);
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Wizard_LevelUp_Postfix: {ex.Message}");
+            }
+        }
+
+        // Summary
+        // Apply wizard buffs when player spawns
+        [HarmonyPatch(typeof(Player), "OnSpawned")]
+        [HarmonyPostfix]
+        public static void Wizard_PlayerSpawn_Postfix(Player __instance)
+        {
+            try
+            {
+                // Apply all wizard passive buffs on spawn
+                ApplyAllWizardPassiveBuffs(__instance);
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Wizard_PlayerSpawn_Postfix: {ex.Message}");
+            }
+        }
+
+        // Summary
+        // Method to apply all wizard passive buffs based on current level
+        private static void ApplyAllWizardPassiveBuffs(Player player)
+        {
+            if (player == null) return;
+
+            // Apply Eitr Weave passive (level 10+)
+            ApplyEitrWeavePassive(player);
+
+            // Future passive buffs can be added here for other levels
+            // For example:
+            // if (HasWizardPerk(player, 20)) ApplyAnotherPassiveBuff(player);
         }
         #endregion
 
@@ -408,39 +566,5 @@ namespace ValheimClassObelisk
                 }
             }
         }
-
-        #region Test Commands
-        [HarmonyPatch(typeof(Terminal), "InitTerminal")]
-        public static class WizardTestCommands
-        {
-            [HarmonyPostfix]
-            public static void InitTerminal_Postfix()
-            {
-                new Terminal.ConsoleCommand("testfoods", "Check to see Eitr Values on foods.",
-                    delegate (Terminal.ConsoleEventArgs args)
-                    {
-                        var objectDB = ObjectDB.instance;
-                        if (objectDB == null) return;
-
-                        foreach (var itemPrefab in objectDB.m_items)
-                        {
-                            var itemDrop = itemPrefab.GetComponent<ItemDrop>();
-                            if (itemDrop?.m_itemData?.m_shared == null) continue;
-
-                            var shared = itemDrop.m_itemData.m_shared;
-
-                            // Check if this is a food item with eitr
-                            if (shared.m_foodEitr > 0)
-                            {
-                                string itemName = shared.m_name;
-
-                                Logger.LogInfo($"Eitr value for {itemName}: {shared.m_foodEitr}");
-                            }
-                        }
-                    }
-                );
-            }
-        }
-        #endregion
     }
 }

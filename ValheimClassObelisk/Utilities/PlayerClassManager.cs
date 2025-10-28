@@ -465,3 +465,24 @@ public static class Player_Load_Patch
         }
     }
 }
+
+[HarmonyPatch(typeof(Terminal), "InitTerminal")]
+public static class PCMTestCommands
+{
+    [HarmonyPostfix]
+    public static void InitTerminal_Postfix()
+    {
+        
+        new Terminal.ConsoleCommand("resetclass", "reset the active class to level 0",
+            delegate (Terminal.ConsoleEventArgs args)
+            {
+                Player player = Player.m_localPlayer;
+                if (player != null)
+                {
+                    string activeClass = PlayerClassManager.GetActiveClassesString(player);
+                    PlayerClassManager.ResetActiveClassProgress(player, activeClass);
+                }
+            }
+        );
+    }
+}

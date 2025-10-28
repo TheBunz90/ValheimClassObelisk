@@ -55,6 +55,17 @@ namespace ValheimClassObelisk
         // Cache the loaded Rage icon so we don't recreate it repeatedly
         private static Sprite _cachedRageIcon;
 
+        #region Brawler Services
+        public static bool HasBrawlerPerk(Player player, int requiredLevel)
+        {
+            if (player == null) return false;
+
+            var playerData = PlayerClassManager.GetPlayerData(player);
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.Brawler)) return false;
+
+            return playerData.GetClassLevel(PlayerClass.Brawler) >= requiredLevel;
+        }
+
         // ------------------------------------------------------------
         // Loads and returns the Rage icon Sprite from the embedded PNG
         // ------------------------------------------------------------
@@ -124,17 +135,6 @@ namespace ValheimClassObelisk
                 Jotunn.Logger.LogError($"[Brawler] Failed to load Rage icon: {ex}");
                 return null;
             }
-        }
-
-        #region Brawler Services
-        public static bool HasBrawlerPerk(Player player, int requiredLevel)
-        {
-            if (player == null) return false;
-
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Brawler)) return false;
-
-            return playerData.GetClassLevel(PlayerClass.Brawler) >= requiredLevel;
         }
 
         public static float IronFistDamage(Player player)

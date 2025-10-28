@@ -38,9 +38,9 @@ namespace ValheimClassObelisk
             if (player == null) return false;
 
             var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Mage)) return false;
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.Wizard)) return false;
 
-            return playerData.GetClassLevel(PlayerClass.Mage) >= requiredLevel;
+            return playerData.GetClassLevel(PlayerClass.Wizard) >= requiredLevel;
         }
 
         public static HitData ApplyIcyHot(HitData hit)
@@ -418,7 +418,7 @@ namespace ValheimClassObelisk
                 bool isPlayer = attacker is Player;
                 Player player = attacker as Player;
 
-                if (isPlayer)
+                if (isPlayer && ClassCombatManager.IsMagicWeapon(player.GetCurrentWeapon()))
                 {
                     if (HasWizardPerk(player, 30)) ApplyEssenceLeech(player, hit);
                     if (HasWizardPerk(player, 40)) _frostDamage += hit.m_damage.m_frost;

@@ -335,7 +335,7 @@ public static class ClassXPManager
                 return ClassCombatManager.IsKnifeWeapon(weapon);
             case "Brawler":
                 return ClassCombatManager.IsUnarmedAttack(weapon);
-            case "Mage":
+            case "Wizard":
                 return ClassCombatManager.IsMagicWeapon(weapon);
             case "Lancer":
                 return ClassCombatManager.IsSpearWeapon(weapon);

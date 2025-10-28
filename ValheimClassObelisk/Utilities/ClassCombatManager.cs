@@ -45,8 +45,7 @@ public static class ClassCombatManager
 
     public static bool IsSpearWeapon(ItemDrop.ItemData weapon)
     {
-        return weapon?.m_shared?.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon &&
-               (weapon.m_shared.m_name?.ToLower().Contains("spear") == true ||
+        return (weapon.m_shared.m_name?.ToLower().Contains("spear") == true ||
                 weapon.m_shared.m_name?.ToLower().Contains("atgeir") == true ||
                 weapon.m_shared.m_name?.ToLower().Contains("halberd") == true);
     }
@@ -110,8 +109,8 @@ public static class ClassCombatManager
             case "Brawler":
                 return GetBrawlerDamageBonus(classLevel, weapon);
 
-            case "Mage":
-                return GetMageDamageBonus(classLevel, weapon);
+            case "Wizard":
+                return GetWizardDamageBonus(classLevel, weapon);
 
             case "Lancer":
                 return GetLancerDamageBonus(classLevel, weapon);
@@ -203,7 +202,7 @@ public static class ClassCombatManager
         return 1f + bonus;
     }
 
-    private static float GetMageDamageBonus(int level, ItemDrop.ItemData weapon)
+    private static float GetWizardDamageBonus(int level, ItemDrop.ItemData weapon)
     {
         if (!IsMagicWeapon(weapon)) return 1f;
 
@@ -279,8 +278,8 @@ public static class ClassCombatManager
             case "Brawler":
                 return GetBrawlerDamageBonus(classLevel, weapon);
 
-            case "Mage":
-                return GetMageDamageBonus(classLevel, weapon);
+            case "Wizard":
+                return GetWizardDamageBonus(classLevel, weapon);
 
             case "Lancer":
                 return GetLancerDamageBonus(classLevel, weapon);

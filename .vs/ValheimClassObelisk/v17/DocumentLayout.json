@@ -3,24 +3,20 @@
   "WorkspaceRootPath": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|c:\\users\\thebu\\projects\\valheim mods\\valheimclassobelisk\\valheimclassobelisk\\wizardperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\wizardperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|c:\\users\\thebu\\projects\\valheim mods\\valheimclassobelisk\\valheimclassobelisk\\perkmanagers\\lancerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\perkmanagers\\lancerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\playerclassmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\playerclassmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\perkmanagers\\wizardperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\perkmanagers\\wizardperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\assassinperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\assassinperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\perkmanagers\\archerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\perkmanagers\\archerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\archerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\archerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\classobeliskmod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\classobeliskmod.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\valheimclassobelisk\\perkmanagers\\brawlerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{47548601-20D5-471A-B126-8B11061644ED}|ValheimClassObelisk\\ValheimClassObelisk.csproj|solutionrelative:valheimclassobelisk\\perkmanagers\\brawlerperkmanager.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -30,7 +26,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 5,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Bookmark",
@@ -38,65 +34,52 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "ArcherPerkManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ArcherPerkManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\ArcherPerkManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ArcherPerkManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\ArcherPerkManager.cs",
-              "ViewState": "AgIAAAsAAAAAAAAAAAAYwBwAAAAjAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-20T00:59:43.081Z"
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 2,
-              "Title": "AssassinPerkManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\AssassinPerkManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\AssassinPerkManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\AssassinPerkManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\AssassinPerkManager.cs",
-              "ViewState": "AgIAAJ8BAAAAAAAAAAAiwKABAAAAAAAAAAAAAA==",
+              "Title": "ArcherPerkManager.cs",
+              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\ArcherPerkManager.cs",
+              "RelativeDocumentMoniker": "ValheimClassObelisk\\PerkManagers\\ArcherPerkManager.cs",
+              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\ArcherPerkManager.cs",
+              "RelativeToolTip": "ValheimClassObelisk\\PerkManagers\\ArcherPerkManager.cs",
+              "ViewState": "AgIAAMkBAAAAAAAAAAAswAECAAAEAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-19T21:15:57.283Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 4,
-              "Title": "ClassObeliskMod.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassObeliskMod.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\ClassObeliskMod.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\ClassObeliskMod.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\ClassObeliskMod.cs",
-              "ViewState": "AgIAAMoAAAAAAAAAAAAAwOsAAAACAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-18T23:48:35.803Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "PlayerClassManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PlayerClassManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\PlayerClassManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PlayerClassManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\PlayerClassManager.cs",
-              "ViewState": "AgIAACQAAAAAAAAAAAAowAAAAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-18T23:48:17.99Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-10-25T19:03:55.104Z"
             },
             {
               "$type": "Document",
               "DocumentIndex": 0,
-              "Title": "WizardPerkManager.cs",
-              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\WizardPerkManager.cs",
-              "RelativeDocumentMoniker": "ValheimClassObelisk\\WizardPerkManager.cs",
-              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\WizardPerkManager.cs",
-              "RelativeToolTip": "ValheimClassObelisk\\WizardPerkManager.cs",
-              "ViewState": "AgIAAAYAAAAAAAAAAAAAAEYBAAA6AAAAAAAAAA==",
+              "Title": "LancerPerkManager.cs",
+              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\LancerPerkManager.cs",
+              "RelativeDocumentMoniker": "ValheimClassObelisk\\PerkManagers\\LancerPerkManager.cs",
+              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\LancerPerkManager.cs",
+              "RelativeToolTip": "ValheimClassObelisk\\PerkManagers\\LancerPerkManager.cs",
+              "ViewState": "AgIAAAQBAAAAAAAAAAAuwCUBAABUAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-10-04T02:09:09.713Z",
+              "WhenOpened": "2025-10-24T18:22:59.576Z",
               "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "BrawlerPerkManager.cs",
+              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\BrawlerPerkManager.cs",
+              "RelativeDocumentMoniker": "ValheimClassObelisk\\PerkManagers\\BrawlerPerkManager.cs",
+              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\BrawlerPerkManager.cs",
+              "RelativeToolTip": "ValheimClassObelisk\\PerkManagers\\BrawlerPerkManager.cs",
+              "ViewState": "AgIAAJYAAAAAAAAAAAAYwIkAAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-24T16:35:11.179Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "WizardPerkManager.cs",
+              "DocumentMoniker": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\WizardPerkManager.cs",
+              "RelativeDocumentMoniker": "ValheimClassObelisk\\PerkManagers\\WizardPerkManager.cs",
+              "ToolTip": "C:\\Users\\thebu\\Projects\\Valheim Mods\\ValheimClassObelisk\\ValheimClassObelisk\\PerkManagers\\WizardPerkManager.cs",
+              "RelativeToolTip": "ValheimClassObelisk\\PerkManagers\\WizardPerkManager.cs",
+              "ViewState": "AgIAAE0BAAAAAAAAAAAswFIBAAAbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2025-10-24T16:30:52.784Z"
             }
           ]
         }

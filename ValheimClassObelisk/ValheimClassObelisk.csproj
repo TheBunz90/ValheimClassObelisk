@@ -102,24 +102,25 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AnimationSpeedManager.cs" />
-    <Compile Include="ApiDiscoveryCommands.cs" />
-    <Compile Include="ArcherPerkManager.cs" />
-    <Compile Include="AssassinPerkManager.cs" />
-    <Compile Include="BowTestingCommands.cs" />
-    <Compile Include="BrawlerPerkManager.cs" />
-    <Compile Include="ClassCombatManager.cs" />
-    <Compile Include="ClassDamageBonusSystem.cs" />
+    <Compile Include="Utilities\AnimationSpeedManager.cs" />
+    <Compile Include="TestingResources\ApiDiscoveryCommands.cs" />
+    <Compile Include="PerkManagers\ArcherPerkManager.cs" />
+    <Compile Include="PerkManagers\AssassinPerkManager.cs" />
+    <Compile Include="TestingResources\BowTestingCommands.cs" />
+    <Compile Include="PerkManagers\BrawlerPerkManager.cs" />
+    <Compile Include="Utilities\ClassCombatManager.cs" />
+    <Compile Include="Utilities\ClassDamageBonusSystem.cs" />
     <Compile Include="ClassObeliskMod.cs" />
-    <Compile Include="CrusherPerkManager.cs" />
-    <Compile Include="PlayerClass.cs" />
-    <Compile Include="PlayerClassManager.cs" />
+    <Compile Include="PerkManagers\CrusherPerkManager.cs" />
+    <Compile Include="PerkManagers\LancerPerkManager.cs" />
+    <Compile Include="Utilities\PlayerClass.cs" />
+    <Compile Include="Utilities\PlayerClassManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="SEUtils.cs" />
-    <Compile Include="SwordMasterPerkManager.cs" />
-    <Compile Include="ValheimDebugUtility.cs" />
-    <Compile Include="WizardPerkManager.cs" />
-    <Compile Include="XPSystemManager.cs" />
+    <Compile Include="Utilities\SEUtils.cs" />
+    <Compile Include="PerkManagers\SwordMasterPerkManager.cs" />
+    <Compile Include="TestingResources\ValheimDebugUtility.cs" />
+    <Compile Include="PerkManagers\WizardPerkManager.cs" />
+    <Compile Include="Utilities\XPSystemManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\rage_viking_128.rgba" />
@@ -130,6 +131,9 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\eitrweave_fist.rgba" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\SpearStorm.rgba" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

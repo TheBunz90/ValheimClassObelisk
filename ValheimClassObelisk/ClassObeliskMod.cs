@@ -136,7 +136,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Crusher",
         "Assassin",
         "Brawler",
-        "Mage",
+        "Wizard",
         "Lancer",
         "Bulwark"
     };
@@ -201,13 +201,13 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "For players who want to fight with their fists like a true Viking warrior."
     },
     {
-        "Mage",
+        "Wizard",
         "Mystical practitioners of elemental magic and arcane arts.\n\n" +
         "Passive Perks by Level:\n" +
-        "• Lv10 – Eitr Weave: +25% Eitr regeneration\n" +
-        "• Lv20 – Icy Hot: +25% Fire and Frost damage\n" +
-        "• Lv30 – Hungry For Knowledge: +25% more Eitr from food sources\n" +
-        "• Lv40 – Frost Armor: Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity\n" +
+        "• Lv10 – Eitr Weave: +50% Eitr regeneration.\n" +
+        "• Lv20 – Icy Hot: +25% Fire and Frost damage.\n" +
+        "• Lv30 – Essence Leech: Gain Eitr equal to 5% of damage dealt from Magical Attacks.\n" +
+        "• Lv40 – Frost Armor: Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity.\n" +
         "• Lv50 – Immolation Aura: Dealing 500 fire damage triggers Immolation Aura (30s): +25% speed, 15 fire DPS to nearby enemies\n\n" +
         "Ideal for players who want to master Valheim's magic system and elemental combat."
     },

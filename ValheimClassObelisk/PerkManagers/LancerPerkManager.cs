@@ -125,7 +125,6 @@ namespace ValheimClassObelisk
 
             // Linear scaling from 1x to 3x damage based on distance
             float result = 1f + (distanceRatio * (IMPRESSIVE_THROW_MAX_MULTIPLIER - 1f));
-            Logger.LogInfo($"Damage Modifier from Thrown attack: {result}");
 
             return result;
         }
@@ -173,8 +172,6 @@ namespace ValheimClassObelisk
 
             player.transform.position = teleportPosition;
             player.GetComponent<Rigidbody>().velocity = Vector3.zero;
-
-            Logger.LogInfo($"[Lancer] {player.GetPlayerName()} teleported to target via Spear of Relocation");
         }
         #endregion
 
@@ -284,15 +281,9 @@ namespace ValheimClassObelisk
                         if (seman != null && seman.HaveStatusEffect(statusName))
                         {
                             SE_SpearStorm spearStorm = (SE_SpearStorm) seman.GetStatusEffect(statusName);
-                            Logger.LogInfo($"Got Status Effect: {spearStorm.m_name}");
-                            Logger.LogInfo($"Spear Storm Has {spearStorm.currentStacks} stacks.");
                             var stormStacks = spearStorm ? spearStorm.currentStacks : 0f;
-                            Logger.LogInfo($"Storm Stacks: {stormStacks}");
                             float lightningMod = stormStacks * SPEAR_STORM_DAMAGE_PER_STACK;
-                            Logger.LogInfo($"Lightning Mod: {lightningMod}");
-                            Logger.LogInfo($"Original Damage: {hit.m_damage.m_damage}");
                             hit.m_damage.m_lightning = hit.m_damage.GetTotalDamage() * lightningMod;
-                            Logger.LogInfo($"Adding {hit.m_damage.m_lightning} Lightning Damage.");
                         }
                     }
 

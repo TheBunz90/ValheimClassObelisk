@@ -330,7 +330,6 @@ namespace ValheimClassObelisk
                 {
                     ironFistIsActive = false;
                     AnimationSpeedManager.Clear(player, IRON_FIST_AS_KEY);
-                    Logger.LogInfo("[Brawler] Iron Fist AS: DISABLED.");
                 }
             }
             catch (System.Exception ex)
@@ -360,7 +359,6 @@ namespace ValheimClassObelisk
                 {
                     ironFistIsActive = true;
                     AnimationSpeedManager.Set(player, IRON_FIST_AS_KEY, IRON_FIST_SPEED);
-                    Logger.LogInfo("[Brawler] Iron Fist AS: ENABLED.");
                 }
             }
             catch (System.Exception ex)
@@ -391,10 +389,6 @@ namespace ValheimClassObelisk
             }
         }
 
-        #endregion
-
-        #region Terminal Commands
-        // TODO: Add testing commands if needed.
         #endregion
     }
 }

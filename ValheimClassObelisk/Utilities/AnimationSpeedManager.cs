@@ -114,7 +114,6 @@ namespace ValheimClassObelisk
             if (c == null || string.IsNullOrEmpty(key)) return;
             if (multiplier <= 0f)
             {
-                Logger.LogInfo("Setting attack speed buffer");
                 multiplier = 0.0001f; // avoid zero/negatives
             }
 
@@ -127,11 +126,8 @@ namespace ValheimClassObelisk
         /// </summary>
         public static void Clear(Character c, string key)
         {
-            Logger.LogInfo($"Clearing {key} for {c.m_name}");
             if (c == null || string.IsNullOrEmpty(key)) return;
             _perChar.TryGetValue(c, out var myBag);
-            if (myBag != null) Logger.LogInfo("Found my bag");
-            else Logger.LogInfo("Did not find my bag");
             if (_perChar.TryGetValue(c, out var bag))
                 bag.Remove(key);
         }

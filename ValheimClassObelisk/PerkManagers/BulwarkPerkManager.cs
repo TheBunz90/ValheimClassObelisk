@@ -33,17 +33,9 @@ namespace ValheimClassObelisk
         private static MethodInfo _getCurrentBlockerMethod;
 
         // Icon Resources (you'll need to add these to your project)
-        //private const string SHIELD_WALL_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.ShieldWall.rgba";
-        //private const string PERFECT_GUARD_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.PerfectGuard.rgba";
-        //private const string TOWERING_PRESENCE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.ToweringPresence.rgba";
-        //private const string THORNS_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.Thorns.rgba";
         private const string REVERB_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.Reverb_sprite.rgba";
 
         // Sprites
-        //private static Sprite _cachedShieldWallIcon;
-        //private static Sprite _cachedPerfectGuardIcon;
-        //private static Sprite _cachedToweringPresenceIcon;
-        //private static Sprite _cachedThornsIcon;
         private static Sprite _cachedReverbIcon;
 
         #region Load Resource Classes
@@ -94,7 +86,6 @@ namespace ValheimClassObelisk
 
                     // Create sprite
                     cachedSprite = Sprite.Create(texture, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f));
-                    Jotunn.Logger.LogInfo($"[Bulwark] Successfully loaded {iconType} icon ({width}x{height})");
 
                     return cachedSprite;
                 }
@@ -140,7 +131,7 @@ namespace ValheimClassObelisk
         public static void RestorePerfectGuardStamina(Player player)
         {
             if (player == null) return;
-            player.AddStamina(5);
+            player.AddStamina(PERFECT_GUARD_STAMINA_RESTORE);
         }
 
         public static float ApplyToweringPresenceBlockPower(float originalBlockPower, ItemDrop.ItemData shield)
@@ -179,8 +170,6 @@ namespace ValheimClassObelisk
 
             // Apply reflected damage
             attacker.Damage(thornsDamage);
-
-            Logger.LogInfo($"[Bulwark] {player.GetPlayerName()} reflected {reflectedDamage:F1} damage to {attacker.GetHoverName()}");
         }
 
         public static void AccumulateReverbDamage(Player player, float blockedDamage)
@@ -256,8 +245,6 @@ namespace ValheimClassObelisk
 
             var statusEffect = "SE_ReverbCharged".GetStableHashCode();
             if (seman != null) seman.RemoveStatusEffect(statusEffect);
-
-            Logger.LogInfo($"[Bulwark] {player.GetPlayerName()} triggered Reverb shockwave, hitting {nearbyCharacters.Count} enemies within 5m");
         }
 
         public static void ApplyReverbChargedEffect(Player player)

@@ -155,8 +155,6 @@ public static class ArcherPerkManager
 
             // Add the status effect
             seman.AddStatusEffect(statusEffect, resetTime: true);
-
-            Logger.LogInfo($"Added Arrow Slinger visual status effect for {player.GetPlayerName()}");
         }
         catch (System.Exception ex)
         {
@@ -595,7 +593,6 @@ public static class ArcherPerkPatches
                         smallestStack.m_stack += amount;
 
                         player.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
-                        Logger.LogInfo($"[MAGIC_SHOT] Magic Shot triggered - added {amount}x to stack (now {smallestStack.m_stack})");
                     }
                 }
             }
@@ -624,112 +621,4 @@ public static class ArcherPerkPatches
         return allPlayers.FirstOrDefault(p => p.GetInventory() == inventory);
     }
     #endregion
-}
-
-/// <summary>
-/// Console commands for testing Archer perks
-/// </summary>
-[HarmonyPatch(typeof(Terminal), "InitTerminal")]
-public static class ArcherPerkCommands
-{
-    [HarmonyPostfix]
-    public static void InitTerminal_Postfix()
-    {
-        new Terminal.ConsoleCommand("testarcherperk", "Test specific archer perk (testarcherperk [level])",
-            delegate (Terminal.ConsoleEventArgs args)
-            {
-                if (Player.m_localPlayer == null)
-                {
-                    args.Context.AddString("No local player found!");
-                    return;
-                }
-
-                var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer))
-                {
-                    args.Context.AddString("Archer class not active!");
-                    return;
-                }
-
-                if (args.Length < 2 || !int.TryParse(args.Args[1], out int testLevel))
-                {
-                    args.Context.AddString("Usage: testarcherperk [level]");
-                    args.Context.AddString("Levels: 10, 20, 30, 40, 50");
-                    return;
-                }
-
-                switch (testLevel)
-                {
-                    case 20:
-                        ArcherPerkManager.TriggerArrowSlingerBuff(Player.m_localPlayer);
-                        args.Context.AddString("Triggered Arrow Slinger buff (10 seconds)");
-                        break;
-                    case 50:
-                        ArcherPerkManager.TriggerAdrenalineRush(Player.m_localPlayer);
-                        args.Context.AddString("Triggered Adrenaline Rush (+5% stamina)");
-                        break;
-                    default:
-                        args.Context.AddString($"No direct test for level {testLevel}");
-                        args.Context.AddString("Available tests: 20 (Arrow Slinger), 50 (Adrenaline Rush)");
-                        break;
-                }
-            }
-        );
-
-        new Terminal.ConsoleCommand("archerstatus", "Show current archer perk status",
-            delegate (Terminal.ConsoleEventArgs args)
-            {
-                if (Player.m_localPlayer == null)
-                {
-                    args.Context.AddString("No local player found!");
-                    return;
-                }
-
-                var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                if (playerData == null)
-                {
-                    args.Context.AddString("No player data found!");
-                    return;
-                }
-
-                int archerLevel = playerData.GetClassLevel(PlayerClass.Archer);
-                bool isActive = playerData.IsClassActive(PlayerClass.Archer);
-
-                args.Context.AddString($"=== Archer Status ===");
-                args.Context.AddString($"Class Active: {isActive}");
-                args.Context.AddString($"Archer Level: {archerLevel}");
-                args.Context.AddString("");
-
-                args.Context.AddString("Available Perks:");
-                if (archerLevel >= 10) args.Context.AddString("✓ Lv10 - Steady Draw: -15% stamina drain while drawing");
-                else args.Context.AddString("✗ Lv10 - Steady Draw: Not unlocked");
-
-                if (archerLevel >= 20) args.Context.AddString("✓ Lv20 - Arrow Slinger: 50% faster draw on hit");
-                else args.Context.AddString("✗ Lv20 - Arrow Slinger: Not unlocked");
-
-                if (archerLevel >= 30) args.Context.AddString("✓ Lv30 - Wind Reader: +15% damage >25m, -25% aim stamina");
-                else args.Context.AddString("✗ Lv30 - Wind Reader: Not unlocked");
-
-                if (archerLevel >= 40) args.Context.AddString("✓ Lv40 - Magic Shot: 50% chance no arrow consumed");
-                else args.Context.AddString("✗ Lv40 - Magic Shot: Not unlocked");
-
-                if (archerLevel >= 50) args.Context.AddString("✓ Lv50 - Adrenaline Rush: +5% stamina per hit");
-                else args.Context.AddString("✗ Lv50 - Adrenaline Rush: Not unlocked");
-
-                // Show current weapon compatibility
-                var currentWeapon = Player.m_localPlayer.GetCurrentWeapon();
-                args.Context.AddString("");
-                if (currentWeapon != null)
-                {
-                    bool isBow = ClassCombatManager.IsBowWeapon(currentWeapon);
-                    args.Context.AddString($"Current weapon: {currentWeapon.m_shared.m_name}");
-                    args.Context.AddString($"Weapon compatible: {(isBow ? "Yes (Bow)" : "No (Not a bow)")}");
-                }
-                else
-                {
-                    args.Context.AddString("No weapon equipped");
-                }
-            }
-        );
-    }
 }

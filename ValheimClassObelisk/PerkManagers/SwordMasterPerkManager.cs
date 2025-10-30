@@ -49,7 +49,6 @@ public static class SwordMasterPerkManager
             riposteBuffs.Remove(playerID);
             RemoveRiposteStatusEffect(player);
             player.Message(MessageHud.MessageType.TopLeft, "Riposte! +25% damage");
-            Logger.LogInfo($"Riposte Training: Bonus riposte damage applied for {player.GetPlayerName()}");
         }
 
         return baseDamage + bonusDamage;
@@ -60,7 +59,6 @@ public static class SwordMasterPerkManager
     /// </summary>
     public static void TriggerRiposteBuff(Player player)
     {
-        Logger.LogInfo("Apply riposte buff.");
         if (!HasSwordMasterPerk(player, 10)) return;
 
         long playerID = player.GetPlayerID();
@@ -72,7 +70,6 @@ public static class SwordMasterPerkManager
         AddRiposteStatusEffect(player);
 
         player.Message(MessageHud.MessageType.TopLeft, "Riposte ready! Next sword hit +25% damage");
-        Logger.LogInfo($"Riposte buff activated for {player.GetPlayerName()}");
     }
 
     /// <summary>
@@ -113,8 +110,6 @@ public static class SwordMasterPerkManager
 
             // Add the status effect
             seman.AddStatusEffect(statusEffect, resetTime: true);
-
-            Logger.LogInfo($"Added riposte visual status effect for {player.GetPlayerName()}");
         }
         catch (System.Exception ex)
         {
@@ -240,7 +235,6 @@ public static class SwordMasterPerkManager
         {
             player.Message(MessageHud.MessageType.TopLeft, "Fencer's Footwork! +10% movement speed");
         }
-        Logger.LogInfo($"Fencer's Footwork buff activated for {player.GetPlayerName()}");
     }
     #endregion
 
@@ -264,8 +258,6 @@ public static class SwordMasterPerkManager
         {
             player.Message(MessageHud.MessageType.TopLeft, $"Weakpoint! +{trueDamageAmount:F0} true damage");
         }
-
-        Logger.LogInfo($"Weakpoint Cut: Added {trueDamageAmount:F1} true damage for {player.GetPlayerName()}");
     }
 
     /// <summary>
@@ -477,8 +469,6 @@ public static class SwordMasterPerkPatches
                 wasParry = currentBlocker.m_shared.m_timedBlockBonus > 1f &&
                           blockTimer != -1f &&
                           blockTimer < 0.25f;
-
-                Logger.LogInfo($"[SWORD MASTER] Block detected - Timer: {blockTimer:F3}, Timed Bonus: {currentBlocker.m_shared.m_timedBlockBonus:F1}, Was Parry: {wasParry}");
             }
             else
             {
@@ -491,11 +481,6 @@ public static class SwordMasterPerkPatches
             if (wasParry)
             {
                 SwordMasterPerkManager.TriggerRiposteBuff(player);
-                Logger.LogInfo($"[SWORD MASTER] Parry detected! Triggering riposte buff for {player.GetPlayerName()}");
-            }
-            else
-            {
-                Logger.LogInfo("[SWORD MASTER] Regular block detected - not triggering riposte");
             }
 
         }
@@ -684,127 +669,4 @@ public static class SwordMasterPerkPatches
         }
     }
     #endregion
-}
-
-/// <summary>
-/// Console commands for testing Sword Master perks
-/// </summary>
-[HarmonyPatch(typeof(Terminal), "InitTerminal")]
-public static class SwordMasterPerkCommands
-{
-    [HarmonyPostfix]
-    public static void InitTerminal_Postfix()
-    {
-        new Terminal.ConsoleCommand("testsprite", "Test sprite buff",
-            delegate (Terminal.ConsoleEventArgs args)
-            {
-                if (Player.m_localPlayer == null)
-                {
-                    args.Context.AddString("No local player found!");
-                    return;
-                }
-
-                var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                SwordMasterPerkManager.AddRiposteStatusEffect(Player.m_localPlayer);
-                Logger.LogInfo("[SWORD MASTER] Adding Sprite Buff");
-            }
-        );
-
-        new Terminal.ConsoleCommand("testswordperk", "Test specific sword master perk (testswordperk [level])",
-            delegate (Terminal.ConsoleEventArgs args)
-            {
-                if (Player.m_localPlayer == null)
-                {
-                    args.Context.AddString("No local player found!");
-                    return;
-                }
-
-                var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster))
-                {
-                    args.Context.AddString("Sword Master class not active!");
-                    return;
-                }
-
-                if (args.Length < 2 || !int.TryParse(args.Args[1], out int testLevel))
-                {
-                    args.Context.AddString("Usage: testswordperk [level]");
-                    args.Context.AddString("Levels: 10, 30");
-                    return;
-                }
-
-                switch (testLevel)
-                {
-                    case 10:
-                        SwordMasterPerkManager.TriggerRiposteBuff(Player.m_localPlayer);
-                        args.Context.AddString("Triggered Riposte buff (2 seconds)");
-                        break;
-                    case 30:
-                        SwordMasterPerkManager.TriggerFencerFootworkBuff(Player.m_localPlayer);
-                        args.Context.AddString("Triggered Fencer's Footwork buff (3 seconds)");
-                        break;
-                    default:
-                        args.Context.AddString($"No direct test for level {testLevel}");
-                        args.Context.AddString("Available tests: 10 (Riposte), 30 (Fencer's Footwork)");
-                        break;
-                }
-            }
-        );
-
-        new Terminal.ConsoleCommand("swordstatus", "Show current sword master perk status",
-            delegate (Terminal.ConsoleEventArgs args)
-            {
-                if (Player.m_localPlayer == null)
-                {
-                    args.Context.AddString("No local player found!");
-                    return;
-                }
-
-                var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
-                if (playerData == null)
-                {
-                    args.Context.AddString("No player data found!");
-                    return;
-                }
-
-                int swordLevel = playerData.GetClassLevel(PlayerClass.SwordMaster);
-                bool isActive = playerData.IsClassActive(PlayerClass.SwordMaster);
-
-                args.Context.AddString($"=== Sword Master Status ===");
-                args.Context.AddString($"Class Active: {isActive}");
-                args.Context.AddString($"Sword Master Level: {swordLevel}");
-                args.Context.AddString("");
-
-                args.Context.AddString("Available Perks:");
-                if (swordLevel >= 10) args.Context.AddString("✓ Lv10 - Riposte Training: +10% sword damage, +25% after parry");
-                else args.Context.AddString("✗ Lv10 - Riposte Training: Not unlocked");
-
-                if (swordLevel >= 20) args.Context.AddString("✓ Lv20 - Dancing Steel: +15% attack speed with swords");
-                else args.Context.AddString("✗ Lv20 - Dancing Steel: Not unlocked");
-
-                if (swordLevel >= 30) args.Context.AddString("✓ Lv30 - Fencer's Footwork: -15% stamina, +10% speed after hits");
-                else args.Context.AddString("✗ Lv30 - Fencer's Footwork: Not unlocked");
-
-                if (swordLevel >= 40) args.Context.AddString("✓ Lv40 - Weakpoint Cut: +15% armor pen, +25% stagger vs humanoids");
-                else args.Context.AddString("✗ Lv40 - Weakpoint Cut: Not unlocked");
-
-                if (swordLevel >= 50) args.Context.AddString("✓ Lv50 - Counter Attacker: +50% parry bonus, +40 block power");
-                else args.Context.AddString("✗ Lv50 - Counter Attacker: Not unlocked");
-
-                // Show current weapon compatibility
-                var currentWeapon = Player.m_localPlayer.GetCurrentWeapon();
-                args.Context.AddString("");
-                if (currentWeapon != null)
-                {
-                    bool isSword = ClassCombatManager.IsSwordWeapon(currentWeapon);
-                    args.Context.AddString($"Current weapon: {currentWeapon.m_shared.m_name}");
-                    args.Context.AddString($"Weapon compatible: {(isSword ? "Yes (Sword)" : "No (Not a sword)")}");
-                }
-                else
-                {
-                    args.Context.AddString("No weapon equipped");
-                }
-            }
-        );
-    }
 }

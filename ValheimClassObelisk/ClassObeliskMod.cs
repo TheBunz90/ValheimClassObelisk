@@ -215,22 +215,22 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Lancer",
         "Spear specialists with superior reach and polearm technique.\n\n" +
         "Passive Perks by Level:\n" +
-        "• Lv10 – Reach Advantage: +10% damage; -15% thrust stamina cost\n" +
-        "• Lv20 – Drill: Consecutive hits grant +5% armor penetration (stacks 5 times, refreshes on hit)\n" +
-        "• Lv30 – Impale: First hit vs. unalerted targets deals +30% damage and +100% stagger\n" +
-        "• Lv40 – Knightly: Blocking charges spear; first attack after block has +100% stagger damage\n" +
-        "• Lv50 – Opportunist: Attacks against staggered targets deal +50% damage\n\n" +
+        "• Lv10 – Reach Advantage: +15% pierce damage; -15% stamina cost when attacking.\n" +
+        "• Lv20 – Spear Storm: Successful hits apply a stacking buff. Each stack causes your attacks to deal 5% additional damage as lightning damage for 5 seconds. Stacks up to 5 times, stacks refresh on hit.\n" +
+        "• Lv30 – Disruptive Strikes: Hits have a 50% chance to disable the targets movement.\n" +
+        "• Lv40 – Impressive Throw: Damage increases the further the target is away from you. Up to 300% for 100 meters away.\n" +
+        "• Lv50 – Spear Of Relocation: When a thrown spear connects with an enemy you teleport to that enemy.\n\n" +
         "Perfect for players who like versatile polearm combat and tactical positioning."
     },
     {
         "Bulwark",
         "Defensive specialists who excel at protection and shield mastery.\n\n" +
         "Passive Perks by Level:\n" +
-        "• Lv10 – Shield Wall: +15% Block Power; -15% block stamina cost\n" +
-        "• Lv20 – Perfect Guard: 260° block radius; blocked attacks restore 5 stamina\n" +
-        "• Lv30 – Towering Presence: -50% movement penalty while blocking; tower shields gain +10% Block Power\n" +
-        "• Lv40 – Thorns: Blocked attacks return 50% damage with increased stagger\n" +
-        "• Lv50 – Reverb!: After blocking 200 damage, release shockwave dealing 200 blunt damage in 2m (10s cooldown)\n\n" +
+        "• Lv10 – Shield Wall: +15% Block Power; -15% block stamina cost.\n" +
+        "• Lv20 – Perfect Guard: Blocked attacks restore 5 stamina. Reduce Block Stamina consumption by 50%.\n" +
+        "• Lv30 – Towering Presence: Tower shields gain an additional +25% Block Power.\n" +
+        "• Lv40 – Thorns: Blocked attacks return 50% of the original damage back to the attacker.\n\nThis damage deals increased stagger damage (20%).\n" +
+        "• Lv50 – Reverb!: After blocking 200 damage, release shockwave dealing 200 blunt damage in 5m (10s cooldown).\n\n" +
         "Best for players who want to be the party's shield and ultimate protector."
     }
 };

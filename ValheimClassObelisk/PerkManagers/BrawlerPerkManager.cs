@@ -390,9 +390,5 @@ namespace ValheimClassObelisk
         }
 
         #endregion
-
-        #region Terminal Commands
-        // TODO: Add testing commands if needed.
-        #endregion
     }
 }

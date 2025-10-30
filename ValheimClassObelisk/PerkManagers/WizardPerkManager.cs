@@ -275,7 +275,6 @@ namespace ValheimClassObelisk
             statusEffect.m_ttl = AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
-            Logger.LogInfo($"Buff Applied: {statusEffect.m_speedModifier}");
             _frostDamage = 0;
         }
 
@@ -296,7 +295,6 @@ namespace ValheimClassObelisk
             statusEffect.m_ttl = AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
-            Logger.LogInfo($"Immolation Aura Applied");
             _fireDamage = 0;
         }
 
@@ -361,7 +359,6 @@ namespace ValheimClassObelisk
                     statusEffect.m_ttl = 0f; // Permanent while conditions are met
 
                     seman.AddStatusEffect(statusEffect, resetTime: false);
-                    Logger.LogInfo($"Applied Eitr Weave passive to {player.GetPlayerName()} (Level 10+ Wizard)");
                 }
             }
             else
@@ -370,7 +367,6 @@ namespace ValheimClassObelisk
                 if (hasPassiveBuff)
                 {
                     seman.RemoveStatusEffect(passiveBuffName.GetStableHashCode(), quiet: true);
-                    Logger.LogInfo($"Removed Eitr Weave passive from {player.GetPlayerName()} (No longer Level 10+ Wizard)");
                 }
             }
         }

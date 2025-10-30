@@ -62,8 +62,6 @@ public static class CrusherPerkManager
         {
             player.Message(MessageHud.MessageType.TopLeft, $"Cold Steel! +{frostDamage:F0} frost damage");
         }
-
-        Logger.LogInfo($"Cold Steel: Added {frostDamage:F1} frost damage for {player.GetPlayerName()}");
     }
     #endregion
 
@@ -105,7 +103,6 @@ public static class CrusherPerkManager
         // CreateThunderingBlowsEffect(hitPoint);
 
         player.Message(MessageHud.MessageType.TopLeft, $"Thundering Blow! Hit {nearbyEnemies.Count} enemies");
-        Logger.LogInfo($"Thundering Blows: Hit {nearbyEnemies.Count} enemies with {lightningDamage:F1} lightning damage");
     }
 
     private static void CreateThunderingBlowsEffect(Vector3 position)

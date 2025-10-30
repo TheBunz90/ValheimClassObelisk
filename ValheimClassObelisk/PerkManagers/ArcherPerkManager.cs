@@ -155,8 +155,6 @@ public static class ArcherPerkManager
 
             // Add the status effect
             seman.AddStatusEffect(statusEffect, resetTime: true);
-
-            Logger.LogInfo($"Added Arrow Slinger visual status effect for {player.GetPlayerName()}");
         }
         catch (System.Exception ex)
         {
@@ -595,7 +593,6 @@ public static class ArcherPerkPatches
                         smallestStack.m_stack += amount;
 
                         player.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
-                        Logger.LogInfo($"[MAGIC_SHOT] Magic Shot triggered - added {amount}x to stack (now {smallestStack.m_stack})");
                     }
                 }
             }

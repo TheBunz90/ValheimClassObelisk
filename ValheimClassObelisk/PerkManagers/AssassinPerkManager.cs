@@ -99,9 +99,6 @@ public static class AssassinPerkManager
 
         StatusEffect currentPoison = target.GetSEMan().GetStatusEffect("Poison".GetStableHashCode());
 
-        //Logger.LogInfo($"[POISON TRACKING] Venom applied: {poisonData.totalDamage}.");
-        //Logger.LogInfo($"Applied Venom Coating to {target.name}: {poisonData.stacks} stacks, {poisonData.damagePerTick:F1} DPS");
-
         // Calculate slow multiplier
         var debuffMult = 1 - (poisonData.stacks * ENVENOMOUS_SLOW_PER_STACK);
         // Apply Movement speed slow.
@@ -217,7 +214,6 @@ public static class AssassinPerkManager
             statusEffect.m_ttl = ASSASSINATION_SPEED_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
-            Logger.LogInfo($"Buff Applied: {statusEffect.m_speedModifier}");
         }
         catch (System.Exception ex)
         {
@@ -293,31 +289,21 @@ public static class AssassinPerkManager
     public static bool IsStealthHit(Player attacker, Character target)
     {
         if (attacker == null || target == null) return false;
-        Logger.LogInfo("Checking for stealth hit");
-        // Check if player is sneaking
-        //if (!attacker.IsSneaking())
-        //{
-        //    Logger.LogInfo("Player was not sneaking.");
-        //    return false;
-        //}
 
         // Check if target is unaware (not alerted)
         var baseAI = target.GetBaseAI();
         if (baseAI == null)
         {
-            Logger.LogInfo("Target base ai was null.");
             return false;
         }
 
         if (baseAI.IsAlerted())
         {
-            Logger.LogInfo("Target was already alerted.");
             return false;
         }
 
         if (baseAI.HaveTarget())
         {
-            Logger.LogInfo("Base AI had a target");
             return false;
         }
 
@@ -429,7 +415,6 @@ public static class AssassinPerkManager
                 bool isStealthHit = IsStealthHit(player, __instance);
                 if (isStealthHit && HasAssassinPerk(player, 40))
                 {
-                    Logger.LogInfo("Stealth hit triggered!");
                     multiplier += ASSASSIN_STEALTH_BONUS;
                     ApplyAssassinationSpeedBuff(__instance, player);
                 }
@@ -440,9 +425,6 @@ public static class AssassinPerkManager
                 var originalSlash = hit.m_damage.m_slash;
                 var originalPierce = hit.m_damage.m_pierce;
                 if (DAMAGE_MODS_ON) hit = ModDamage(hit, multiplier+1f);
-
-                Logger.LogInfo($"Assassin damage mods applied slash: {originalSlash} increased to {hit.m_damage.m_slash}");
-                Logger.LogInfo($"Assassin damage mods applied pierce: {originalPierce} increased to {hit.m_damage.m_pierce}");
             }
         }
         catch (System.Exception ex)

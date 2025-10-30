@@ -49,7 +49,6 @@ public static class SwordMasterPerkManager
             riposteBuffs.Remove(playerID);
             RemoveRiposteStatusEffect(player);
             player.Message(MessageHud.MessageType.TopLeft, "Riposte! +25% damage");
-            Logger.LogInfo($"Riposte Training: Bonus riposte damage applied for {player.GetPlayerName()}");
         }
 
         return baseDamage + bonusDamage;
@@ -60,7 +59,6 @@ public static class SwordMasterPerkManager
     /// </summary>
     public static void TriggerRiposteBuff(Player player)
     {
-        Logger.LogInfo("Apply riposte buff.");
         if (!HasSwordMasterPerk(player, 10)) return;
 
         long playerID = player.GetPlayerID();
@@ -72,7 +70,6 @@ public static class SwordMasterPerkManager
         AddRiposteStatusEffect(player);
 
         player.Message(MessageHud.MessageType.TopLeft, "Riposte ready! Next sword hit +25% damage");
-        Logger.LogInfo($"Riposte buff activated for {player.GetPlayerName()}");
     }
 
     /// <summary>
@@ -113,8 +110,6 @@ public static class SwordMasterPerkManager
 
             // Add the status effect
             seman.AddStatusEffect(statusEffect, resetTime: true);
-
-            Logger.LogInfo($"Added riposte visual status effect for {player.GetPlayerName()}");
         }
         catch (System.Exception ex)
         {
@@ -240,7 +235,6 @@ public static class SwordMasterPerkManager
         {
             player.Message(MessageHud.MessageType.TopLeft, "Fencer's Footwork! +10% movement speed");
         }
-        Logger.LogInfo($"Fencer's Footwork buff activated for {player.GetPlayerName()}");
     }
     #endregion
 
@@ -264,8 +258,6 @@ public static class SwordMasterPerkManager
         {
             player.Message(MessageHud.MessageType.TopLeft, $"Weakpoint! +{trueDamageAmount:F0} true damage");
         }
-
-        Logger.LogInfo($"Weakpoint Cut: Added {trueDamageAmount:F1} true damage for {player.GetPlayerName()}");
     }
 
     /// <summary>
@@ -477,8 +469,6 @@ public static class SwordMasterPerkPatches
                 wasParry = currentBlocker.m_shared.m_timedBlockBonus > 1f &&
                           blockTimer != -1f &&
                           blockTimer < 0.25f;
-
-                Logger.LogInfo($"[SWORD MASTER] Block detected - Timer: {blockTimer:F3}, Timed Bonus: {currentBlocker.m_shared.m_timedBlockBonus:F1}, Was Parry: {wasParry}");
             }
             else
             {
@@ -491,11 +481,6 @@ public static class SwordMasterPerkPatches
             if (wasParry)
             {
                 SwordMasterPerkManager.TriggerRiposteBuff(player);
-                Logger.LogInfo($"[SWORD MASTER] Parry detected! Triggering riposte buff for {player.GetPlayerName()}");
-            }
-            else
-            {
-                Logger.LogInfo("[SWORD MASTER] Regular block detected - not triggering riposte");
             }
 
         }
@@ -706,7 +691,6 @@ public static class SwordMasterPerkCommands
 
                 var playerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
                 SwordMasterPerkManager.AddRiposteStatusEffect(Player.m_localPlayer);
-                Logger.LogInfo("[SWORD MASTER] Adding Sprite Buff");
             }
         );
 

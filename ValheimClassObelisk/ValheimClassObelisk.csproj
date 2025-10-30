@@ -102,6 +102,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PerkManagers\BulwarkPerkManager.cs" />
     <Compile Include="Utilities\AnimationSpeedManager.cs" />
     <Compile Include="TestingResources\ApiDiscoveryCommands.cs" />
     <Compile Include="PerkManagers\ArcherPerkManager.cs" />
@@ -134,6 +135,9 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\SpearStorm.rgba" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\Reverb_sprite.rgba" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

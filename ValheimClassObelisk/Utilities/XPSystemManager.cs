@@ -193,6 +193,50 @@ public static class ClassXPManager
         }
     }
 
+    // Award XP for successful blocking with shield (only for Bulwark class)
+    public static void AwardBlockingXP(Player player, float originalDamage, Character attacker)
+    {
+        if (player == null || originalDamage <= 0 || attacker == null) return;
+
+        // Only award XP for blocking damage from creatures (not players)
+        if (attacker is Player || !IsValidCreature(attacker)) return;
+
+        var playerData = PlayerClassManager.GetPlayerData(player);
+        if (playerData == null || !playerData.IsClassActive(PlayerClass.Bulwark)) return;
+
+        // Award XP based on original damage * 2 (before armor and block reduction)
+        float xpToAward = originalDamage * 2f * DamageToXPRatio;
+
+        float oldXP = playerData.GetClassXP(PlayerClass.Bulwark);
+        int oldLevel = playerData.GetClassLevel(PlayerClass.Bulwark);
+
+        playerData.AddClassXP(PlayerClass.Bulwark, xpToAward);
+
+        int newLevel = playerData.GetClassLevel(PlayerClass.Bulwark);
+
+        // Show XP gain message (occasionally to avoid spam)
+        if (UnityEngine.Random.Range(0f, 1f) < 0.15f) // 15% chance
+        {
+            player.Message(MessageHud.MessageType.TopLeft, $"Bulwark: +{xpToAward:F0} XP (Block)");
+        }
+
+        // Show level up message
+        if (newLevel > oldLevel)
+        {
+            player.Message(MessageHud.MessageType.Center, $"Bulwark Level Up! Level {newLevel}");
+
+            // Check for perk unlocks
+            if (newLevel % 10 == 0)
+            {
+                player.Message(MessageHud.MessageType.Center, $"New Bulwark Perk Unlocked!");
+            }
+
+            Debug.Log($"Player {player.GetPlayerName()} leveled up Bulwark to level {newLevel}");
+        }
+
+        Debug.Log($"Awarded {xpToAward:F1} blocking XP to Bulwark for {player.GetPlayerName()} (blocked: {originalDamage:F1} from {attacker.name})");
+    }
+
     // Check if target is a valid creature for XP
     private static bool IsValidCreature(Character target)
     {
@@ -431,6 +475,36 @@ public static class XPTrackingPatches
         catch (System.Exception ex)
         {
             Logger.LogError($"Error in Character_Damage_Postfix (XP): {ex.Message}");
+        }
+    }
+
+    // Patch blocking to award XP for successful blocks (Bulwark class)
+    [HarmonyPatch(typeof(Character), "Damage")]
+    [HarmonyPrefix]
+    public static void Character_Damage_Prefix(Character __instance, HitData hit)
+    {
+        try
+        {
+            // Only process player characters
+            if (!(__instance is Player player)) return;
+
+            // Only process if the player is actively blocking
+            if (!player.IsBlocking()) return;
+
+            // Get the attacker
+            Character attacker = hit.GetAttacker();
+            if (attacker == null || attacker is Player) return;
+
+            // Store the original damage before any reductions for XP calculation
+            float originalDamage = hit.GetTotalDamage();
+            if (originalDamage <= 0) return;
+
+            // Award blocking XP to Bulwark class players
+            ClassXPManager.AwardBlockingXP(player, originalDamage, attacker);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Character_Damage_Prefix (Blocking XP): {ex.Message}");
         }
     }
 

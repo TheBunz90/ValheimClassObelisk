@@ -127,6 +127,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 {
     public static GameObject classSelectionPanel;
     public static Text descriptionText;
+    public static ScrollRect descriptionScrollRect;
     public static GameObject selectClassButton;
     public static string selectedClassName = "";
 
@@ -471,8 +472,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         descriptionContainer.transform.SetParent(classSelectionPanel.transform, false);
 
         var containerRect = descriptionContainer.AddComponent<RectTransform>();
-        containerRect.anchorMin = new Vector2(0.15f, 0.275f);  // 5% thinner (was 0.1f to 0.9f)
-        containerRect.anchorMax = new Vector2(0.85f, 0.525f);  // 5% shorter (was 0.25f to 0.55f)
+        containerRect.anchorMin = new Vector2(0.15f, 0.2f);  // 5% thinner (was 0.1f to 0.9f)
+        containerRect.anchorMax = new Vector2(0.85f, 0.6f);  // 5% shorter (was 0.25f to 0.55f)
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
 
@@ -480,20 +481,30 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         var containerBg = descriptionContainer.AddComponent<Image>();
         containerBg.color = new Color(0.1f, 0.1f, 0.1f, 0.8f); // Dark semi-transparent background
 
-        // Create the description text directly using GUIManager
+        // Viewport: fixed-size window that clips scrolling content, padded from the container edges
+        var viewport = new GameObject("Viewport");
+        viewport.transform.SetParent(descriptionContainer.transform, false);
+        var viewportRect = viewport.AddComponent<RectTransform>();
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = new Vector2(15, 15); // Padding from edges
+        viewportRect.offsetMax = new Vector2(-15, -15);
+        viewport.AddComponent<RectMask2D>(); // Clips content outside the fixed viewport bounds
+
+        // Create the description text directly using GUIManager, parented to the viewport so it can scroll
         GameObject descriptionTextObj = GUIManager.Instance.CreateText(
             text: "Select a class to view its description...",
-            parent: descriptionContainer.transform,
-            anchorMin: Vector2.zero, // Fill the container
-            anchorMax: Vector2.one,  // Fill the container
+            parent: viewport.transform,
+            anchorMin: Vector2.zero,
+            anchorMax: Vector2.one,
             position: Vector2.zero,
             font: GUIManager.Instance.AveriaSerif,
-            fontSize: 14,
+            fontSize: 18,
             color: new Color(0.9f, 0.9f, 0.9f, 1f),
             outline: false,
             outlineColor: Color.black,
-            width: 0, // Use container width
-            height: 0, // Use container height
+            width: 0,
+            height: 0,
             addContentSizeFitter: false);
 
         // Get the text component reference
@@ -502,16 +513,30 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
         descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
 
-        // Add proper padding within the container
+        // The text's own rect is the scrollable "content" - stretched to the viewport's width,
+        // anchored to the top, and grown vertically to fit whatever text is set.
         var textRect = descriptionTextObj.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = new Vector2(15, 15); // Padding from edges
-        textRect.offsetMax = new Vector2(-15, -15); // Negative padding on right/top
+        textRect.anchorMin = new Vector2(0f, 1f);
+        textRect.anchorMax = new Vector2(1f, 1f);
+        textRect.pivot = new Vector2(0.5f, 1f);
+        textRect.anchoredPosition = Vector2.zero;
+        textRect.sizeDelta = Vector2.zero;
+
+        var contentSizeFitter = descriptionTextObj.AddComponent<ContentSizeFitter>();
+        contentSizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // ScrollRect ties the fixed viewport to the growing text content
+        descriptionScrollRect = descriptionContainer.AddComponent<ScrollRect>();
+        descriptionScrollRect.viewport = viewportRect;
+        descriptionScrollRect.content = textRect;
+        descriptionScrollRect.horizontal = false;
+        descriptionScrollRect.vertical = true;
+        descriptionScrollRect.movementType = ScrollRect.MovementType.Clamped;
+        descriptionScrollRect.scrollSensitivity = 20f;
 
         Debug.Log("Properly sized description text created");
         Debug.Log("Container rect size: " + containerRect.rect.size);
-        Debug.Log("Text rect size: " + textRect.rect.size);
     }
 
     private void CreateSelectClassButton(Player player)
@@ -594,7 +619,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         var playerData = PlayerClassManager.GetPlayerData(player);
         if (playerData != null && playerData.IsClassActive(className))
         {
-            description += "\n\n\nActive";
+            description += "\n\n\n<size=24><b>Active</b></size>";
         }
 
         UpdateDescriptionText(description);
@@ -614,23 +639,14 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
             descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
 
-            // Force canvas update
+            // Force the content's ContentSizeFitter to recompute its height for the new text
+            LayoutRebuilder.ForceRebuildLayoutImmediate(descriptionText.rectTransform);
             Canvas.ForceUpdateCanvases();
 
-            // Adjust content height based on text
-            var contentRect = descriptionText.transform.parent.GetComponent<RectTransform>();
-            if (contentRect != null)
-            {
-                float preferredHeight = Mathf.Max(250, descriptionText.preferredHeight + 30);
-                contentRect.sizeDelta = new Vector2(contentRect.sizeDelta.x, preferredHeight);
-                Debug.Log($"Updated content height to: {preferredHeight}");
-            }
-
             // Reset scroll position to top
-            var scrollView = classSelectionPanel.GetComponentInChildren<ScrollRect>();
-            if (scrollView != null)
+            if (descriptionScrollRect != null)
             {
-                scrollView.normalizedPosition = new Vector2(0, 1);
+                descriptionScrollRect.verticalNormalizedPosition = 1f;
             }
         }
         else
@@ -702,6 +718,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             Destroy(classSelectionPanel);
             classSelectionPanel = null;
             descriptionText = null;
+            descriptionScrollRect = null;
             selectClassButton = null;
             selectedClassName = "";
 

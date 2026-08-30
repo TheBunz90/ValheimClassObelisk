@@ -455,7 +455,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         // Add click handler - now updates description instead of selecting immediately
         buttonComponent.onClick.AddListener(() => {
             Debug.Log($"Viewing class: {className}");
-            OnClassButtonClicked(className);
+            OnClassButtonClicked(className, player);
         });
 
         // Add hover effect
@@ -465,7 +465,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     private void CreateDescriptionWindow(Player player)
     {
         // TODO: set a new string here that is the players currently selected class.
-        
+
         // Create a properly sized description container that fits within the panel
         var descriptionContainer = new GameObject("DescriptionContainer");
         descriptionContainer.transform.SetParent(classSelectionPanel.transform, false);
@@ -582,19 +582,22 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         });
     }
 
-    private void OnClassButtonClicked(string className)
+    private void OnClassButtonClicked(string className, Player player)
     {
         selectedClassName = className;
 
         // Update description text
-        if (ClassDescriptions.ContainsKey(className))
+        string description = ClassDescriptions.ContainsKey(className)
+            ? ClassDescriptions[className]
+            : $"Description for {className} coming soon...";
+
+        var playerData = PlayerClassManager.GetPlayerData(player);
+        if (playerData != null && playerData.IsClassActive(className))
         {
-            UpdateDescriptionText(ClassDescriptions[className]);
+            description += "\n\n\nActive";
         }
-        else
-        {
-            UpdateDescriptionText($"Description for {className} coming soon...");
-        }
+
+        UpdateDescriptionText(description);
 
         // Update select button state
         UpdateSelectButton();

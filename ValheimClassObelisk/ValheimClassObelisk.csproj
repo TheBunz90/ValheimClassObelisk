@@ -123,6 +123,7 @@
     <Compile Include="TestingResources\ValheimDebugUtility.cs" />
     <Compile Include="PerkManagers\WizardPerkManager.cs" />
     <Compile Include="Utilities\XPSystemManager.cs" />
+    <Compile Include="UI\ActiveClassesTextsDialogPatch.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\rage_viking_128.rgba" />

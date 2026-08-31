@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEngine;
 using HarmonyLib;
+using ValheimClassObelisk;
 using Logger = Jotunn.Logger;
 
 // Player class data storage with persistence
@@ -328,6 +330,47 @@ public static class PlayerClassManager
             return "None";
 
         return string.Join(", ", data.activeClasses);
+    }
+
+    // Maps each class to its GetClassDescription(Player) provider - the same perk text
+    // (with locked perks masked as "???") already used by the class-selection GUI.
+    private static readonly Dictionary<PlayerClass, Func<Player, string>> ClassDescriptionProviders = new Dictionary<PlayerClass, Func<Player, string>>
+    {
+        { PlayerClass.SwordMaster, SwordMasterPerkManager.GetClassDescription },
+        { PlayerClass.Archer, ArcherPerkManager.GetClassDescription },
+        { PlayerClass.Crusher, CrusherPerkManager.GetClassDescription },
+        { PlayerClass.Assassin, AssassinPerkManager.GetClassDescription },
+        { PlayerClass.Brawler, BrawlerPerkManager.GetClassDescription },
+        { PlayerClass.Wizard, WizardPerkManager.GetClassDescription },
+        { PlayerClass.Lancer, LancerPerkManager.GetClassDescription },
+        { PlayerClass.Bulwark, BulwarkPerkManager.GetClassDescription }
+    };
+
+    // Builds the rich-text body shown in the "Active Classes" entry of the Valheim Compendium
+    // (see ActiveClassesTextsDialogPatch). Reuses each class's existing perk description text.
+    public static string BuildActiveClassesCompendiumText(Player player)
+    {
+        var data = GetPlayerData(player);
+        if (data == null || data.activeClasses.Count == 0)
+        {
+            return "No active class selected. Visit a Class Obelisk to choose one.";
+        }
+
+        var sb = new StringBuilder();
+        foreach (var playerClass in data.GetActiveClassEnums())
+        {
+            int level = data.GetClassLevel(playerClass);
+            sb.Append($"<color=yellow>{PlayerClassHelper.GetDisplayName(playerClass)} — Level {level}</color>\n\n");
+            sb.Append(ClassDescriptionProviders[playerClass](player));
+            sb.Append("\n\n");
+        }
+
+        if (data.activeClasses.Count < data.GetMaxActiveClasses())
+        {
+            sb.Append("<color=grey>A second class slot is available — visit a Class Obelisk to choose one.</color>");
+        }
+
+        return sb.ToString();
     }
 
     // Debug method to clear all data (for testing)

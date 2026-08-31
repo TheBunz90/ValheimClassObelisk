@@ -26,6 +26,25 @@ public static class CrusherPerkManager
         return playerData.GetClassLevel(PlayerClass.Crusher) >= requiredLevel;
     }
 
+    // Description metadata, shown in the class selection GUI - locked perks display as "???"
+    private const string Intro = "Powerful warriors who excel with heavy blunt weapons.";
+    private const string Outro = "Best suited for players who like devastating area attacks and crowd control.";
+
+    public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+    {
+        new PerkInfo { RequiredLevel = 10, Name = "Bonebreaker", Description = "+15% blunt damage; +25% stagger power" },
+        new PerkInfo { RequiredLevel = 20, Name = "Cold Steel", Description = "Melee attacks imbued with frost dealing +20% weapon damage as frost" },
+        new PerkInfo { RequiredLevel = 30, Name = "Thundering Blows", Description = "Heavy melee attacks generate 2m shockwave of lightning damage" },
+        new PerkInfo { RequiredLevel = 40, Name = "Might of the Earth", Description = "-30% stamina drain on attacks from wielding heavy weapons" },
+        new PerkInfo { RequiredLevel = 50, Name = "Colossus", Description = "Ignore movement speed penalties from armor weight" },
+    };
+
+    public static string GetClassDescription(Player player)
+    {
+        int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Crusher) ?? 0;
+        return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+    }
+
     #region Level 10 - Bonebreaker
     /// <summary>
     /// Lv10 – Bonebreaker: +15% blunt damage; +25% stagger power

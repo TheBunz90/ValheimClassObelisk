@@ -30,6 +30,25 @@ public static class SwordMasterPerkManager
         return playerData.GetClassLevel(PlayerClass.SwordMaster) >= requiredLevel;
     }
 
+    // Description metadata, shown in the class selection GUI - locked perks display as "???"
+    private const string Intro = "Masters of blade combat with exceptional swordsmanship skills.";
+    private const string Outro = "Ideal for players who prefer melee combat with finesse and precision.";
+
+    public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+    {
+        new PerkInfo { RequiredLevel = 10, Name = "Riposte Training", Description = "+10% sword damage. After you parry, next sword hit within 2s deals +25% damage" },
+        new PerkInfo { RequiredLevel = 20, Name = "Dancing Steel", Description = "15% increased attack speed with swords" },
+        new PerkInfo { RequiredLevel = 30, Name = "Fencer's Footwork", Description = "-15% sword stamina cost; +10% movement speed for 3s after hits" },
+        new PerkInfo { RequiredLevel = 40, Name = "Weakpoint Cut", Description = "+15% armor penetration; +25% stagger vs. humanoids/undead" },
+        new PerkInfo { RequiredLevel = 50, Name = "Counter Attacker", Description = "+50% Parry Bonus, +40 Block Power with all swords" },
+    };
+
+    public static string GetClassDescription(Player player)
+    {
+        int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.SwordMaster) ?? 0;
+        return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+    }
+
     #region Level 10 - Riposte Training
     /// <summary>
     /// Lv10 – Riposte Training: +10% sword damage. After you parry, your next sword hit within 2s deals +25% damage.

@@ -109,6 +109,25 @@ namespace ValheimClassObelisk
             return playerData.GetClassLevel(PlayerClass.Bulwark) >= requiredLevel;
         }
 
+        // Description metadata, shown in the class selection GUI - locked perks display as "???"
+        private const string Intro = "Defensive specialists who excel at protection and shield mastery.";
+        private const string Outro = "Best for players who want to be the party's shield and ultimate protector.";
+
+        public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+        {
+            new PerkInfo { RequiredLevel = 10, Name = "Shield Wall", Description = "+15% Block Power; -15% block stamina cost." },
+            new PerkInfo { RequiredLevel = 20, Name = "Perfect Guard", Description = "Blocked attacks restore 5 stamina. Reduce Block Stamina consumption by 50%." },
+            new PerkInfo { RequiredLevel = 30, Name = "Towering Presence", Description = "Tower shields gain an additional +25% Block Power." },
+            new PerkInfo { RequiredLevel = 40, Name = "Thorns", Description = "Blocked attacks return 50% of the original damage back to the attacker.\n\nThis damage deals increased stagger damage (20%)." },
+            new PerkInfo { RequiredLevel = 50, Name = "Reverb!", Description = "After blocking 200 damage, release shockwave dealing 200 blunt damage in 5m (10s cooldown)." },
+        };
+
+        public static string GetClassDescription(Player player)
+        {
+            int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Bulwark) ?? 0;
+            return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+        }
+
         public static float ApplyShieldWallBlockPower(float originalBlockPower, ItemDrop.ItemData shield)
         {
             // Apply 15% block power bonus

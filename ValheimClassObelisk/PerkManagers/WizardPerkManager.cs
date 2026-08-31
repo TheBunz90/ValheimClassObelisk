@@ -43,6 +43,25 @@ namespace ValheimClassObelisk
             return playerData.GetClassLevel(PlayerClass.Wizard) >= requiredLevel;
         }
 
+        // Description metadata, shown in the class selection GUI - locked perks display as "???"
+        private const string Intro = "Mystical practitioners of elemental magic and arcane arts.";
+        private const string Outro = "Ideal for players who want to master Valheim's magic system and elemental combat.";
+
+        public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+        {
+            new PerkInfo { RequiredLevel = 10, Name = "Eitr Weave", Description = "+50% Eitr regeneration." },
+            new PerkInfo { RequiredLevel = 20, Name = "Icy Hot", Description = "+25% Fire and Frost damage." },
+            new PerkInfo { RequiredLevel = 30, Name = "Essence Leech", Description = "Gain Eitr equal to 5% of damage dealt from Magical Attacks." },
+            new PerkInfo { RequiredLevel = 40, Name = "Frost Armor", Description = "Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity." },
+            new PerkInfo { RequiredLevel = 50, Name = "Immolation Aura", Description = "Dealing 500 fire damage triggers Immolation Aura (30s): +25% speed, 15 fire DPS to nearby enemies" },
+        };
+
+        public static string GetClassDescription(Player player)
+        {
+            int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Wizard) ?? 0;
+            return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+        }
+
         public static HitData ApplyIcyHot(HitData hit)
         {
             float mult = 1f + ICY_HOT;

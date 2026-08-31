@@ -116,6 +116,7 @@
     <Compile Include="PerkManagers\LancerPerkManager.cs" />
     <Compile Include="Utilities\PlayerClass.cs" />
     <Compile Include="Utilities\PlayerClassManager.cs" />
+    <Compile Include="Utilities\PerkDescription.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\SEUtils.cs" />
     <Compile Include="PerkManagers\SwordMasterPerkManager.cs" />

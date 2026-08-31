@@ -50,6 +50,25 @@ namespace ValheimClassObelisk
             return playerData.GetClassLevel(PlayerClass.Lancer) >= requiredLevel;
         }
 
+        // Description metadata, shown in the class selection GUI - locked perks display as "???"
+        private const string Intro = "Spear specialists with superior reach and polearm technique.";
+        private const string Outro = "Perfect for players who like versatile polearm combat and tactical positioning.";
+
+        public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+        {
+            new PerkInfo { RequiredLevel = 10, Name = "Reach Advantage", Description = "+15% pierce damage; -15% stamina cost when attacking." },
+            new PerkInfo { RequiredLevel = 20, Name = "Spear Storm", Description = "Successful hits apply a stacking buff. Each stack causes your attacks to deal 5% additional damage as lightning damage for 5 seconds. Stacks up to 5 times, stacks refresh on hit." },
+            new PerkInfo { RequiredLevel = 30, Name = "Disruptive Strikes", Description = "Hits have a 50% chance to disable the targets movement." },
+            new PerkInfo { RequiredLevel = 40, Name = "Impressive Throw", Description = "Damage increases the further the target is away from you. Up to 300% for 100 meters away." },
+            new PerkInfo { RequiredLevel = 50, Name = "Spear Of Relocation", Description = "When a thrown spear connects with an enemy you teleport to that enemy." },
+        };
+
+        public static string GetClassDescription(Player player)
+        {
+            int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Lancer) ?? 0;
+            return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+        }
+
         public static HitData ApplyReachAdvantage(HitData hit)
         {
             if (hit == null) return hit;

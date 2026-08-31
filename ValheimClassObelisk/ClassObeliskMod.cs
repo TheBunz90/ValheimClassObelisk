@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Logger = Jotunn.Logger;
 using System.Security;
+using ValheimClassObelisk;
 
 [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
 [BepInDependency(Jotunn.Main.ModGuid)]
@@ -143,98 +144,18 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Bulwark"
     };
 
-    // Class descriptions
-    // Class descriptions
-    public static readonly Dictionary<string, string> ClassDescriptions = new Dictionary<string, string>
+    // Per-class description providers backed by the PerkManagers - builds each class's
+    // description from its Perks metadata, masking any perk the player hasn't reached yet as "???".
+    private static readonly Dictionary<string, Func<Player, string>> DynamicClassDescriptionProviders = new Dictionary<string, Func<Player, string>>
     {
-        {
-            "Sword Master",
-            "Masters of blade combat with exceptional swordsmanship skills.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Riposte Training: +10% sword damage. After you parry, next sword hit within 2s deals +25% damage\n" +
-            "• Lv20 – Dancing Steel: 15% increased attack speed with swords\n" +
-            "• Lv30 – Fencer's Footwork: -15% sword stamina cost; +10% movement speed for 3s after hits\n" +
-            "• Lv40 – Weakpoint Cut: +15% armor penetration; +25% stagger vs. humanoids/undead\n" +
-            "• Lv50 – Counter Attacker: +50% Parry Bonus, +40 Block Power with all swords\n\n" +
-            "Ideal for players who prefer melee combat with finesse and precision."
-        },
-        {
-            "Archer",
-            "Expert marksmen with unparalleled bow and crossbow mastery.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Steady Draw: -15% stamina drain while drawing\n" +
-            "• Lv20 – Arrow Slinger: Arrows give a buff on hit that reduces draw time by 50% for 10 seconds\n" +
-            "• Lv30 – Wind Reader: +15% damage beyond 25m; -25% stamina while aiming\n" +
-            "• Lv40 – Magic Shot: 50% chance to not consume an arrow on attack\n" +
-            "• Lv50 – Adrenaline Rush: Consecutive hits return 5% stamina\n\n" +
-            "Perfect for players who enjoy ranged combat and precision shooting."
-        },
-        {
-            "Crusher",
-            "Powerful warriors who excel with heavy blunt weapons.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Bonebreaker: +15% blunt damage; +25% stagger power\n" +
-            "• Lv20 – Cold Steel: Melee attacks imbued with frost dealing +20% weapon damage as frost\n" +
-            "• Lv30 – Thundering Blows: Heavy melee attacks generate 2m shockwave of lightning damage\n" +
-            "• Lv40 – Might of the Earth: -30% stamina drain on attacks from wielding heavy weapons\n" +
-            "• Lv50 – Colossus: Ignore movement speed penalties from armor weight\n\n" +
-            "Best suited for players who like devastating area attacks and crowd control."
-        },
-        {
-            "Assassin",
-            "Stealthy fighters who strike from the shadows with deadly precision.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Cutthroat: +15% knife damage; +30% backstab multiplier\n" +
-            "• Lv20 – Venom Coating: Knife hits apply stacking Poison (up to 3 stacks) based on skill level\n" +
-            "• Lv30 – Envenomous: Poisons apply 15% movement speed slow per stack\n" +
-            "• Lv40 – Assassination: First knife hit from stealth deals +100% damage\n" +
-            "• Lv50 – Twist the Knife: +25% damage to poisoned targets; poisoned enemies deal -10% damage\n\n" +
-            "Great for players who prefer tactical, stealthy gameplay and damage over time."
-        },
-        {
-            "Brawler",
-            "Bare-knuckle brawlers with unmatched unarmed combat skills.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – One-Two Combo: Every 3rd consecutive punch deals +100% damage and restores 5% stamina\n" +
-            "• Lv20 – Break Guard: Fist attacks deal +50% stagger damage\n" +
-            "• Lv30 – Iron Fist: Fist attacks deal extra damage equal to 10% max health; +20% attack speed\n" +
-            "• Lv40 – Tough: When not wearing chest piece, gain +25% physical damage resistance\n" +
-            "• Lv50 – Rage: After unblocked damage, enter 5s rage: +50% attack speed, +50% damage resist, +25% fist damage (15s cooldown)\n\n" +
-            "For players who want to fight with their fists like a true Viking warrior."
-        },
-        {
-            "Wizard",
-            "Mystical practitioners of elemental magic and arcane arts.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Eitr Weave: +50% Eitr regeneration.\n" +
-            "• Lv20 – Icy Hot: +25% Fire and Frost damage.\n" +
-            "• Lv30 – Essence Leech: Gain Eitr equal to 5% of damage dealt from Magical Attacks.\n" +
-            "• Lv40 – Frost Armor: Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity.\n" +
-            "• Lv50 – Immolation Aura: Dealing 500 fire damage triggers Immolation Aura (30s): +25% speed, 15 fire DPS to nearby enemies\n\n" +
-            "Ideal for players who want to master Valheim's magic system and elemental combat."
-        },
-        {
-            "Lancer",
-            "Spear specialists with superior reach and polearm technique.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Reach Advantage: +15% pierce damage; -15% stamina cost when attacking.\n" +
-            "• Lv20 – Spear Storm: Successful hits apply a stacking buff. Each stack causes your attacks to deal 5% additional damage as lightning damage for 5 seconds. Stacks up to 5 times, stacks refresh on hit.\n" +
-            "• Lv30 – Disruptive Strikes: Hits have a 50% chance to disable the targets movement.\n" +
-            "• Lv40 – Impressive Throw: Damage increases the further the target is away from you. Up to 300% for 100 meters away.\n" +
-            "• Lv50 – Spear Of Relocation: When a thrown spear connects with an enemy you teleport to that enemy.\n\n" +
-            "Perfect for players who like versatile polearm combat and tactical positioning."
-        },
-        {
-            "Bulwark",
-            "Defensive specialists who excel at protection and shield mastery.\n\n" +
-            "Passive Perks by Level:\n" +
-            "• Lv10 – Shield Wall: +15% Block Power; -15% block stamina cost.\n" +
-            "• Lv20 – Perfect Guard: Blocked attacks restore 5 stamina. Reduce Block Stamina consumption by 50%.\n" +
-            "• Lv30 – Towering Presence: Tower shields gain an additional +25% Block Power.\n" +
-            "• Lv40 – Thorns: Blocked attacks return 50% of the original damage back to the attacker.\n\nThis damage deals increased stagger damage (20%).\n" +
-            "• Lv50 – Reverb!: After blocking 200 damage, release shockwave dealing 200 blunt damage in 5m (10s cooldown).\n\n" +
-            "Best for players who want to be the party's shield and ultimate protector."
-        }
+        { "Sword Master", SwordMasterPerkManager.GetClassDescription },
+        { "Archer", ArcherPerkManager.GetClassDescription },
+        { "Crusher", CrusherPerkManager.GetClassDescription },
+        { "Assassin", AssassinPerkManager.GetClassDescription },
+        { "Brawler", BrawlerPerkManager.GetClassDescription },
+        { "Wizard", WizardPerkManager.GetClassDescription },
+        { "Lancer", LancerPerkManager.GetClassDescription },
+        { "Bulwark", BulwarkPerkManager.GetClassDescription }
     };
 
     private void Start()
@@ -612,8 +533,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         selectedClassName = className;
 
         // Update description text
-        string description = ClassDescriptions.ContainsKey(className)
-            ? ClassDescriptions[className]
+        string description = DynamicClassDescriptionProviders.TryGetValue(className, out var provider)
+            ? provider(player)
             : $"Description for {className} coming soon...";
 
         var playerData = PlayerClassManager.GetPlayerData(player);

@@ -31,6 +31,25 @@ public static class ArcherPerkManager
         return playerData.GetClassLevel(PlayerClass.Archer) >= requiredLevel;
     }
 
+    // Description metadata, shown in the class selection GUI - locked perks display as "???"
+    private const string Intro = "Expert marksmen with unparalleled bow and crossbow mastery.";
+    private const string Outro = "Perfect for players who enjoy ranged combat and precision shooting.";
+
+    public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+    {
+        new PerkInfo { RequiredLevel = 10, Name = "Steady Draw", Description = "-15% stamina drain while drawing" },
+        new PerkInfo { RequiredLevel = 20, Name = "Arrow Slinger", Description = "Arrows give a buff on hit that reduces draw time by 50% for 10 seconds" },
+        new PerkInfo { RequiredLevel = 30, Name = "Wind Reader", Description = "+15% damage beyond 25m; -25% stamina while aiming" },
+        new PerkInfo { RequiredLevel = 40, Name = "Magic Shot", Description = "50% chance to not consume an arrow on attack" },
+        new PerkInfo { RequiredLevel = 50, Name = "Adrenaline Rush", Description = "Consecutive hits return 5% stamina" },
+    };
+
+    public static string GetClassDescription(Player player)
+    {
+        int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Archer) ?? 0;
+        return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+    }
+
     #region Level 10 - Steady Draw
     /// <summary>
     /// Lv10 – Steady Draw: -15% stamina drain while drawing bows

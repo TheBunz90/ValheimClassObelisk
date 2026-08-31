@@ -57,6 +57,25 @@ public static class AssassinPerkManager
         return playerData.GetClassLevel(PlayerClass.Assassin) >= requiredLevel;
     }
 
+    // Description metadata, shown in the class selection GUI - locked perks display as "???"
+    private const string Intro = "Stealthy fighters who strike from the shadows with deadly precision.";
+    private const string Outro = "Great for players who prefer tactical, stealthy gameplay and damage over time.";
+
+    public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+    {
+        new PerkInfo { RequiredLevel = 10, Name = "Cutthroat", Description = "+15% knife damage; +30% backstab multiplier" },
+        new PerkInfo { RequiredLevel = 20, Name = "Venom Coating", Description = "Knife hits apply stacking Poison (up to 3 stacks) based on skill level" },
+        new PerkInfo { RequiredLevel = 30, Name = "Envenomous", Description = "Poisons apply 15% movement speed slow per stack" },
+        new PerkInfo { RequiredLevel = 40, Name = "Assassination", Description = "First knife hit from stealth deals +100% damage" },
+        new PerkInfo { RequiredLevel = 50, Name = "Twist the Knife", Description = "+25% damage to poisoned targets; poisoned enemies deal -10% damage" },
+    };
+
+    public static string GetClassDescription(Player player)
+    {
+        int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Assassin) ?? 0;
+        return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
+    }
+
     #region Level 20 - Venom Coating
     /// <summary>
     /// Lv20 – Venom Coating: Knife hits apply a stacking Poison (up to 3 stacks). 

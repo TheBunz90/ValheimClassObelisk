@@ -6,6 +6,7 @@ using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
@@ -64,6 +65,25 @@ namespace ValheimClassObelisk
             if (playerData == null || !playerData.IsClassActive(PlayerClass.Brawler)) return false;
 
             return playerData.GetClassLevel(PlayerClass.Brawler) >= requiredLevel;
+        }
+
+        // Description metadata, shown in the class selection GUI - locked perks display as "???"
+        private const string Intro = "Bare-knuckle brawlers with unmatched unarmed combat skills.";
+        private const string Outro = "For players who want to fight with their fists like a true Viking warrior.";
+
+        public static readonly List<PerkInfo> Perks = new List<PerkInfo>
+        {
+            new PerkInfo { RequiredLevel = 10, Name = "One-Two Combo", Description = "Every 3rd consecutive punch deals +100% damage and restores 5% stamina" },
+            new PerkInfo { RequiredLevel = 20, Name = "Break Guard", Description = "Fist attacks deal +50% stagger damage" },
+            new PerkInfo { RequiredLevel = 30, Name = "Iron Fist", Description = "Fist attacks deal extra damage equal to 10% max health; +20% attack speed" },
+            new PerkInfo { RequiredLevel = 40, Name = "Tough", Description = "When not wearing chest piece, gain +25% physical damage resistance" },
+            new PerkInfo { RequiredLevel = 50, Name = "Rage", Description = "After unblocked damage, enter 5s rage: +50% attack speed, +50% damage resist, +25% fist damage (15s cooldown)" },
+        };
+
+        public static string GetClassDescription(Player player)
+        {
+            int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Brawler) ?? 0;
+            return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
         }
 
         // ------------------------------------------------------------

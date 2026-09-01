@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ValheimClassObelisk
+namespace ValheimWeaponClasses
 {
     [HarmonyPatch]
     public static class BulwarkPerkManager
@@ -33,7 +33,7 @@ namespace ValheimClassObelisk
         private static MethodInfo _getCurrentBlockerMethod;
 
         // Icon Resources (you'll need to add these to your project)
-        private const string REVERB_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.Reverb_sprite.rgba";
+        private const string REVERB_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.Reverb_sprite.rgba";
 
         // Sprites
         private static Sprite _cachedReverbIcon;

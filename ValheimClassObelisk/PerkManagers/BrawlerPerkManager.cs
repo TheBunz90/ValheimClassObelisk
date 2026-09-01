@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
-namespace ValheimClassObelisk
+namespace ValheimWeaponClasses
 {
     [HarmonyPatch]
     public static class BrawlerPerkManager
@@ -46,10 +46,10 @@ namespace ValheimClassObelisk
         private static string IRON_FIST_AS_KEY = "Brawler_IronFist_AS";
 
         // Embedded resource name for the Rage icon.
-        // IMPORTANT: Replace "ValheimClassObelisk" below if your project root namespace differs.
+        // IMPORTANT: Replace "ValheimWeaponClasses" below if your project root namespace differs.
         // Example folder structure: Resources/Icons/rage_icon.png
-        // => "ValheimClassObelisk.Resources.Icons.rage_icon.png"
-        private const string RAGE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.rage_viking_128.rgba";
+        // => "ValheimWeaponClasses.Resources.Icons.rage_icon.png"
+        private const string RAGE_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.rage_viking_128.rgba";
 
         [ThreadStatic] private static bool _inEquipHooks;
 

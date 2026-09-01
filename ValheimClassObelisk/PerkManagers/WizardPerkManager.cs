@@ -6,7 +6,7 @@ using System.IO;
 using System.Reflection;
 using System.Collections.Generic;
 
-namespace ValheimClassObelisk
+namespace ValheimWeaponClasses
 {
     [HarmonyPatch]
     public static class WizardPerkManager
@@ -23,9 +23,9 @@ namespace ValheimClassObelisk
         private static float _fireDamage = 0f;
 
         // Icon Resources
-        private const string FROST_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.frost_armor_128.rgba";
-        private const string FIRE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.immolation_aura_128.rgba";
-        private const string EITR_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.eitrweave_fist.rgba";
+        private const string FROST_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.frost_armor_128.rgba";
+        private const string FIRE_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.immolation_aura_128.rgba";
+        private const string EITR_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.eitrweave_fist.rgba";
 
         // Sprites
         private static Sprite _cachedFrostIcon;

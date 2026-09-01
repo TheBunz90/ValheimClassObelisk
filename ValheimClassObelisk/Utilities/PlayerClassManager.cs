@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 using HarmonyLib;
-using ValheimClassObelisk;
+using ValheimWeaponClasses;
 using Logger = Jotunn.Logger;
 
 // Player class data storage with persistence

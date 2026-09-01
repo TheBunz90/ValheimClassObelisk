@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Logger = Jotunn.Logger;
 using System.Runtime.CompilerServices;
-using ValheimClassObelisk;
+using ValheimWeaponClasses;
 using System.Reflection;
 
 /// <summary>

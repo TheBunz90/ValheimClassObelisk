@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ValheimClassObelisk
+namespace ValheimWeaponClasses
 {
     [HarmonyPatch]
     public static class LancerPerkManager
@@ -28,10 +28,10 @@ namespace ValheimClassObelisk
         private static Dictionary<Player, Vector3> _lastThrownSpearPosition = new Dictionary<Player, Vector3>();
 
         // Icon Resources (you'll need to add these to your project)
-        //private const string REACH_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.reach_advantage_128.rgba";
-        private const string STORM_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.SpearStorm.rgba";
-        //private const string DISRUPT_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.disruptive_strikes_128.rgba";
-        //private const string TELEPORT_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.spear_teleport_128.rgba";
+        //private const string REACH_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.reach_advantage_128.rgba";
+        private const string STORM_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.SpearStorm.rgba";
+        //private const string DISRUPT_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.disruptive_strikes_128.rgba";
+        //private const string TELEPORT_ICON_RESOURCE = "ValheimWeaponClasses.Resources.Icons.spear_teleport_128.rgba";
 
         // Sprites
         //private static Sprite _cachedReachIcon;

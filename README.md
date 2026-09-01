@@ -1,8 +1,8 @@
-# ValheimClassObelisk - Developer README
+# ValheimWeaponClasses - Developer README
 
 ## 1. Overview
 
-Class Obelisk is a Valheim mod (BepInEx plugin, built on the [Jotunn](https://valheim-modding.github.io/Jotunn/) modding library) that adds a craftable "Class Obelisk" piece. A player interacts with the Obelisk to choose one of 8 combat classes:
+ValheimWeaponClasses is a Valheim mod (BepInEx plugin, built on the [Jotunn](https://valheim-modding.github.io/Jotunn/) modding library) that adds a craftable "Class Obelisk" piece. A player interacts with the Obelisk to choose one of 8 combat classes:
 
 `SwordMaster`, `Archer`, `Crusher`, `Assassin`, `Brawler`, `Wizard`, `Lancer`, `Bulwark`
 
@@ -12,8 +12,8 @@ Each class deals bonus damage with its associated weapon type and gains XP from 
 
 | Field | Value |
 |---|---|
-| GUID | `com.bunzboi.classobelisk` |
-| Name | Class Obelisk |
+| GUID | `com.bunzboi.valheimweaponclass` |
+| Name | ValheimWeaponClasses |
 | Version | 1.0.0 |
 
 ## 2. Requirements / Dependencies
@@ -23,8 +23,6 @@ Each class deals bonus damage with its associated weapon type and gains XP from 
 - Jotunn (declared as a hard dependency via `[BepInDependency(Jotunn.Main.ModGuid)]`) — used for prefab cloning, the piece/build system, and all custom GUI (the class-selection window)
 
 The `.csproj` references game/BepInEx/Jotunn DLLs via HintPaths pointing at a local Steam install (`Program Files (x86)\Steam\steamapps\common\Valheim\...`). If you're setting this up on a new machine, update those HintPaths (or your Steam install path) if the build fails to find references.
-
-A `Newtonsoft.Json.dll` is vendored under `Libs/` but is **not** currently used for anything - all save data goes through Unity's own `JsonUtility` instead.
 
 ## 3. Project Layout
 
@@ -66,9 +64,6 @@ TestingResources/            Debug-only console commands (API discovery,
 
 Resources/Icons/             Embedded .rgba icon assets used by some perk
                              status effects.
-
-Libs/                        Vendored third-party DLLs (Newtonsoft.Json,
-                             AnimationSpeedManager).
 ```
 
 ## 4. How Class Selection Works
@@ -212,8 +207,8 @@ Unlike the commands above (which print to the in-game console), these write thei
 
 ## 10. Getting Started (Building the Mod)
 
-1. Open `ValheimClassObelisk.sln` in Visual Studio (or your preferred .NET Framework-capable IDE).
-2. Confirm the HintPaths in `ValheimClassObelisk.csproj` match your local Steam Valheim install (BepInEx core, Jotunn plugin folder, and the game's managed assemblies). Update them if your install path differs.
+1. Open `ValheimWeaponClasses.sln` in Visual Studio (or your preferred .NET Framework-capable IDE).
+2. Confirm the HintPaths in `ValheimWeaponClasses.csproj` match your local Steam Valheim install (BepInEx core, Jotunn plugin folder, and the game's managed assemblies). Update them if your install path differs.
 3. Ensure Jotunn is installed in your local Valheim `BepInEx/plugins` folder - it's a runtime dependency, not just a compile-time reference.
 4. Build (Debug or Release).
-5. Copy the resulting `ValheimClassObelisk.dll` (and anything under `Libs/` it needs) into your Valheim `BepInEx/plugins` folder to test in-game.
+5. Copy the resulting `ValheimWeaponClasses.dll` into your Valheim `BepInEx/plugins` folder to test in-game.

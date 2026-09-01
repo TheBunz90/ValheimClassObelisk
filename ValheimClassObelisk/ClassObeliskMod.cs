@@ -14,15 +14,15 @@ using System.Collections.Generic;
 using System.Linq;
 using Logger = Jotunn.Logger;
 using System.Security;
-using ValheimClassObelisk;
+using ValheimWeaponClasses;
 
 [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
 [BepInDependency(Jotunn.Main.ModGuid)]
 //[NetworkCompatibilityLevel(CompatibilityLevel.EveryoneMustHaveMod)]
 internal class ClassObeliskMod : BaseUnityPlugin
 {
-    public const string PluginGUID = "com.bunzboi.classobelisk";
-    public const string PluginName = "Class Obelisk";
+    public const string PluginGUID = "com.bunzboi.valheimweaponclass";
+    public const string PluginName = "ValheimWeaponClasses";
     public const string PluginVersion = "1.0.0";
 
     private GameObject TestPanel;

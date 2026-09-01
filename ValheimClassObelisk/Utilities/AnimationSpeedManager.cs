@@ -52,7 +52,7 @@ using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 
-namespace ValheimClassObelisk
+namespace ValheimWeaponClasses
 {
     /// <summary>
     /// Public API you call from your mod code.

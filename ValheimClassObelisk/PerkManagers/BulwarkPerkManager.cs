@@ -441,15 +441,18 @@ namespace ValheimClassObelisk
         }
 
         // Summary
-        // Apply bulwark buffs when player levels up
-        [HarmonyPatch(typeof(ClassXPManager), "AwardDamageXP")]
+        // Refresh bulwark passive buffs whenever the player deals damage (covers post-level-up refresh)
+        [HarmonyPatch(typeof(Character), "Damage")]
         [HarmonyPostfix]
-        public static void Bulwark_LevelUp_Postfix(Player player, ItemDrop.ItemData weapon, float damageDealt, Character target)
+        public static void Bulwark_LevelUp_Postfix(Character __instance, HitData hit)
         {
             try
             {
-                // Apply all bulwark passive buffs after potential level up
-                ApplyAllBulwarkPassiveBuffs(player);
+                if (hit.GetTotalDamage() <= 0) return;
+                if (hit.GetAttacker() is Player player && __instance != null && !(__instance is Player))
+                {
+                    ApplyAllBulwarkPassiveBuffs(player);
+                }
             }
             catch (System.Exception ex)
             {

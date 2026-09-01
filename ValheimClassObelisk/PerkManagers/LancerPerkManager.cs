@@ -424,15 +424,18 @@ namespace ValheimClassObelisk
         }
 
         // Summary
-        // Apply lancer buffs when player levels up
-        [HarmonyPatch(typeof(ClassXPManager), "AwardDamageXP")]
+        // Refresh lancer passive buffs whenever the player deals damage (covers post-level-up refresh)
+        [HarmonyPatch(typeof(Character), "Damage")]
         [HarmonyPostfix]
-        public static void Lancer_LevelUp_Postfix(Player player, ItemDrop.ItemData weapon, float damageDealt, Character target)
+        public static void Lancer_LevelUp_Postfix(Character __instance, HitData hit)
         {
             try
             {
-                // Apply all lancer passive buffs after potential level up
-                ApplyAllLancerPassiveBuffs(player);
+                if (hit.GetTotalDamage() <= 0) return;
+                if (hit.GetAttacker() is Player player && __instance != null && !(__instance is Player))
+                {
+                    ApplyAllLancerPassiveBuffs(player);
+                }
             }
             catch (System.Exception ex)
             {

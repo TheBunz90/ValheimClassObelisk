@@ -186,10 +186,10 @@ public static class ClassXPManager
                     player.Message(MessageHud.MessageType.Center, $"New {activeClass} Perk Unlocked!");
                 }
 
-                Debug.Log($"Player {player.GetPlayerName()} leveled up {activeClass} to level {newLevel}");
+                DevLog.Log($"Player {player.GetPlayerName()} leveled up {activeClass} to level {newLevel}");
             }
 
-            Debug.Log($"Awarded {xpToAward:F1} XP to {activeClass} for {player.GetPlayerName()} (damage: {damageDealt:F1} to {target.name})");
+            DevLog.Log($"Awarded {xpToAward:F1} XP to {activeClass} for {player.GetPlayerName()} (damage: {damageDealt:F1} to {target.name})");
         }
     }
 
@@ -231,10 +231,10 @@ public static class ClassXPManager
                 player.Message(MessageHud.MessageType.Center, $"New Bulwark Perk Unlocked!");
             }
 
-            Debug.Log($"Player {player.GetPlayerName()} leveled up Bulwark to level {newLevel}");
+            DevLog.Log($"Player {player.GetPlayerName()} leveled up Bulwark to level {newLevel}");
         }
 
-        Debug.Log($"Awarded {xpToAward:F1} blocking XP to Bulwark for {player.GetPlayerName()} (blocked: {originalDamage:F1} from {attacker.name})");
+        DevLog.Log($"Awarded {xpToAward:F1} blocking XP to Bulwark for {player.GetPlayerName()} (blocked: {originalDamage:F1} from {attacker.name})");
     }
 
     // Check if target is a valid creature for XP
@@ -296,7 +296,7 @@ public static class ClassXPManager
         float maxHealth = deadCreature.GetMaxHealth();
         float baseKillBonus = maxHealth * KillBonusMultiplier;
 
-        Debug.Log($"Creature {deadCreature.name} died. Max health: {maxHealth}, base kill bonus: {baseKillBonus}");
+        DevLog.Log($"Creature {deadCreature.name} died. Max health: {maxHealth}, base kill bonus: {baseKillBonus}");
 
         // Award XP to each player based on classes they used
         foreach (var playerEntry in playerDamageByClass)
@@ -330,7 +330,7 @@ public static class ClassXPManager
             // Split kill bonus among eligible classes
             float bonusPerClass = baseKillBonus / eligibleClasses.Count;
 
-            Debug.Log($"Player {contributor.GetPlayerName()} eligible for kill bonus with {eligibleClasses.Count} classes: {string.Join(", ", eligibleClasses)}");
+            DevLog.Log($"Player {contributor.GetPlayerName()} eligible for kill bonus with {eligibleClasses.Count} classes: {string.Join(", ", eligibleClasses)}");
 
             // Award kill bonus to each eligible class
             foreach (string className in eligibleClasses)
@@ -356,7 +356,7 @@ public static class ClassXPManager
                     }
                 }
 
-                Debug.Log($"Awarded {bonusPerClass:F1} kill bonus XP to {className} for {contributor.GetPlayerName()}");
+                DevLog.Log($"Awarded {bonusPerClass:F1} kill bonus XP to {className} for {contributor.GetPlayerName()}");
             }
         }
 
@@ -529,6 +529,8 @@ public static class XPTrackingPatches
 }
 
 // Console commands for testing XP system
+// Dev-only: excluded from Release builds.
+#if DEBUG
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 public static class XPTestCommands
 {
@@ -636,3 +638,4 @@ public static class XPTestCommands
         );
     }
 }
+#endif

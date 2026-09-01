@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿#if DEBUG
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +9,7 @@ using UnityEngine;
 using Logger = Jotunn.Logger;
 
 // Debug utility class for discovering method signatures and game internals
+// Dev-only: excluded from Release builds.
 public static class ValheimDebugUtility
 {
     private static string GetLogDirectory()
@@ -291,3 +293,4 @@ public static class ValheimDebugUtility
         }
     }
 }
+#endif

@@ -50,7 +50,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="Jotunn">
-      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\Jotunn\plugins\Jotunn.dll</HintPath>
+      <HintPath>..\..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Valheim\BepInEx\plugins\Jotunn\Jotunn.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -124,6 +124,7 @@
     <Compile Include="PerkManagers\WizardPerkManager.cs" />
     <Compile Include="Utilities\XPSystemManager.cs" />
     <Compile Include="UI\ActiveClassesTextsDialogPatch.cs" />
+    <Compile Include="Utilities\DevLog.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\rage_viking_128.rgba" />

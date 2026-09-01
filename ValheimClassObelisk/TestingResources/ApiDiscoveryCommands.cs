@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿#if DEBUG
+using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 using System.Reflection;
@@ -8,6 +9,7 @@ using System.Text;
 
 /// <summary>
 /// Console commands for exploring Valheim's API - discovering methods, fields, and types
+/// Dev-only: excluded from Release builds.
 /// </summary>
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 public static class ApiDiscoveryCommands
@@ -548,3 +550,4 @@ public static class ApiDiscoveryCommands
         args.Context.AddString($"On Ground: {player.IsOnGround()}");
     }
 }
+#endif

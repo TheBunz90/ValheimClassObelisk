@@ -360,14 +360,27 @@ public static class PlayerClassManager
         foreach (var playerClass in data.GetActiveClassEnums())
         {
             int level = data.GetClassLevel(playerClass);
-            sb.Append($"<color=yellow>{PlayerClassHelper.GetDisplayName(playerClass)} — Level {level}</color>\n\n");
+            sb.Append($"<color=yellow>{PlayerClassHelper.GetDisplayName(playerClass)} — Level {level}</color>\n");
+
+            if (level >= 50)
+            {
+                sb.Append("<color=#00FFFF>Max Level Reached</color>\n\n");
+            }
+            else
+            {
+                float totalXP = data.GetClassXP(playerClass);
+                var (current, required) = XPCurveHelper.GetXPProgress(totalXP, level);
+                float percent = required > 0 ? current / required * 100f : 0f;
+                sb.Append($"<color=#00FFFF>XP: {current:N0} / {required:N0} ({percent:F0}%) to next level</color>\n\n");
+            }
+
             sb.Append(ClassDescriptionProviders[playerClass](player));
             sb.Append("\n\n");
         }
 
         if (data.activeClasses.Count < data.GetMaxActiveClasses())
         {
-            sb.Append("<color=grey>A second class slot is available — visit a Class Obelisk to choose one.</color>");
+            sb.Append("<color=#AAAAAA>A second class slot is available — visit a Class Obelisk to choose one.</color>");
         }
 
         return sb.ToString();

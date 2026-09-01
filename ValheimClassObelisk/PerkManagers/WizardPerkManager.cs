@@ -483,15 +483,18 @@ namespace ValheimClassObelisk
         }
 
         // Summary
-        // Apply wizard buffs when player levels up - patch the XP system's level up logic
-        [HarmonyPatch(typeof(ClassXPManager), "AwardDamageXP")]
+        // Refresh wizard passive buffs whenever the player deals damage (covers post-level-up refresh)
+        [HarmonyPatch(typeof(Character), "Damage")]
         [HarmonyPostfix]
-        public static void Wizard_LevelUp_Postfix(Player player, ItemDrop.ItemData weapon, float damageDealt, Character target)
+        public static void Wizard_LevelUp_Postfix(Character __instance, HitData hit)
         {
             try
             {
-                // Apply all wizard passive buffs after potential level up
-                ApplyAllWizardPassiveBuffs(player);
+                if (hit.GetTotalDamage() <= 0) return;
+                if (hit.GetAttacker() is Player player && __instance != null && !(__instance is Player))
+                {
+                    ApplyAllWizardPassiveBuffs(player);
+                }
             }
             catch (System.Exception ex)
             {

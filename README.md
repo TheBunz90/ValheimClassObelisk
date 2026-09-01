@@ -118,10 +118,8 @@ There is no external data file (no JSON/YAML) for class definitions - everything
 
 Core logic: `Utilities/XPSystemManager.cs` (`ClassXPManager`)
 
-- **Damage XP** — dealing damage to a non-player creature grants 1 XP per point of damage (`DamageToXPRatio`) to each active class whose weapon type matches the weapon used (via `ClassCombatManager`'s weapon-type checks).
-- **Kill bonus XP** — damage dealt to a creature by (possibly multiple) classes is tracked; on the creature's death, a bonus XP pool (creature max health x `KillBonusMultiplier`) is split across the classes that contributed damage.
-- **Blocking XP** (Bulwark only) — a successful block grants XP equal to 2x the blocked damage x `DamageToXPRatio`.
-- These are hooked via Harmony on `Character.Damage` (pre and post) and `Character.OnDeath` (`XPTrackingPatches`).
+- **Kill bonus XP** — the sole XP source. Damage dealt to a creature by (possibly multiple) classes is tracked (no XP awarded for the damage itself); on the creature's death, a bonus XP pool (creature max health x `KillBonusMultiplier`) is split across the classes that contributed damage.
+- These are hooked via Harmony on `Character.Damage` (post, for tracking only) and `Character.OnDeath` (`XPTrackingPatches`).
 - **Leveling curve** — `XPRequirements` is a hardcoded cumulative XP table for levels 1-50 (a comment notes it was originally derived from an `XP_To_Level.json` reference file that is no longer present in the repo - the values are now inlined directly in code). `XPCurveHelper` exposes lookups for XP-required-per-level, cumulative XP, current level from XP, and progress (for UI bars).
 - Max level is 50. Every 10 levels (10/20/30/40/50) unlocks a passive perk (implemented in the matching `PerkManagers/*.cs` file). Reaching level 50 on any class also unlocks a second active class slot (see section 4).
 
@@ -134,7 +132,7 @@ All patches are discovered and applied with a single call in `ClassObeliskMod.Aw
 | `ClassObeliskMod.cs` | `Terminal.InitTerminal` | Registers mod console commands |
 | `Utilities/PlayerClassManager.cs` | `Player.Save` / `Player.Load` | Persist/restore `PlayerClassData` |
 | | `Terminal.InitTerminal` | `resetclass` debug command |
-| `Utilities/XPSystemManager.cs` | `Character.Damage` (pre & post) | Award damage/kill/block XP |
+| `Utilities/XPSystemManager.cs` | `Character.Damage` (post) | Track per-class damage contribution for kill-bonus split |
 | | `Character.OnDeath` | Trigger kill-bonus XP split |
 | | `Terminal.InitTerminal` | `testxp`/`xprates`/`xpcurve` commands |
 | `Utilities/ClassCombatManager.cs` | `Character.Damage`, `Projectile.*`, `Game.Update`, `Terminal.InitTerminal` | Class damage multipliers, weapon-type detection, misc bookkeeping/debug |
@@ -153,7 +151,7 @@ All of these are registered via `Terminal.ConsoleCommand` in Harmony postfixes o
 |---|---|---|
 | `resetclass` | `resetclass` | Resets your currently active class's level and XP back to 0. Useful for re-testing leveling/perk unlocks from scratch. |
 | `testxp` | `testxp [amount]` | Grants XP (default 100 if omitted) to **every** currently active class without needing to fight anything. Prints old level/XP -> new level/XP and flags a level-up. |
-| `xprates` | `xprates` <br> `xprates <damage_ratio> [kill_multiplier]` | With no args, prints the current `DamageToXPRatio` and `KillBonusMultiplier`. With args, overwrites them live for this session (e.g. `xprates 2.0 1.5`). **Not persisted** - resets to the coded defaults on restart. |
+| `xprates` | `xprates` <br> `xprates <kill_multiplier>` | With no args, prints the current `KillBonusMultiplier`. With an arg, overwrites it live for this session (e.g. `xprates 1.5`). **Not persisted** - resets to the coded default on restart. |
 | `xpcurve` | `xpcurve <level>` (1-50) | Prints the XP required to reach `<level>`, the cumulative XP total, and the requirement for the next level - handy for sanity-checking `XPRequirements`/`XPCurveHelper` changes without playing. |
 
 ### 9.2 Combat & damage bonuses (`Utilities/ClassCombatManager.cs`, `Utilities/ClassDamageBonusSystem.cs`)

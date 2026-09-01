@@ -15,7 +15,6 @@ public static class ClassXPManager
         new Dictionary<Character, Dictionary<long, Dictionary<string, float>>>();
 
     // Configuration for XP rates
-    public static float DamageToXPRatio = 1f; // 1 damage = 1 XP
     public static float KillBonusMultiplier = 1f; // Kill bonus = creature max health * this multiplier
 
     // NOTE: No Newtonsoft, no IO, no Reflection needed.
@@ -143,100 +142,6 @@ public static class ClassXPManager
     }
 
 
-    // Award XP for damage dealt with appropriate weapon (only for creatures)
-    public static void AwardDamageXP(Player player, ItemDrop.ItemData weapon, float damageDealt, Character target)
-    {
-        if (player == null || damageDealt <= 0 || target == null) return;
-
-        // Only award XP for damage to creatures (not players, not objects)
-        if (target is Player || !IsValidCreature(target)) return;
-
-        var playerData = PlayerClassManager.GetPlayerData(player);
-        if (playerData == null || playerData.activeClasses.Count == 0) return;
-
-        // Award XP to appropriate active classes based on weapon type
-        foreach (string activeClass in playerData.activeClasses)
-        {
-            if (!IsWeaponAppropriateForClass(weapon, activeClass)) return;
-
-            // Award XP based on damage dealt (no cooldown restrictions)
-            float xpToAward = damageDealt * DamageToXPRatio;
-
-            float oldXP = playerData.GetClassXP(activeClass);
-            int oldLevel = playerData.GetClassLevel(activeClass);
-
-            playerData.AddClassXP(activeClass, xpToAward);
-
-            int newLevel = playerData.GetClassLevel(activeClass);
-
-            // Show XP gain message (occasionally to avoid spam)
-            if (UnityEngine.Random.Range(0f, 1f) < 0.15f) // 15% chance
-            {
-                player.Message(MessageHud.MessageType.TopLeft, $"{activeClass}: +{xpToAward:F0} XP");
-            }
-
-            // Show level up message
-            if (newLevel > oldLevel)
-            {
-                player.Message(MessageHud.MessageType.Center, $"{activeClass} Level Up! Level {newLevel}");
-
-                // Check for perk unlocks
-                if (newLevel % 10 == 0)
-                {
-                    player.Message(MessageHud.MessageType.Center, $"New {activeClass} Perk Unlocked!");
-                }
-
-                DevLog.Log($"Player {player.GetPlayerName()} leveled up {activeClass} to level {newLevel}");
-            }
-
-            DevLog.Log($"Awarded {xpToAward:F1} XP to {activeClass} for {player.GetPlayerName()} (damage: {damageDealt:F1} to {target.name})");
-        }
-    }
-
-    // Award XP for successful blocking with shield (only for Bulwark class)
-    public static void AwardBlockingXP(Player player, float originalDamage, Character attacker)
-    {
-        if (player == null || originalDamage <= 0 || attacker == null) return;
-
-        // Only award XP for blocking damage from creatures (not players)
-        if (attacker is Player || !IsValidCreature(attacker)) return;
-
-        var playerData = PlayerClassManager.GetPlayerData(player);
-        if (playerData == null || !playerData.IsClassActive(PlayerClass.Bulwark)) return;
-
-        // Award XP based on original damage * 2 (before armor and block reduction)
-        float xpToAward = originalDamage * 2f * DamageToXPRatio;
-
-        float oldXP = playerData.GetClassXP(PlayerClass.Bulwark);
-        int oldLevel = playerData.GetClassLevel(PlayerClass.Bulwark);
-
-        playerData.AddClassXP(PlayerClass.Bulwark, xpToAward);
-
-        int newLevel = playerData.GetClassLevel(PlayerClass.Bulwark);
-
-        // Show XP gain message (occasionally to avoid spam)
-        if (UnityEngine.Random.Range(0f, 1f) < 0.15f) // 15% chance
-        {
-            player.Message(MessageHud.MessageType.TopLeft, $"Bulwark: +{xpToAward:F0} XP (Block)");
-        }
-
-        // Show level up message
-        if (newLevel > oldLevel)
-        {
-            player.Message(MessageHud.MessageType.Center, $"Bulwark Level Up! Level {newLevel}");
-
-            // Check for perk unlocks
-            if (newLevel % 10 == 0)
-            {
-                player.Message(MessageHud.MessageType.Center, $"New Bulwark Perk Unlocked!");
-            }
-
-            DevLog.Log($"Player {player.GetPlayerName()} leveled up Bulwark to level {newLevel}");
-        }
-
-        DevLog.Log($"Awarded {xpToAward:F1} blocking XP to Bulwark for {player.GetPlayerName()} (blocked: {originalDamage:F1} from {attacker.name})");
-    }
-
     // Check if target is a valid creature for XP
     private static bool IsValidCreature(Character target)
     {
@@ -339,11 +244,8 @@ public static class ClassXPManager
                 playerData.AddClassXP(className, bonusPerClass);
                 int newLevel = playerData.GetClassLevel(className);
 
-                // Show kill bonus message
-                contributor.Message(MessageHud.MessageType.TopLeft,
-                    eligibleClasses.Count > 1
-                        ? $"{className}: +{bonusPerClass:F0} Kill Bonus (Split {eligibleClasses.Count} ways)"
-                        : $"{className}: +{bonusPerClass:F0} Kill Bonus");
+                // Show XP gain message
+                contributor.Message(MessageHud.MessageType.TopLeft, $"{className}: +{bonusPerClass:F0} XP");
 
                 // Show level up message
                 if (newLevel > oldLevel)
@@ -458,15 +360,11 @@ public static class XPTrackingPatches
                 var playerData = PlayerClassManager.GetPlayerData(attacker);
                 if (playerData == null || playerData.activeClasses.Count == 0) return;
 
-                // Check each active class to see if the weapon is appropriate
+                // Track damage per active class whose weapon type matches, for kill-bonus split calculation
                 foreach (string activeClass in playerData.activeClasses)
                 {
                     if (ClassXPManager.IsWeaponAppropriateForClass(weapon, activeClass))
                     {
-                        // Award damage XP for this specific class
-                        ClassXPManager.AwardDamageXP(attacker, weapon, hit.GetTotalDamage(), __instance);
-
-                        // Track damage for kill bonus calculation (per class)
                         ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage(), activeClass);
                     }
                 }
@@ -475,36 +373,6 @@ public static class XPTrackingPatches
         catch (System.Exception ex)
         {
             Logger.LogError($"Error in Character_Damage_Postfix (XP): {ex.Message}");
-        }
-    }
-
-    // Patch blocking to award XP for successful blocks (Bulwark class)
-    [HarmonyPatch(typeof(Character), "Damage")]
-    [HarmonyPrefix]
-    public static void Character_Damage_Prefix(Character __instance, HitData hit)
-    {
-        try
-        {
-            // Only process player characters
-            if (!(__instance is Player player)) return;
-
-            // Only process if the player is actively blocking
-            if (!player.IsBlocking()) return;
-
-            // Get the attacker
-            Character attacker = hit.GetAttacker();
-            if (attacker == null || attacker is Player) return;
-
-            // Store the original damage before any reductions for XP calculation
-            float originalDamage = hit.GetTotalDamage();
-            if (originalDamage <= 0) return;
-
-            // Award blocking XP to Bulwark class players
-            ClassXPManager.AwardBlockingXP(player, originalDamage, attacker);
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in Character_Damage_Prefix (Blocking XP): {ex.Message}");
         }
     }
 
@@ -581,24 +449,17 @@ public static class XPTestCommands
             }
         );
 
-        new Terminal.ConsoleCommand("xprates", "Show/set XP rates (xprates [damage_ratio] [kill_multiplier])",
+        new Terminal.ConsoleCommand("xprates", "Show/set XP rates (xprates [kill_multiplier])",
             delegate (Terminal.ConsoleEventArgs args)
             {
                 if (args.Length == 1)
                 {
                     args.Context.AddString($"Current XP Rates:");
-                    args.Context.AddString($"Damage to XP ratio: {ClassXPManager.DamageToXPRatio:F1}");
                     args.Context.AddString($"Kill bonus multiplier: {ClassXPManager.KillBonusMultiplier:F1}");
                     return;
                 }
 
-                if (args.Length >= 2 && float.TryParse(args.Args[1], out float damageRatio))
-                {
-                    ClassXPManager.DamageToXPRatio = damageRatio;
-                    args.Context.AddString($"Set damage to XP ratio to: {damageRatio:F1}");
-                }
-
-                if (args.Length >= 3 && float.TryParse(args.Args[2], out float killMultiplier))
+                if (args.Length >= 2 && float.TryParse(args.Args[1], out float killMultiplier))
                 {
                     ClassXPManager.KillBonusMultiplier = killMultiplier;
                     args.Context.AddString($"Set kill bonus multiplier to: {killMultiplier:F1}");

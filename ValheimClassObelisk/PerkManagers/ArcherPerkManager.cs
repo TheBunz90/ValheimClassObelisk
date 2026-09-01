@@ -133,7 +133,7 @@ public static class ArcherPerkManager
             AddArrowSlingerStatusEffect(archer);
 
             archer.Message(MessageHud.MessageType.TopLeft, "Arrow Slinger: 50% faster draw for 10s!");
-            Debug.Log($"Triggered Arrow Slinger buff for {archer.GetPlayerName()}");
+            DevLog.Log($"Triggered Arrow Slinger buff for {archer.GetPlayerName()}");
         }
     }
 
@@ -253,7 +253,7 @@ public static class ArcherPerkManager
         if (distance > 25f)
         {
             float bonusDamage = baseDamage * 0.15f; // 15% bonus
-            Debug.Log($"Wind Reader: Long-range shot ({distance:F1}m) +15% damage (+{bonusDamage:F1})");
+            DevLog.Log($"Wind Reader: Long-range shot ({distance:F1}m) +15% damage (+{bonusDamage:F1})");
 
             // Show message occasionally
             if (Random.Range(0f, 1f) < 0.2f)
@@ -297,7 +297,7 @@ public static class ArcherPerkManager
         if (Random.Range(0f, 1f) < 0.5f)
         {
             archer.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
-            Debug.Log($"Magic Shot triggered for {archer.GetPlayerName()} - arrow not consumed");
+            DevLog.Log($"Magic Shot triggered for {archer.GetPlayerName()} - arrow not consumed");
             return false;
         }
 
@@ -326,7 +326,7 @@ public static class ArcherPerkManager
             archer.Message(MessageHud.MessageType.TopLeft, $"Adrenaline Rush! +{staminaRestore:F0} stamina");
         }
 
-        Debug.Log($"Adrenaline Rush: Restored {staminaRestore:F1} stamina for {archer.GetPlayerName()}");
+        DevLog.Log($"Adrenaline Rush: Restored {staminaRestore:F1} stamina for {archer.GetPlayerName()}");
     }
     #endregion
 
@@ -351,7 +351,7 @@ public static class ArcherPerkManager
                 RemoveArrowSlingerStatusEffect(player);
             }
 
-            Debug.Log($"Arrow Slinger buff expired for player {playerID}");
+            DevLog.Log($"Arrow Slinger buff expired for player {playerID}");
         }
     }
     #endregion
@@ -422,7 +422,7 @@ public static class ArcherPerkPatches
             // Trigger Adrenaline Rush (Level 50)
             ArcherPerkManager.TriggerAdrenalineRush(archer);
 
-            Debug.Log($"Archer perk triggers for {archer.GetPlayerName()} hitting {hitCharacter.name}");
+            DevLog.Log($"Archer perk triggers for {archer.GetPlayerName()} hitting {hitCharacter.name}");
         }
         catch (System.Exception ex)
         {

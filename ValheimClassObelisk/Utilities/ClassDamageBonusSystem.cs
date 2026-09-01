@@ -163,6 +163,8 @@ public static class DamageBonusPatches
 }
 
 // Console commands for testing damage bonuses
+// Dev-only: excluded from Release builds.
+#if DEBUG
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 public static class DamageBonusCommands
 {
@@ -260,3 +262,4 @@ public static class DamageBonusCommands
         );
     }
 }
+#endif

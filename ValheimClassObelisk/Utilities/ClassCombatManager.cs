@@ -563,6 +563,8 @@ public static class ProjectilePatches
 }
 
 // Additional console commands for testing combat bonuses
+// Dev-only: excluded from Release builds.
+#if DEBUG
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 public static class CombatDebugCommands
 {
@@ -678,3 +680,4 @@ public static class CombatDebugCommands
         );
     }
 }
+#endif

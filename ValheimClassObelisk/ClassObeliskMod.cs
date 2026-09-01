@@ -174,7 +174,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             {
                 if (ZInput.GetButtonDown("Escape") || ZInput.GetButtonDown("JoyMenu"))
                 {
-                    Debug.Log("Escape/Menu button pressed - closing class selection GUI");
+                    DevLog.Log("Escape/Menu button pressed - closing class selection GUI");
                     CloseClassSelectionGUI();
                 }
             }
@@ -211,7 +211,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
     private void OpenClassSelectionGUI(Player player)
     {
-        Debug.Log("Opening enhanced class selection GUI");
+        DevLog.Log("Opening enhanced class selection GUI");
 
         // Close any existing GUI first
         CloseClassSelectionGUI();
@@ -224,7 +224,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     {
         try
         {
-            Debug.Log("Creating enhanced GUI using Jotunn's GUIManager");
+            DevLog.Log("Creating enhanced GUI using Jotunn's GUIManager");
 
             // Get player class data
             var playerData = PlayerClassManager.GetPlayerData(player);
@@ -376,7 +376,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
         // Add click handler - now updates description instead of selecting immediately
         buttonComponent.onClick.AddListener(() => {
-            Debug.Log($"Viewing class: {className}");
+            DevLog.Log($"Viewing class: {className}");
             OnClassButtonClicked(className, player);
         });
 
@@ -456,8 +456,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         descriptionScrollRect.movementType = ScrollRect.MovementType.Clamped;
         descriptionScrollRect.scrollSensitivity = 20f;
 
-        Debug.Log("Properly sized description text created");
-        Debug.Log("Container rect size: " + containerRect.rect.size);
+        DevLog.Log("Properly sized description text created");
+        DevLog.Log("Container rect size: " + containerRect.rect.size);
     }
 
     private void CreateSelectClassButton(Player player)
@@ -523,7 +523,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         }
 
         closeComponent.onClick.AddListener(() => {
-            Debug.Log("Enhanced close button clicked");
+            DevLog.Log("Enhanced close button clicked");
             CloseClassSelectionGUI();
         });
     }
@@ -553,7 +553,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     {
         if (descriptionText != null)
         {
-            Debug.Log($"Updating description text to: {description.Substring(0, Math.Min(50, description.Length))}...");
+            DevLog.Log($"Updating description text to: {description.Substring(0, Math.Min(50, description.Length))}...");
             descriptionText.text = description;
 
             // Force text to wrap properly
@@ -598,7 +598,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
     private void OnClassSelected(string className, Player player)
     {
-        Debug.Log($"OnClassSelected called with className: '{className}' for player: {player?.GetPlayerName() ?? "null"}");
+        DevLog.Log($"OnClassSelected called with className: '{className}' for player: {player?.GetPlayerName() ?? "null"}");
 
         if (string.IsNullOrEmpty(className))
         {
@@ -619,7 +619,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             // Display success message
             player.Message(MessageHud.MessageType.Center, $"Selected {className} Class! Active: {activeClassesList}");
 
-            Debug.Log($"Successfully selected class {className} for {player.GetPlayerName()}. Active classes: {activeClassesList}");
+            DevLog.Log($"Successfully selected class {className} for {player.GetPlayerName()}. Active classes: {activeClassesList}");
         }
         else
         {
@@ -635,7 +635,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     {
         if (classSelectionPanel != null)
         {
-            Debug.Log("Closing class selection GUI");
+            DevLog.Log("Closing class selection GUI");
             Destroy(classSelectionPanel);
             classSelectionPanel = null;
             descriptionText = null;
@@ -683,6 +683,8 @@ public class ButtonHoverEffect : MonoBehaviour, IPointerEnterHandler, IPointerEx
 }
 
 // Simple console command for testing
+// Dev-only: excluded from Release builds.
+#if DEBUG
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 public static class Terminal_InitTerminal_Patch
 {
@@ -741,3 +743,4 @@ public static class Terminal_InitTerminal_Patch
         );
     }
 }
+#endif

@@ -1,10 +1,12 @@
-﻿using HarmonyLib;
+﻿#if DEBUG
+using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 using System.Reflection;
 using System.Linq;
 
 // Testing class for bow draw duration modification
+// Dev-only: excluded from Release builds.
 public static class DrawDurationTestManager
 {
     // Testing multipliers
@@ -332,3 +334,4 @@ public static class DrawDurationCommands
         );
     }
 }
+#endif

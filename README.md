@@ -12,7 +12,7 @@ Each class deals bonus damage with its associated weapon type and gains XP from 
 
 | Field | Value |
 |---|---|
-| GUID | `com.yourname.classobelisk` — still a placeholder, update this in `ClassObeliskMod.cs` before publishing/sharing the mod |
+| GUID | `com.bunzboi.classobelisk` |
 | Name | Class Obelisk |
 | Version | 1.0.0 |
 

@@ -437,7 +437,7 @@ public static class Player_Save_Patch
     {
         try
         {
-            Debug.Log($"[PATCH:SAVE] Saving class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
+            DevLog.Log($"[PATCH:SAVE] Saving class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
 
             var playerData = PlayerClassManager.GetPlayerData(__instance);
             if (playerData != null)
@@ -448,7 +448,7 @@ public static class Player_Save_Patch
                 // Write to the package AFTER all vanilla data
                 pkg.Write(jsonData);
 
-                Debug.Log($"[PATCH:SAVE] ✓ Wrote {jsonData.Length} bytes. Active classes: {string.Join(", ", playerData.activeClasses)}");
+                DevLog.Log($"[PATCH:SAVE] ✓ Wrote {jsonData.Length} bytes. Active classes: {string.Join(", ", playerData.activeClasses)}");
             }
             else
             {
@@ -472,12 +472,12 @@ public static class Player_Load_Patch
     {
         try
         {
-            Debug.Log($"[PATCH:LOAD] Loading class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
+            DevLog.Log($"[PATCH:LOAD] Loading class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
 
             // Check if there's more data to read
             if (pkg.GetPos() >= pkg.Size())
             {
-                Debug.Log($"[PATCH:LOAD] No class data in save (pre-mod character or new character)");
+                DevLog.Log($"[PATCH:LOAD] No class data in save (pre-mod character or new character)");
                 return;
             }
 
@@ -486,7 +486,7 @@ public static class Player_Load_Patch
 
             if (!string.IsNullOrEmpty(jsonData))
             {
-                Debug.Log($"[PATCH:LOAD] Found saved data: {jsonData.Length} bytes");
+                DevLog.Log($"[PATCH:LOAD] Found saved data: {jsonData.Length} bytes");
 
                 var playerData = JsonUtility.FromJson<PlayerClassData>(jsonData);
                 playerData.RestoreFromSerialization();
@@ -495,11 +495,11 @@ public static class Player_Load_Patch
                 long playerId = __instance.GetPlayerID();
                 PlayerClassManager.SetPlayerDataDirectly(playerId, playerData);
 
-                Debug.Log($"[PATCH:LOAD] ✓ Loaded successfully. Active classes: {string.Join(", ", playerData.activeClasses)}");
+                DevLog.Log($"[PATCH:LOAD] ✓ Loaded successfully. Active classes: {string.Join(", ", playerData.activeClasses)}");
             }
             else
             {
-                Debug.Log($"[PATCH:LOAD] Empty class data string");
+                DevLog.Log($"[PATCH:LOAD] Empty class data string");
             }
         }
         catch (Exception ex)
@@ -509,6 +509,8 @@ public static class Player_Load_Patch
     }
 }
 
+// Dev-only: excluded from Release builds.
+#if DEBUG
 [HarmonyPatch(typeof(Terminal), "InitTerminal")]
 public static class PCMTestCommands
 {
@@ -529,3 +531,4 @@ public static class PCMTestCommands
         );
     }
 }
+#endif

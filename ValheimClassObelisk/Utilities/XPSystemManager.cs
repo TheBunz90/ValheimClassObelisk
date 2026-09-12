@@ -14,6 +14,13 @@ public static class ClassXPManager
     private static Dictionary<Character, Dictionary<long, Dictionary<string, float>>> creatureDamageTracker =
         new Dictionary<Character, Dictionary<long, Dictionary<string, float>>>();
 
+    // Snapshot of each creature's max health, taken while it's still alive.
+    // Character.GetMaxHealth() reads the star-scaled value from the ZDO, but vanilla
+    // Character.OnDeath() destroys the ZDO before our OnDeath postfix runs, so reading
+    // it there falls back to the unscaled base health. Snapshot it on first tracked hit instead.
+    private static Dictionary<Character, float> creatureMaxHealthTracker =
+        new Dictionary<Character, float>();
+
     // Configuration for XP rates
     public static float KillBonusMultiplier = 1f; // Kill bonus = creature max health * this multiplier
 
@@ -169,6 +176,11 @@ public static class ClassXPManager
         long attackerID = attacker.GetPlayerID();
 
         // Initialize nested dictionaries if needed
+        if (!creatureMaxHealthTracker.ContainsKey(creature))
+        {
+            creatureMaxHealthTracker[creature] = creature.GetMaxHealth();
+        }
+
         if (!creatureDamageTracker.ContainsKey(creature))
         {
             creatureDamageTracker[creature] = new Dictionary<long, Dictionary<string, float>>();
@@ -192,13 +204,25 @@ public static class ClassXPManager
     // Award kill bonus XP when a creature dies
     public static void AwardKillBonusXP(Character deadCreature)
     {
-        if (deadCreature == null || !creatureDamageTracker.ContainsKey(deadCreature)) return;
+        if (deadCreature == null || !creatureDamageTracker.ContainsKey(deadCreature))
+        {
+            DevLog.Log($"[XPDBG] AwardKillBonusXP: no tracked damage entry for {deadCreature?.name} (tracked creatures: {creatureDamageTracker.Count})");
+            return;
+        }
 
         var playerDamageByClass = creatureDamageTracker[deadCreature];
-        if (playerDamageByClass.Count == 0) return;
+        if (playerDamageByClass.Count == 0)
+        {
+            DevLog.Log($"[XPDBG] AwardKillBonusXP: tracker entry for {deadCreature.name} has zero contributors");
+            return;
+        }
 
-        // Calculate kill bonus based on creature's max health
-        float maxHealth = deadCreature.GetMaxHealth();
+        // Calculate kill bonus based on creature's max health, using the snapshot taken
+        // while it was still alive (see creatureMaxHealthTracker) so star-scaled health
+        // is captured correctly. Falls back to GetMaxHealth() in case no hit was tracked.
+        float maxHealth = creatureMaxHealthTracker.TryGetValue(deadCreature, out float trackedMaxHealth)
+            ? trackedMaxHealth
+            : deadCreature.GetMaxHealth();
         float baseKillBonus = maxHealth * KillBonusMultiplier;
 
         DevLog.Log($"Creature {deadCreature.name} died. Max health: {maxHealth}, base kill bonus: {baseKillBonus}");
@@ -211,10 +235,16 @@ public static class ClassXPManager
 
             // Find the player (they might have disconnected)
             Player contributor = Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == playerID);
-            if (contributor == null) continue;
+            if (contributor == null)
+            {
+                DevLog.Log($"[XPDBG] AwardKillBonusXP: no connected Player found for tracked playerID {playerID}");
+                continue;
+            }
 
             var playerData = PlayerClassManager.GetPlayerData(contributor);
             if (playerData == null) continue;
+
+            DevLog.Log($"[XPDBG] AwardKillBonusXP: contributor={contributor.GetPlayerName()}, trackedClasses={string.Join(",", classDamageMap.Keys)}, activeClasses={string.Join(",", playerData.activeClasses)}");
 
             // Find which classes this player used AND are currently active
             var eligibleClasses = new List<string>();
@@ -232,8 +262,8 @@ public static class ClassXPManager
 
             if (eligibleClasses.Count == 0) continue;
 
-            // Split kill bonus among eligible classes
-            float bonusPerClass = baseKillBonus / eligibleClasses.Count;
+            // Award the full mob-health-based kill bonus to each eligible class (no split)
+            float bonusPerClass = baseKillBonus;
 
             DevLog.Log($"Player {contributor.GetPlayerName()} eligible for kill bonus with {eligibleClasses.Count} classes: {string.Join(", ", eligibleClasses)}");
 
@@ -264,32 +294,7 @@ public static class ClassXPManager
 
         // Clean up tracking for this creature
         creatureDamageTracker.Remove(deadCreature);
-    }
-
-    // Check if a weapon is appropriate for a class
-    public static bool IsWeaponAppropriateForClass(ItemDrop.ItemData weapon, string className)
-    {
-        switch (className)
-        {
-            case "Sword Master":
-                return ClassCombatManager.IsSwordWeapon(weapon);
-            case "Archer":
-                return ClassCombatManager.IsBowWeapon(weapon);
-            case "Crusher":
-                return ClassCombatManager.IsBluntWeapon(weapon);
-            case "Assassin":
-                return ClassCombatManager.IsKnifeWeapon(weapon);
-            case "Brawler":
-                return ClassCombatManager.IsUnarmedAttack(weapon);
-            case "Wizard":
-                return ClassCombatManager.IsMagicWeapon(weapon);
-            case "Lancer":
-                return ClassCombatManager.IsSpearWeapon(weapon);
-            case "Bulwark":
-                return true; // Bulwark gains XP from any combat (defensive class)
-            default:
-                return false;
-        }
+        creatureMaxHealthTracker.Remove(deadCreature);
     }
 
     // Clean up tracking for disconnected players or old creatures
@@ -341,50 +346,114 @@ public static class XPCurveHelper
 [HarmonyPatch]
 public static class XPTrackingPatches
 {
-    // Patch damage dealing to award XP and track damage
-    [HarmonyPatch(typeof(Character), "Damage")]
+    // Patch damage dealing to award XP and track damage. Patched on RPC_Damage rather than
+    // the public Damage(HitData) wrapper: Damage() only ever runs once, on the attacking
+    // player's own client (it just dispatches an RPC and returns) - RPC_Damage is the actual
+    // handler that every hit against a creature is routed to, and is where vanilla itself
+    // gates the "real" processing behind an IsOwner() check. Since Harmony postfixes still
+    // run regardless of an early return inside the original method, we replicate that same
+    // ownership gate ourselves so damage from every attacker ends up recorded on the same
+    // single peer (whichever one owns the creature) - the same peer where OnDeath's kill-XP
+    // award below actually runs. See the multiplayer-XP-attribution fix plan for the full
+    // reasoning; without this, a creature's damage tracking and kill-XP awarding can execute
+    // on two different peers, silently dropping every contributor except whichever peer
+    // happens to be both the owner and one of the attackers.
+    [HarmonyPatch(typeof(Character), "RPC_Damage")]
     [HarmonyPostfix]
-    public static void Character_Damage_Postfix(Character __instance, HitData hit)
+    public static void Character_RPC_Damage_Postfix(Character __instance, long sender, HitData hit)
     {
         try
         {
+            DevLog.Log($"[XPDBG] RPC_Damage postfix fired: target={__instance?.name}, sender={sender}");
+
+            ZNetView nview = __instance?.GetComponent<ZNetView>();
+            if (nview == null || !nview.IsOwner())
+            {
+                DevLog.Log($"[XPDBG] Skipping: nview={(nview == null ? "null" : "present")}, IsOwner={(nview != null && nview.IsOwner())}");
+                return;
+            }
+
             // Only process if damage was actually dealt
-            if (hit.GetTotalDamage() <= 0) return;
+            if (hit.GetTotalDamage() <= 0)
+            {
+                DevLog.Log($"[XPDBG] Skipping: total damage {hit.GetTotalDamage()} <= 0");
+                return;
+            }
+
+            Character hitAttacker = hit.GetAttacker();
+            DevLog.Log($"[XPDBG] hit.GetAttacker() = {(hitAttacker == null ? "null" : hitAttacker.name)} ({(hitAttacker == null ? "?" : hitAttacker.GetType().Name)}), target is Player = {__instance is Player}");
 
             // Only award XP for player attacks on non-player creatures
-            if (hit.GetAttacker() is Player attacker && __instance != null && !(__instance is Player))
+            if (hitAttacker is Player attacker && __instance != null && !(__instance is Player))
             {
-                ItemDrop.ItemData weapon = attacker.GetCurrentWeapon();
-                if (weapon == null) return;
+                // Use hit.m_skill rather than attacker.GetCurrentWeapon(): the attacker's live
+                // weapon/inventory state is only reliably populated on their OWN client. This
+                // postfix runs on whichever peer owns the TARGET, which for a remote attacker
+                // is a different machine - GetCurrentWeapon() there reads back as "Unarmed"
+                // regardless of what they're actually holding. HitData.m_skill is set by the
+                // attacking client and travels with the networked hit itself, so it's reliable
+                // no matter which peer evaluates it (same pattern ArcherPerkManager already
+                // uses via hit.m_skill == Skills.SkillType.Bows).
+                Skills.SkillType hitSkill = hit.m_skill;
+                DevLog.Log($"[XPDBG] Attacker {attacker.GetPlayerName()} hit.m_skill = {hitSkill}");
 
                 var playerData = PlayerClassManager.GetPlayerData(attacker);
+                DevLog.Log($"[XPDBG] playerData null={playerData == null}, activeClasses={(playerData == null ? "n/a" : string.Join(",", playerData.activeClasses))}");
                 if (playerData == null || playerData.activeClasses.Count == 0) return;
 
-                // Track damage per active class whose weapon type matches, for kill-bonus split calculation
+                // Track damage per active class whose skill type matches, for kill-bonus split calculation
                 foreach (string activeClass in playerData.activeClasses)
                 {
-                    if (ClassXPManager.IsWeaponAppropriateForClass(weapon, activeClass))
+                    bool appropriate = ClassCombatManager.IsSkillAppropriateForClass(hitSkill, activeClass);
+                    DevLog.Log($"[XPDBG] IsSkillAppropriateForClass(skill={hitSkill}, class={activeClass}) = {appropriate}");
+                    if (appropriate)
                     {
                         ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage(), activeClass);
+                        DevLog.Log($"[XPDBG] TrackDamageToCreature called: creature={__instance.name}, attacker={attacker.GetPlayerName()}, damage={hit.GetTotalDamage()}, class={activeClass}");
                     }
                 }
             }
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Character_Damage_Postfix (XP): {ex.Message}");
+            Logger.LogError($"Error in Character_RPC_Damage_Postfix (XP): {ex.Message}");
         }
     }
 
-    // Patch creature death to award kill bonus
+    // Patch creature death to award kill bonus. Gated to the ZDO owner for the same reason
+    // as the damage-tracking patch above: OnDeath() itself is invoked on every peer that has
+    // the creature loaded (not just the owner), and a Harmony postfix runs regardless of
+    // OnDeath's own internal ownership check - so without this gate, every such peer would
+    // independently (and mostly fruitlessly, since only the owner ever recorded damage)
+    // attempt to award kill XP from its own local, un-networked damage tracker.
+    //
+    // Ownership must be captured in a PREFIX, not read in the postfix: vanilla OnDeath()
+    // itself calls ZNetScene.Destroy() near the end of the method (when it IS the owner),
+    // which synchronously nulls the ZDO (ZNetView.ResetZDO()) - so by the time a postfix
+    // runs, IsOwner() on a just-killed creature always reads false, even for the very peer
+    // that owned and correctly processed the kill. (Confirmed via debug logging: IsOwner()
+    // was true moments earlier during damage tracking on the same creature, then false in
+    // the OnDeath postfix - textbook read-after-teardown, the same class of bug the earlier
+    // star-health fix addressed for GetMaxHealth().)
+    [HarmonyPatch(typeof(Character), "OnDeath")]
+    [HarmonyPrefix]
+    public static void Character_OnDeath_Prefix(Character __instance, out bool __state)
+    {
+        ZNetView nview = __instance?.GetComponent<ZNetView>();
+        __state = nview != null && nview.IsOwner();
+        DevLog.Log($"[XPDBG] OnDeath prefix: {__instance?.name}, capturedIsOwner={__state}");
+    }
+
     [HarmonyPatch(typeof(Character), "OnDeath")]
     [HarmonyPostfix]
-    public static void Character_OnDeath_Postfix(Character __instance)
+    public static void Character_OnDeath_Postfix(Character __instance, bool __state)
     {
         try
         {
-            // Only process non-player deaths
-            if (__instance != null && !(__instance is Player))
+            DevLog.Log($"[XPDBG] OnDeath postfix fired: {__instance?.name}, isPlayer={__instance is Player}, wasOwner={__state}");
+
+            // Only process non-player deaths, using the ownership snapshot from the prefix
+            if (__instance != null && !(__instance is Player) && __state)
             {
                 ClassXPManager.AwardKillBonusXP(__instance);
             }

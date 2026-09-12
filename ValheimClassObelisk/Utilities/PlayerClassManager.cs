@@ -258,6 +258,39 @@ public static class PlayerClassManager
         Debug.Log($"[MANAGER] Directly set class data for player ID: {playerId}");
     }
 
+    // Called when a "CO_SetActiveClasses" RPC is received - overwrites just the active
+    // classes for a (possibly not-yet-known) player, without touching their XP/levels.
+    public static void SetActiveClassesDirectly(long playerId, List<string> activeClasses)
+    {
+        if (!playerData.ContainsKey(playerId))
+        {
+            playerData[playerId] = new PlayerClassData();
+        }
+
+        playerData[playerId].activeClasses = activeClasses;
+        Debug.Log($"[MANAGER] Synced active classes for player ID {playerId}: {string.Join(", ", activeClasses)}");
+    }
+
+    // Exposes the full known roster so the server can resync newly-connected peers.
+    public static IEnumerable<KeyValuePair<long, PlayerClassData>> GetAllPlayerData()
+    {
+        return playerData;
+    }
+
+    // Re-broadcasts every known player's current active classes to everyone. Called
+    // server-side whenever a player connects, so a client that joins after someone else
+    // already selected a class (possibly while alone on the server) catches up immediately
+    // instead of waiting for that other player to change class again.
+    public static void BroadcastFullRoster()
+    {
+        if (ZRoutedRpc.instance == null) return;
+
+        foreach (var entry in playerData)
+        {
+            ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_SetActiveClasses", entry.Key, string.Join(",", entry.Value.activeClasses));
+        }
+    }
+
     // Enhanced class selection method with enum support
     public static bool SetPlayerActiveClass(Player player, PlayerClass playerClass)
     {
@@ -278,6 +311,11 @@ public static class PlayerClassManager
         var newClasses = string.Join(", ", data.activeClasses);
 
         Debug.Log($"Class change for {player.GetPlayerName()}: '{previousClasses}' -> '{newClasses}'");
+
+        // Let every other connected peer (including the server, and whichever peer ends up
+        // owning a given monster's ZDO) know right away, instead of waiting for the next
+        // Player.Save/Load cycle to carry it over.
+        ZRoutedRpc.instance?.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_SetActiveClasses", player.GetPlayerID(), string.Join(",", data.activeClasses));
 
         return data.IsClassActive(playerClass);
     }
@@ -491,34 +529,70 @@ public static class Player_Load_Patch
             if (pkg.GetPos() >= pkg.Size())
             {
                 DevLog.Log($"[PATCH:LOAD] No class data in save (pre-mod character or new character)");
-                return;
-            }
-
-            // Read the JSON data from the save package
-            string jsonData = pkg.ReadString();
-
-            if (!string.IsNullOrEmpty(jsonData))
-            {
-                DevLog.Log($"[PATCH:LOAD] Found saved data: {jsonData.Length} bytes");
-
-                var playerData = JsonUtility.FromJson<PlayerClassData>(jsonData);
-                playerData.RestoreFromSerialization();
-
-                // Store in the manager's dictionary
-                long playerId = __instance.GetPlayerID();
-                PlayerClassManager.SetPlayerDataDirectly(playerId, playerData);
-
-                DevLog.Log($"[PATCH:LOAD] ✓ Loaded successfully. Active classes: {string.Join(", ", playerData.activeClasses)}");
             }
             else
             {
-                DevLog.Log($"[PATCH:LOAD] Empty class data string");
+                // Read the JSON data from the save package
+                string jsonData = pkg.ReadString();
+
+                if (!string.IsNullOrEmpty(jsonData))
+                {
+                    DevLog.Log($"[PATCH:LOAD] Found saved data: {jsonData.Length} bytes");
+
+                    var playerData = JsonUtility.FromJson<PlayerClassData>(jsonData);
+                    playerData.RestoreFromSerialization();
+
+                    // Store in the manager's dictionary
+                    long playerId = __instance.GetPlayerID();
+                    PlayerClassManager.SetPlayerDataDirectly(playerId, playerData);
+
+                    DevLog.Log($"[PATCH:LOAD] ✓ Loaded successfully. Active classes: {string.Join(", ", playerData.activeClasses)}");
+                }
+                else
+                {
+                    DevLog.Log($"[PATCH:LOAD] Empty class data string");
+                }
+            }
+
+            // This fires server-side too, whenever ANY player connects (the server has to
+            // load their character regardless of this mod) - including a brand-new character
+            // with no saved class data of their own. Piggyback on it to resync the whole
+            // roster, so this client catches up on everyone else's current selections
+            // immediately, even ones made while this client was offline.
+            if (ZNet.instance != null && ZNet.instance.IsServer())
+            {
+                PlayerClassManager.BroadcastFullRoster();
             }
         }
         catch (Exception ex)
         {
             Debug.LogError($"[PATCH:LOAD] Error loading class data: {ex}");
         }
+    }
+}
+
+// Syncs active-class selections across peers immediately, rather than relying solely on
+// the Save/Load cycle above (which only reaches that one player's own client + the server).
+// ZRoutedRpc is a plain class (not a MonoBehaviour) - it has no Awake/Start, it registers
+// itself via its constructor (`s_instance = this` in `ZRoutedRpc(bool server)`), so that's
+// what needs patching, not "Awake" (patching a nonexistent method throws and can abort the
+// rest of this mod's Harmony.PatchAll() pass).
+[HarmonyPatch(typeof(ZRoutedRpc), MethodType.Constructor, typeof(bool))]
+public static class ClassSyncRpc
+{
+    [HarmonyPostfix]
+    public static void Constructor_Postfix()
+    {
+        ZRoutedRpc.instance.Register<long, string>("CO_SetActiveClasses", RPC_ReceiveActiveClasses);
+    }
+
+    private static void RPC_ReceiveActiveClasses(long sender, long playerId, string activeClassesCsv)
+    {
+        var classes = string.IsNullOrEmpty(activeClassesCsv)
+            ? new List<string>()
+            : activeClassesCsv.Split(',').ToList();
+
+        PlayerClassManager.SetActiveClassesDirectly(playerId, classes);
     }
 }
 

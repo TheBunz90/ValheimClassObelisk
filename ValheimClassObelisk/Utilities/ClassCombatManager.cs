@@ -7,62 +7,105 @@ using Logger = Jotunn.Logger;
 // Combat system manager for handling class-based bonuses
 public static class ClassCombatManager
 {
-    // Weapon type detection
+    // Weapon type detection. Classified by the weapon's own m_skillType (the same
+    // Skills.SkillType the game uses for weapon-skill leveling) rather than matching
+    // keywords in the item name - authoritative, and doesn't need updating when new
+    // named/legendary weapons are added in future updates.
+    private static bool IsWeaponItemType(ItemDrop.ItemData weapon)
+    {
+        if (weapon?.m_shared == null) return false;
+        ItemDrop.ItemData.ItemType type = weapon.m_shared.m_itemType;
+        return type == ItemDrop.ItemData.ItemType.OneHandedWeapon ||
+               type == ItemDrop.ItemData.ItemType.TwoHandedWeapon ||
+               type == ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft ||
+               type == ItemDrop.ItemData.ItemType.Bow;
+    }
+
     public static bool IsSwordWeapon(ItemDrop.ItemData weapon)
     {
-        if (weapon?.m_shared?.m_itemType != ItemDrop.ItemData.ItemType.OneHandedWeapon &&
-            weapon?.m_shared?.m_itemType != ItemDrop.ItemData.ItemType.TwoHandedWeapon) return false;
+        if (!IsWeaponItemType(weapon)) return false;
 
-        // Check weapon name for sword indicators
-        string weaponName = weapon.m_shared.m_name?.ToLower() ?? "";
-        return weaponName.Contains("sword") || weaponName.Contains("blade") ||
-               weaponName.Contains("saber") || weaponName.Contains("katana");
+        // Axes are intentionally treated as Sword Master weapons.
+        return weapon.m_shared.m_skillType == Skills.SkillType.Swords ||
+               weapon.m_shared.m_skillType == Skills.SkillType.Axes;
     }
 
     public static bool IsBowWeapon(ItemDrop.ItemData weapon)
     {
-        return weapon?.m_shared?.m_itemType == ItemDrop.ItemData.ItemType.Bow;
+        if (!IsWeaponItemType(weapon)) return false;
+
+        // Crossbows count as Archer weapons alongside regular bows.
+        return weapon.m_shared.m_skillType == Skills.SkillType.Bows ||
+               weapon.m_shared.m_skillType == Skills.SkillType.Crossbows;
     }
 
     public static bool IsBluntWeapon(ItemDrop.ItemData weapon)
     {
-        if (weapon?.m_shared?.m_itemType != ItemDrop.ItemData.ItemType.OneHandedWeapon &&
-            weapon?.m_shared?.m_itemType != ItemDrop.ItemData.ItemType.TwoHandedWeapon) return false;
-
-        string weaponName = weapon.m_shared.m_name?.ToLower() ?? "";
-        return weaponName.Contains("mace") || weaponName.Contains("hammer") ||
-               weaponName.Contains("club") || weaponName.Contains("sledge");
+        if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.Clubs;
     }
 
     public static bool IsKnifeWeapon(ItemDrop.ItemData weapon)
     {
-        if (weapon?.m_shared?.m_itemType != ItemDrop.ItemData.ItemType.OneHandedWeapon) return false;
-
-        string weaponName = weapon.m_shared.m_name?.ToLower() ?? "";
-        return weaponName.Contains("knife") || weaponName.Contains("dagger") ||
-               weaponName.Contains("seax") || weaponName.Contains("razor");
+        if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.Knives;
     }
 
     public static bool IsSpearWeapon(ItemDrop.ItemData weapon)
     {
-        return (weapon.m_shared.m_name?.ToLower().Contains("spear") == true ||
-                weapon.m_shared.m_name?.ToLower().Contains("atgeir") == true ||
-                weapon.m_shared.m_name?.ToLower().Contains("halberd") == true);
+        if (!IsWeaponItemType(weapon)) return false;
+
+        // Polearms (Atgeirs) count alongside Spears, as they did before this refactor.
+        return weapon.m_shared.m_skillType == Skills.SkillType.Spears ||
+               weapon.m_shared.m_skillType == Skills.SkillType.Polearms;
     }
 
     public static bool IsUnarmedAttack(ItemDrop.ItemData weapon)
     {
-        return  weapon == null || 
-                weapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.None || 
-                weapon.m_shared.m_name?.ToLower().Contains("claws") == true ||
-                weapon.m_shared.m_name == "Unarmed";
+        return weapon == null ||
+               weapon.m_shared.m_itemType == ItemDrop.ItemData.ItemType.None ||
+               weapon.m_shared.m_skillType == Skills.SkillType.Unarmed ||
+               weapon.m_shared.m_name == "Unarmed";
+    }
+
+    // Same class <-> skill mapping as the IsXWeapon functions above, but keyed directly off
+    // a Skills.SkillType (e.g. from HitData.m_skill) instead of an ItemData object. Needed
+    // because ItemDrop.ItemData.GetCurrentWeapon() reads live inventory/equipment state that
+    // is only reliably populated on the attacking player's own client - when a hit is
+    // processed on a different peer (the ZDO owner of whoever got hit, not necessarily the
+    // attacker), a remote attacker's weapon reads back as an "Unarmed" placeholder. HitData's
+    // own m_skill field is set by the attacking client and travels with the networked hit,
+    // so it's reliable regardless of which peer evaluates it.
+    public static bool IsSkillAppropriateForClass(Skills.SkillType skill, string className)
+    {
+        switch (className)
+        {
+            case "Sword Master":
+                return skill == Skills.SkillType.Swords || skill == Skills.SkillType.Axes;
+            case "Archer":
+                return skill == Skills.SkillType.Bows || skill == Skills.SkillType.Crossbows;
+            case "Crusher":
+                return skill == Skills.SkillType.Clubs;
+            case "Assassin":
+                return skill == Skills.SkillType.Knives;
+            case "Brawler":
+                return skill == Skills.SkillType.Unarmed;
+            case "Wizard":
+                return skill == Skills.SkillType.ElementalMagic || skill == Skills.SkillType.BloodMagic;
+            case "Lancer":
+                return skill == Skills.SkillType.Spears || skill == Skills.SkillType.Polearms;
+            case "Bulwark":
+                return true; // Bulwark gains XP from any combat (defensive class)
+            default:
+                return false;
+        }
     }
 
     public static bool IsMagicWeapon(ItemDrop.ItemData weapon)
     {
-        return weapon?.m_shared?.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon &&
-               (weapon.m_shared.m_name?.ToLower().Contains("staff") == true ||
-                weapon.m_shared.m_attackStatusEffect != null); // Has magical effects
+        if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.ElementalMagic ||
+               weapon.m_shared.m_skillType == Skills.SkillType.BloodMagic;
     }
 
     // Calculate damage multiplier based on player's active classes and weapon type

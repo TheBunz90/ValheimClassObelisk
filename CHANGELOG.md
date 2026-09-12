@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed the Class Obelisk permanently showing the workbench's build-range circle and a floating "in use" hammer icon. Both are now forced off when the piece is built, since the vanilla `CraftingStation` component that normally hides them is removed from this piece.
+
+## 1.0.1
+
+- Fixed a crash/spam of `ArgumentOutOfRangeException` errors when opening the Hammer build menu, caused by Valheim 1.0.7 overhauling `PieceTable` internals. Requires Jotunn 2.30.0+.
+
 ## 1.0.0
 
 Initial release.

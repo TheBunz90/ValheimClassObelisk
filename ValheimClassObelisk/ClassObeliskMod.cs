@@ -21,9 +21,15 @@ using ValheimClassObelisk;
 //[NetworkCompatibilityLevel(CompatibilityLevel.EveryoneMustHaveMod)]
 internal class ClassObeliskMod : BaseUnityPlugin
 {
+<<<<<<< Updated upstream
     public const string PluginGUID = "com.bunzboi.classobelisk";
     public const string PluginName = "Class Obelisk";
     public const string PluginVersion = "1.0.0";
+=======
+    public const string PluginGUID = "com.bunzboi.valheimweaponclass";
+    public const string PluginName = "ValheimWeaponClasses";
+    public const string PluginVersion = "1.0.2";
+>>>>>>> Stashed changes
 
     private GameObject TestPanel;
 
@@ -104,6 +110,13 @@ internal class ClassObeliskMod : BaseUnityPlugin
             var craftingStation = obeliskPrefab.GetComponent<CraftingStation>();
             if (craftingStation != null)
             {
+                // These child objects (build-range circle, "in use" hammer icon, fire glow) are
+                // normally shown/hidden by CraftingStation's own Start()/Update(), which never runs
+                // once the component is destroyed - so force them off or they stay visible forever.
+                if (craftingStation.m_areaMarker != null) craftingStation.m_areaMarker.SetActive(false);
+                if (craftingStation.m_inUseObject != null) craftingStation.m_inUseObject.SetActive(false);
+                if (craftingStation.m_haveFireObject != null) craftingStation.m_haveFireObject.SetActive(false);
+
                 DestroyImmediate(craftingStation);
             }
 
@@ -189,6 +202,11 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     public string GetHoverName()
     {
         return "Class Obelisk";
+    }
+
+    public float GetHoverOffset()
+    {
+        return 0f;
     }
 
     public bool Interact(Humanoid user, bool hold, bool alt)

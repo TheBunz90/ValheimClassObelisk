@@ -21,15 +21,9 @@ using ValheimClassObelisk;
 //[NetworkCompatibilityLevel(CompatibilityLevel.EveryoneMustHaveMod)]
 internal class ClassObeliskMod : BaseUnityPlugin
 {
-<<<<<<< Updated upstream
-    public const string PluginGUID = "com.bunzboi.classobelisk";
-    public const string PluginName = "Class Obelisk";
-    public const string PluginVersion = "1.0.0";
-=======
     public const string PluginGUID = "com.bunzboi.valheimweaponclass";
     public const string PluginName = "ValheimWeaponClasses";
     public const string PluginVersion = "1.0.2";
->>>>>>> Stashed changes
 
     private GameObject TestPanel;
 

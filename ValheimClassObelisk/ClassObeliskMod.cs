@@ -23,7 +23,7 @@ internal class ClassObeliskMod : BaseUnityPlugin
 {
     public const string PluginGUID = "com.bunzboi.valheimweaponclass";
     public const string PluginName = "ValheimWeaponClasses";
-    public const string PluginVersion = "1.0.2";
+    public const string PluginVersion = "1.0.3";
 
     private GameObject TestPanel;
 

@@ -281,6 +281,15 @@ public static class PlayerClassManager
     // server-side whenever a player connects, so a client that joins after someone else
     // already selected a class (possibly while alone on the server) catches up immediately
     // instead of waiting for that other player to change class again.
+    //
+    // NOTE: this only has something useful to relay because BroadcastMyActiveClasses (below)
+    // is called every time a player's OWN client loads their OWN save data - that's the only
+    // way the server's copy of `playerData` ever learns a player's pre-existing selection in
+    // the first place, since Player.Load() never runs server-side (see BroadcastMyActiveClasses
+    // for the full explanation). The two work together: on connect, a player announces their
+    // own already-saved selection to everyone (server included), and separately, the server
+    // replays everything it has accumulated back out to that same newly-connected player (who
+    // otherwise has no way to know what anyone else already had selected before they joined).
     public static void BroadcastFullRoster()
     {
         if (ZRoutedRpc.instance == null) return;
@@ -289,6 +298,30 @@ public static class PlayerClassManager
         {
             ZRoutedRpc.instance.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_SetActiveClasses", entry.Key, string.Join(",", entry.Value.activeClasses));
         }
+    }
+
+    // Broadcasts one player's own current active classes to every connected peer. Used both
+    // by SetPlayerActiveClass (a live reselection) and by Player_Load_Patch (below) for the
+    // case that turned out to be the actual gap: a player's own client is the ONLY place that
+    // correctly loads their pre-existing saved selection (via Player.Load, which never runs on
+    // the dedicated server), but nothing was ever telling anyone else about it - the old code
+    // only broadcast on an explicit reselection, so a player who didn't touch an Obelisk this
+    // session was invisible to everyone, including the server, no matter how long they'd
+    // already had a class selected in earlier sessions.
+    public static void BroadcastMyActiveClasses(long playerId, List<string> activeClasses)
+    {
+        ZRoutedRpc.instance?.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_SetActiveClasses", playerId, string.Join(",", activeClasses));
+    }
+
+    // Broadcasts a kill-XP award for a specific player/class to everyone. Only the receiving
+    // peer whose OWN local player matches `targetPlayerId` actually applies it (see
+    // RPC_ReceiveClassXPAward) - everyone else, including the sender, just ignores it. This is
+    // what makes XP application always happen on the correct player's own authoritative copy
+    // of their data, regardless of which peer actually owned the creature that died and ran
+    // the eligibility/award calculation.
+    public static void BroadcastClassXPAward(long targetPlayerId, string className, float xpAmount)
+    {
+        ZRoutedRpc.instance?.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_AwardClassXP", targetPlayerId, className, xpAmount);
     }
 
     // Enhanced class selection method with enum support
@@ -315,7 +348,7 @@ public static class PlayerClassManager
         // Let every other connected peer (including the server, and whichever peer ends up
         // owning a given monster's ZDO) know right away, instead of waiting for the next
         // Player.Save/Load cycle to carry it over.
-        ZRoutedRpc.instance?.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_SetActiveClasses", player.GetPlayerID(), string.Join(",", data.activeClasses));
+        BroadcastMyActiveClasses(player.GetPlayerID(), data.activeClasses);
 
         return data.IsClassActive(playerClass);
     }
@@ -546,6 +579,17 @@ public static class Player_Load_Patch
                     long playerId = __instance.GetPlayerID();
                     PlayerClassManager.SetPlayerDataDirectly(playerId, playerData);
 
+                    // This is the actual fix for "shouldn't need to reselect": Player.Load()
+                    // only ever runs for this client's OWN character (verified via decompile -
+                    // it's called only from Game.cs's local spawn flow against that client's
+                    // own PlayerProfile, never server-side, never for a remote player). That
+                    // means this is the ONE place a player's pre-existing, already-saved class
+                    // selection becomes known at all this session - nothing else announces it
+                    // unless the player actively reselects. Broadcast it now so everyone
+                    // currently connected (server included) learns it immediately on connect,
+                    // instead of only on the next explicit reselection.
+                    PlayerClassManager.BroadcastMyActiveClasses(playerId, playerData.activeClasses);
+
                     DevLog.Log($"[PATCH:LOAD] ✓ Loaded successfully. Active classes: {string.Join(", ", playerData.activeClasses)}");
                 }
                 else
@@ -554,19 +598,36 @@ public static class Player_Load_Patch
                 }
             }
 
-            // This fires server-side too, whenever ANY player connects (the server has to
-            // load their character regardless of this mod) - including a brand-new character
-            // with no saved class data of their own. Piggyback on it to resync the whole
-            // roster, so this client catches up on everyone else's current selections
-            // immediately, even ones made while this client was offline.
-            if (ZNet.instance != null && ZNet.instance.IsServer())
-            {
-                PlayerClassManager.BroadcastFullRoster();
-            }
         }
         catch (Exception ex)
         {
             Debug.LogError($"[PATCH:LOAD] Error loading class data: {ex}");
+        }
+    }
+}
+
+// Resyncs the whole roster whenever a player connects, so a client that joins after someone
+// else already selected a class (possibly while alone on the server) catches up immediately
+// instead of needing to reselect. This does NOT piggyback on Player.Load - verified via
+// decompile that Player.Load()/Save() are only ever called from Game.cs's local spawn/logout
+// flow and FejdStartup.cs's main-menu character management, both entirely client-side against
+// that client's own PlayerProfile. The dedicated server never calls Player.Load() for anyone,
+// including itself, so a "ZNet.instance.IsServer()" guard inside a Player_Load_Patch postfix
+// can never actually fire - that was the previous (broken) approach here.
+// ZNet.RPC_CharacterID is the real signal: each connecting client sends its own character's
+// ZDOID to the server once known (see ZNet.SetCharacterID), and the server receives it via
+// this RPC handler - exactly the "a player just joined and is ready" moment we need, and it
+// only meaningfully fires server-side (a non-server peer never receives this RPC from itself).
+[HarmonyPatch(typeof(ZNet), "RPC_CharacterID")]
+public static class ClassRosterResyncOnConnect
+{
+    [HarmonyPostfix]
+    public static void Postfix()
+    {
+        if (ZNet.instance != null && ZNet.instance.IsServer())
+        {
+            DevLog.Log("[XPDBG] RPC_CharacterID fired on server - resyncing class roster to all peers");
+            PlayerClassManager.BroadcastFullRoster();
         }
     }
 }
@@ -584,6 +645,7 @@ public static class ClassSyncRpc
     public static void Constructor_Postfix()
     {
         ZRoutedRpc.instance.Register<long, string>("CO_SetActiveClasses", RPC_ReceiveActiveClasses);
+        ZRoutedRpc.instance.Register<long, string, float>("CO_AwardClassXP", RPC_ReceiveClassXPAward);
     }
 
     private static void RPC_ReceiveActiveClasses(long sender, long playerId, string activeClassesCsv)
@@ -593,6 +655,38 @@ public static class ClassSyncRpc
             : activeClassesCsv.Split(',').ToList();
 
         PlayerClassManager.SetActiveClassesDirectly(playerId, classes);
+    }
+
+    // Broadcast from ClassXPManager.AwardKillBonusXP (see XPSystemManager.cs). Every peer
+    // receives this (including the sender and the dedicated server), but only the one whose
+    // OWN local player matches `targetPlayerId` actually applies it - guaranteeing XP always
+    // lands on that player's own correctly-loaded copy of their data, never a stale/empty
+    // stand-in created on whichever peer happened to own the creature that died.
+    private static void RPC_ReceiveClassXPAward(long sender, long targetPlayerId, string className, float xpAmount)
+    {
+        Player localPlayer = Player.m_localPlayer;
+        if (localPlayer == null || localPlayer.GetPlayerID() != targetPlayerId) return;
+
+        var playerData = PlayerClassManager.GetPlayerData(localPlayer);
+        if (playerData == null) return;
+
+        int oldLevel = playerData.GetClassLevel(className);
+        playerData.AddClassXP(className, xpAmount);
+        int newLevel = playerData.GetClassLevel(className);
+
+        localPlayer.Message(MessageHud.MessageType.TopLeft, $"{className}: +{xpAmount:F0} XP");
+
+        if (newLevel > oldLevel)
+        {
+            localPlayer.Message(MessageHud.MessageType.Center, $"{className} Level Up! Level {newLevel}");
+
+            if (newLevel % 10 == 0)
+            {
+                localPlayer.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked!");
+            }
+        }
+
+        DevLog.Log($"[XPDBG] Applied {xpAmount:F1} XP to {className} for local player (level {oldLevel} -> {newLevel})");
     }
 }
 

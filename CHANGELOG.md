@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4
+
+- Rebalanced class leveling so max level (50) is reachable in roughly 3-4 biomes of normal play instead of an extreme end-game grind. The old curve required 1,089,861 total XP to hit level 50 and grew 625x from level 1 to level 50, badly outpacing how much tougher enemies actually get across biomes - the last ~15 levels alone ate over 70% of the total XP requirement. The new curve tops out at 100,000 XP with a much gentler, still-smoothly-increasing growth rate that tracks enemy health scaling far more closely.
+
 ## 1.0.3
 
 - Fixed multiplayer class-damage/kill-XP tracking running on the wrong peer: damage is now tracked (and kill bonuses awarded) only on the machine that owns the target creature's ZDO, instead of independently and incorrectly on every peer that had it loaded.

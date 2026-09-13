@@ -267,28 +267,19 @@ public static class ClassXPManager
 
             DevLog.Log($"Player {contributor.GetPlayerName()} eligible for kill bonus with {eligibleClasses.Count} classes: {string.Join(", ", eligibleClasses)}");
 
-            // Award kill bonus to each eligible class
+            // Award kill bonus to each eligible class. This does NOT mutate `playerData`
+            // directly here: classLevels/classXP are never synced across peers (unlike
+            // activeClasses, which now is) - this method runs on whichever peer owns the dead
+            // creature, which is frequently not the contributor's own client. Mutating a local
+            // copy here would silently diverge from that player's real, correctly-loaded XP
+            // (visible proof: it produced bogus "Level Up! Level 1/2" toasts for a level-19
+            // player once activeClasses sync started working and this code path finally ran
+            // for them on a non-owning peer for the first time). Instead, broadcast the award
+            // and let the contributor's own client apply it to its own authoritative copy.
             foreach (string className in eligibleClasses)
             {
-                int oldLevel = playerData.GetClassLevel(className);
-                playerData.AddClassXP(className, bonusPerClass);
-                int newLevel = playerData.GetClassLevel(className);
-
-                // Show XP gain message
-                contributor.Message(MessageHud.MessageType.TopLeft, $"{className}: +{bonusPerClass:F0} XP");
-
-                // Show level up message
-                if (newLevel > oldLevel)
-                {
-                    contributor.Message(MessageHud.MessageType.Center, $"{className} Level Up! Level {newLevel}");
-
-                    if (newLevel % 10 == 0)
-                    {
-                        contributor.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked!");
-                    }
-                }
-
-                DevLog.Log($"Awarded {bonusPerClass:F1} kill bonus XP to {className} for {contributor.GetPlayerName()}");
+                PlayerClassManager.BroadcastClassXPAward(playerID, className, bonusPerClass);
+                DevLog.Log($"[XPDBG] Broadcast {bonusPerClass:F1} kill bonus XP to {className} for {contributor.GetPlayerName()} (playerID={playerID})");
             }
         }
 

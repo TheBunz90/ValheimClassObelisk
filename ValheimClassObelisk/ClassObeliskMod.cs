@@ -136,8 +136,13 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
     public static GameObject classSelectionPanel;
     public static Text descriptionText;
     public static ScrollRect descriptionScrollRect;
-    public static GameObject selectClassButton;
+    public static Dictionary<string, GameObject> classButtons = new Dictionary<string, GameObject>();
+    public static GameObject activationButton;
+    public static Text limitHintText;
     public static string selectedClassName = "";
+
+    private static readonly Color ActiveClassColor = new Color(0.45f, 0.85f, 0.45f, 1f);
+    private static readonly Color InactiveClassColor = Color.white;
 
     // Class names for the buttons
     public static readonly string[] ClassNames = {
@@ -255,17 +260,20 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             // Create the description window
             CreateDescriptionWindow(player);
 
-            // Create the select class button
-            CreateSelectClassButton(player);
+            // Create the activation button (and its class-limit hint text)
+            CreateActivationButton(player);
 
             // Create enhanced close button
             CreateEnhancedCloseButton();
 
             // Initialize with current player status
             var activeClasses = playerData.activeClasses.Count > 0 ? string.Join(", ", playerData.activeClasses) : "None";
-            UpdateDescriptionText($"Current Active Classes: {activeClasses}\n\nClick on a class above to see its description and benefits.");
+            string slotHint = playerData.CanSelectSecondClass()
+                ? "Click a class to see its description, then Activate/Deactivate below (up to 2 active)."
+                : "Click a class to see its description, then Activate/Deactivate below. Reach level 50 to unlock a second active class.";
+            UpdateDescriptionText($"Current Active Classes: {activeClasses}\n\n{slotHint}");
             selectedClassName = "";
-            UpdateSelectButton();
+            UpdateActivationButton(player);
         }
         catch (Exception ex)
         {
@@ -386,14 +394,48 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         // Get button component
         var buttonComponent = button.GetComponent<Button>();
 
-        // Add click handler - now updates description instead of selecting immediately
+        // Add click handler - updates the description panel and the Activate/Deactivate button below
         buttonComponent.onClick.AddListener(() => {
-            DevLog.Log($"Viewing class: {className}");
             OnClassButtonClicked(className, player);
         });
 
         // Add hover effect
         button.AddComponent<ButtonHoverEffect>();
+
+        classButtons[className] = button;
+        ApplyClassButtonHighlight(className, player);
+    }
+
+    // Recolors/relabels a class button to reflect whether it's currently active, so active
+    // classes are visible at a glance while browsing descriptions.
+    private void ApplyClassButtonHighlight(string className, Player player)
+    {
+        if (!classButtons.TryGetValue(className, out var button) || button == null) return;
+
+        var playerData = PlayerClassManager.GetPlayerData(player);
+        bool isActive = playerData != null && playerData.IsClassActive(className);
+        int level = playerData?.GetClassLevel(className) ?? 0;
+
+        var buttonComponent = button.GetComponent<Button>();
+        var buttonImage = button.GetComponent<Image>();
+        var buttonText = button.GetComponentInChildren<Text>();
+
+        Color color = isActive ? ActiveClassColor : InactiveClassColor;
+
+        var colorBlock = buttonComponent.colors;
+        colorBlock.normalColor = color;
+        buttonComponent.colors = colorBlock;
+
+        if (buttonImage != null) buttonImage.color = color;
+        if (buttonText != null) buttonText.text = $"{className} ({level}){(isActive ? "  [Active]" : "")}";
+    }
+
+    private void RefreshClassButtonHighlights(Player player)
+    {
+        foreach (var className in ClassNames)
+        {
+            ApplyClassButtonHighlight(className, player);
+        }
     }
 
     private void CreateDescriptionWindow(Player player)
@@ -472,30 +514,113 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         DevLog.Log("Container rect size: " + containerRect.rect.size);
     }
 
-    private void CreateSelectClassButton(Player player)
+    private void CreateActivationButton(Player player)
     {
-        selectClassButton = GUIManager.Instance.CreateButton(
-            text: "Select Class",
+        activationButton = GUIManager.Instance.CreateButton(
+            text: "Select a Class",
             parent: classSelectionPanel.transform,
-            anchorMin: new Vector2(0.5f, 0.08f), // Moved up slightly from the very bottom
+            anchorMin: new Vector2(0.5f, 0.08f),
             anchorMax: new Vector2(0.5f, 0.08f),
-            position: new Vector2(0f, 20f), // Centered with some margin from bottom
+            position: new Vector2(0f, 20f),
             width: 200,
-            height: 35 // Slightly smaller height
+            height: 35
         );
 
-        var buttonComponent = selectClassButton.GetComponent<Button>();
-
-        // Add click handler
+        var buttonComponent = activationButton.GetComponent<Button>();
         buttonComponent.onClick.AddListener(() => {
-            if (!string.IsNullOrEmpty(selectedClassName))
-            {
-                OnClassSelected(selectedClassName, player);
-            }
+            OnActivationButtonClicked(player);
         });
 
-        // Initially disable the button
-        UpdateSelectButton();
+        // Class-limit hint, shown only when activation is blocked because both slots are full
+        GameObject hintObj = GUIManager.Instance.CreateText(
+            text: "",
+            parent: classSelectionPanel.transform,
+            anchorMin: new Vector2(0.5f, 0.08f),
+            anchorMax: new Vector2(0.5f, 0.08f),
+            position: new Vector2(0f, -20f),
+            font: GUIManager.Instance.AveriaSerif,
+            fontSize: 16,
+            color: new Color(0.85f, 0.45f, 0.35f, 1f),
+            outline: false,
+            outlineColor: Color.black,
+            width: 600f,
+            height: 30f,
+            addContentSizeFitter: false);
+
+        limitHintText = hintObj.GetComponent<Text>();
+        limitHintText.alignment = TextAnchor.MiddleCenter;
+        limitHintText.fontStyle = FontStyle.Italic;
+
+        UpdateActivationButton(player);
+    }
+
+    private void OnActivationButtonClicked(Player player)
+    {
+        if (string.IsNullOrEmpty(selectedClassName)) return;
+
+        var playerData = PlayerClassManager.GetPlayerData(player);
+        if (playerData == null) return;
+
+        if (playerData.IsClassActive(selectedClassName))
+        {
+            PlayerClassManager.DeactivateClass(player, selectedClassName);
+        }
+        else
+        {
+            PlayerClassManager.ActivateClass(player, selectedClassName);
+        }
+
+        // Refresh the description ("Active" tag), the activation button/hint, and every
+        // button's highlight to reflect whatever just changed.
+        OnClassButtonClicked(selectedClassName, player);
+        RefreshClassButtonHighlights(player);
+    }
+
+    // Updates the Activate/Deactivate button's label and interactability, and the class-limit
+    // hint, to reflect the currently previewed class and the player's current active classes.
+    // This is the panel's own feedback mechanism for activation attempts - MessageHud toasts
+    // render underneath this panel while it's open, so they're invisible to the player.
+    private void UpdateActivationButton(Player player)
+    {
+        if (activationButton == null) return;
+
+        var buttonComponent = activationButton.GetComponent<Button>();
+        var buttonText = activationButton.GetComponentInChildren<Text>();
+        var playerData = PlayerClassManager.GetPlayerData(player);
+
+        if (string.IsNullOrEmpty(selectedClassName) || playerData == null)
+        {
+            buttonComponent.interactable = false;
+            if (buttonText != null) buttonText.text = "Select a Class";
+            SetLimitHintVisible(false);
+            return;
+        }
+
+        if (playerData.IsClassActive(selectedClassName))
+        {
+            buttonComponent.interactable = true;
+            if (buttonText != null) buttonText.text = "Deactivate";
+            SetLimitHintVisible(false);
+            return;
+        }
+
+        // Not currently active: activation is allowed either if there's a free slot, or -
+        // for players who haven't unlocked a second slot yet - by swapping out their one
+        // active class, so it's only ever actually blocked once dual classes are unlocked
+        // and both slots are already taken.
+        bool hasRoom = playerData.activeClasses.Count < playerData.GetMaxActiveClasses();
+        bool canSwap = playerData.GetMaxActiveClasses() == 1;
+        bool canActivate = hasRoom || canSwap;
+
+        buttonComponent.interactable = canActivate;
+        if (buttonText != null) buttonText.text = "Activate";
+        SetLimitHintVisible(!canActivate);
+    }
+
+    private void SetLimitHintVisible(bool visible)
+    {
+        if (limitHintText == null) return;
+        limitHintText.text = visible ? "Class limit reached - de-activate another class before picking a new one." : "";
     }
 
     private void CreateEnhancedCloseButton()
@@ -556,9 +681,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         }
 
         UpdateDescriptionText(description);
-
-        // Update select button state
-        UpdateSelectButton();
+        UpdateActivationButton(player);
     }
 
     private void UpdateDescriptionText(string description)
@@ -588,61 +711,6 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         }
     }
 
-    private void UpdateSelectButton()
-    {
-        if (selectClassButton != null)
-        {
-            var buttonComponent = selectClassButton.GetComponent<Button>();
-            var buttonText = selectClassButton.GetComponentInChildren<Text>();
-
-            if (string.IsNullOrEmpty(selectedClassName))
-            {
-                buttonComponent.interactable = false;
-                if (buttonText != null) buttonText.text = "Select a Class";
-            }
-            else
-            {
-                buttonComponent.interactable = true;
-                if (buttonText != null) buttonText.text = $"Select {selectedClassName}";
-            }
-        }
-    }
-
-    private void OnClassSelected(string className, Player player)
-    {
-        DevLog.Log($"OnClassSelected called with className: '{className}' for player: {player?.GetPlayerName() ?? "null"}");
-
-        if (string.IsNullOrEmpty(className))
-        {
-            Debug.LogError("Cannot select class: className is null or empty");
-            player?.Message(MessageHud.MessageType.Center, "Error: Invalid class selection");
-            return;
-        }
-
-        // Use the enhanced manager method
-        bool success = PlayerClassManager.SetPlayerActiveClass(player, className);
-
-        if (success)
-        {
-            // Get updated data to confirm change
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            var activeClassesList = string.Join(", ", playerData.activeClasses);
-
-            // Display success message
-            player.Message(MessageHud.MessageType.Center, $"Selected {className} Class! Active: {activeClassesList}");
-
-            DevLog.Log($"Successfully selected class {className} for {player.GetPlayerName()}. Active classes: {activeClassesList}");
-        }
-        else
-        {
-            player.Message(MessageHud.MessageType.Center, $"Failed to select {className} class");
-            Debug.LogError($"Failed to set active class {className} for {player.GetPlayerName()}");
-        }
-
-        // Close the GUI
-        CloseClassSelectionGUI();
-    }
-
     private static void CloseClassSelectionGUI()
     {
         if (classSelectionPanel != null)
@@ -652,7 +720,9 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             classSelectionPanel = null;
             descriptionText = null;
             descriptionScrollRect = null;
-            selectClassButton = null;
+            classButtons.Clear();
+            activationButton = null;
+            limitHintText = null;
             selectedClassName = "";
 
             // Restore game input if we were using Jotunn's system

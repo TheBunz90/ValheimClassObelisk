@@ -7,6 +7,17 @@ using HarmonyLib;
 using ValheimClassObelisk;
 using Logger = Jotunn.Logger;
 
+// Outcome of PlayerClassManager.ActivateClass, so callers (the Obelisk UI) can show
+// the right feedback without re-deriving why the activation did or didn't apply.
+public enum ClassActivationResult
+{
+    Activated,
+    Swapped,
+    AtLimit,
+    NotUnlocked,
+    Error
+}
+
 // Player class data storage with persistence
 [Serializable]
 public class PlayerClassData
@@ -106,23 +117,6 @@ public class PlayerClassData
         if (!classUnlocked.ContainsKey(className) || !classUnlocked[className]) return false;
         if (IsClassActive(playerClass)) return false;
         return activeClasses.Count < GetMaxActiveClasses();
-    }
-
-    public void SetActiveClass(PlayerClass playerClass)
-    {
-        string className = PlayerClassHelper.GetInternalName(playerClass);
-        if (!classUnlocked.ContainsKey(className) || !classUnlocked[className])
-        {
-            Debug.LogWarning($"Cannot set active class {className}: class not unlocked");
-            return;
-        }
-
-        // Clear all active classes and set the new one
-        var previousClasses = new List<string>(activeClasses);
-        activeClasses.Clear();
-        activeClasses.Add(className);
-
-        Debug.Log($"Set active class: {className} (was: {string.Join(", ", previousClasses)})");
     }
 
     public void AddActiveClass(PlayerClass playerClass)
@@ -301,7 +295,7 @@ public static class PlayerClassManager
     }
 
     // Broadcasts one player's own current active classes to every connected peer. Used both
-    // by SetPlayerActiveClass (a live reselection) and by Player_Load_Patch (below) for the
+    // by ActivateClass/DeactivateClass (a live reselection) and by Player_Load_Patch (below) for the
     // case that turned out to be the actual gap: a player's own client is the ONLY place that
     // correctly loads their pre-existing saved selection (via Player.Load, which never runs on
     // the dedicated server), but nothing was ever telling anyone else about it - the old code
@@ -324,46 +318,83 @@ public static class PlayerClassManager
         ZRoutedRpc.instance?.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_AwardClassXP", targetPlayerId, className, xpAmount);
     }
 
-    // Enhanced class selection method with enum support
-    public static bool SetPlayerActiveClass(Player player, PlayerClass playerClass)
+    // Activates a class for the player. If they still have a free slot (GetMaxActiveClasses(),
+    // 1 normally, 2 once any class hits level 50), it's simply added. If they're full but only
+    // have 1 max slot (haven't unlocked dual classes), the currently active class is swapped out
+    // for this one. If they're full WITH 2 max slots, nothing changes - the UI should keep the
+    // activation control disabled in that case rather than relying on this to reject it.
+    public static ClassActivationResult ActivateClass(Player player, string className)
     {
         var data = GetPlayerData(player);
         if (data == null)
         {
             Debug.LogError($"Could not get player data for {player?.GetPlayerName() ?? "null"}");
-            return false;
+            return ClassActivationResult.Error;
         }
 
-        // Get previous state for debugging
-        var previousClasses = string.Join(", ", data.activeClasses);
+        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
+        if (!playerClass.HasValue)
+        {
+            Debug.LogError($"Invalid class name: {className}");
+            return ClassActivationResult.Error;
+        }
 
-        // Set the class
-        data.SetActiveClass(playerClass);
+        if (data.IsClassActive(playerClass.Value)) return ClassActivationResult.Activated; // already active, nothing to do
 
-        // Verify the change was applied
-        var newClasses = string.Join(", ", data.activeClasses);
+        int maxSlots = data.GetMaxActiveClasses();
+        ClassActivationResult result;
 
-        Debug.Log($"Class change for {player.GetPlayerName()}: '{previousClasses}' -> '{newClasses}'");
+        if (data.activeClasses.Count < maxSlots)
+        {
+            if (!data.CanActivateClass(playerClass.Value)) return ClassActivationResult.NotUnlocked;
+            data.AddActiveClass(playerClass.Value);
+            result = ClassActivationResult.Activated;
+        }
+        else if (maxSlots == 1)
+        {
+            // Single-slot players swap directly: drop whatever's active, activate the new pick.
+            foreach (string activeClassName in new List<string>(data.activeClasses))
+            {
+                var activePlayerClass = PlayerClassHelper.ParseFromInternalName(activeClassName);
+                if (activePlayerClass.HasValue) data.RemoveActiveClass(activePlayerClass.Value);
+            }
+            data.AddActiveClass(playerClass.Value);
+            result = ClassActivationResult.Swapped;
+        }
+        else
+        {
+            // No state change, so nothing to broadcast - the UI should already have this control
+            // disabled in this state, so reaching here means it let a stale click through.
+            return ClassActivationResult.AtLimit;
+        }
+
+        Debug.Log($"Activated class for {player.GetPlayerName()}: {className} -> {result} (active: {string.Join(", ", data.activeClasses)})");
 
         // Let every other connected peer (including the server, and whichever peer ends up
         // owning a given monster's ZDO) know right away, instead of waiting for the next
         // Player.Save/Load cycle to carry it over.
         BroadcastMyActiveClasses(player.GetPlayerID(), data.activeClasses);
 
-        return data.IsClassActive(playerClass);
+        return result;
     }
 
-    // Overload for backwards compatibility with string
-    public static bool SetPlayerActiveClass(Player player, string className)
+    // Deactivates a class the player currently has active. No-op if it wasn't active.
+    public static void DeactivateClass(Player player, string className)
     {
-        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
-        if (!playerClass.HasValue)
+        var data = GetPlayerData(player);
+        if (data == null)
         {
-            Debug.LogError($"Invalid class name: {className}");
-            return false;
+            Debug.LogError($"Could not get player data for {player?.GetPlayerName() ?? "null"}");
+            return;
         }
 
-        return SetPlayerActiveClass(player, playerClass.Value);
+        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
+        if (!playerClass.HasValue || !data.IsClassActive(playerClass.Value)) return;
+
+        data.RemoveActiveClass(playerClass.Value);
+        Debug.Log($"Deactivated class for {player.GetPlayerName()}: {className} (active: {string.Join(", ", data.activeClasses)})");
+
+        BroadcastMyActiveClasses(player.GetPlayerID(), data.activeClasses);
     }
 
     // Get all class names (for backwards compatibility)

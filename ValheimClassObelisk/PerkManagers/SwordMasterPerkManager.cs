@@ -51,19 +51,20 @@ public static class SwordMasterPerkManager
 
     #region Level 10 - Riposte Training
     /// <summary>
-    /// Lv10 – Riposte Training: +10% sword damage. After you parry, your next sword hit within 2s deals +25% damage.
+    /// Lv10 – Riposte Training: after you parry, your next sword hit within 2s deals +25% damage.
+    /// The base +10% sword damage at level 10 is handled by ClassCombatManager.GetSwordMasterDamageBonus.
     /// </summary>
     public static float ApplyLv10_RiposteTrainingDamage(Player player, float baseDamage)
     {
         if (!HasSwordMasterPerk(player, 10)) return baseDamage;
 
         long playerID = player.GetPlayerID();
-        float bonusDamage = baseDamage * 0.10f; // Base 10% sword damage bonus
+        float bonusDamage = 0f;
 
         // Check for active riposte buff
         if (riposteBuffs.ContainsKey(playerID) && Time.time < riposteBuffs[playerID])
         {
-            bonusDamage += baseDamage * 0.25f; // Additional 25% from riposte
+            bonusDamage += baseDamage * 0.25f; // +25% from riposte
             // Remove the buff after use (both internal tracking and visual effect)
             riposteBuffs.Remove(playerID);
             RemoveRiposteStatusEffect(player);

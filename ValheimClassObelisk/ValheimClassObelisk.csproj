@@ -110,7 +110,6 @@
     <Compile Include="TestingResources\BowTestingCommands.cs" />
     <Compile Include="PerkManagers\BrawlerPerkManager.cs" />
     <Compile Include="Utilities\ClassCombatManager.cs" />
-    <Compile Include="Utilities\ClassDamageBonusSystem.cs" />
     <Compile Include="ClassObeliskMod.cs" />
     <Compile Include="PerkManagers\CrusherPerkManager.cs" />
     <Compile Include="PerkManagers\LancerPerkManager.cs" />

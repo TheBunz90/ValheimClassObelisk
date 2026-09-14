@@ -459,6 +459,12 @@ public static class PlayerClassManager
         }
 
         var sb = new StringBuilder();
+
+        if (data.activeClasses.Count < data.GetMaxActiveClasses())
+        {
+            sb.Append("<color=#FFD700><b>★ A second class slot is available — visit a Class Obelisk to activate one! ★</b></color>\n\n");
+        }
+
         foreach (var playerClass in data.GetActiveClassEnums())
         {
             int level = data.GetClassLevel(playerClass);
@@ -480,12 +486,7 @@ public static class PlayerClassManager
             sb.Append("\n\n");
         }
 
-        if (data.activeClasses.Count < data.GetMaxActiveClasses())
-        {
-            sb.Append("<color=#AAAAAA>A second class slot is available — visit a Class Obelisk to choose one.</color>");
-        }
-
-        return sb.ToString();
+        return sb.ToString().TrimEnd();
     }
 
     // Debug method to clear all data (for testing)
@@ -719,6 +720,7 @@ public static class ClassSyncRpc
         if (playerData == null) return;
 
         int oldLevel = playerData.GetClassLevel(className);
+        bool couldSelectSecondClass = playerData.CanSelectSecondClass();
         playerData.AddClassXP(className, xpAmount);
         int newLevel = playerData.GetClassLevel(className);
 
@@ -731,6 +733,14 @@ public static class ClassSyncRpc
             if (newLevel % 10 == 0)
             {
                 localPlayer.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked!");
+            }
+
+            // Fires exactly once per character - CanSelectSecondClass() only flips false->true
+            // the first time ANY class reaches 50, so a later class also reaching 50 finds it
+            // already true and this is skipped.
+            if (!couldSelectSecondClass && playerData.CanSelectSecondClass())
+            {
+                localPlayer.Message(MessageHud.MessageType.Center, "★ Dual Class Unlocked! ★\nVisit a Class Obelisk to activate a 2nd class.");
             }
         }
 

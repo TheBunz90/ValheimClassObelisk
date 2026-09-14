@@ -105,9 +105,6 @@ public static class AssassinPerkManager
 
             // Add visual status effect
             AddPoisonStatusEffect(target, poisonData.stacks);
-
-            // Show message
-            player.Message(MessageHud.MessageType.TopLeft, $"Venom Applied! {poisonData.stacks}/{MAX_POISON_STACKS} stacks");
         }
 
         // Reset or set poison timer

@@ -75,12 +75,6 @@ public static class CrusherPerkManager
         // Add frost damage equal to 20% of weapon damage
         float frostDamage = weaponDamage * COLD_STEEL_FROST_MULTIPLIER;
         hit.m_damage.m_frost += frostDamage;
-
-        // Show visual effect occasionally
-        if (Random.Range(0f, 1f) < 0.3f) // 30% chance to show message
-        {
-            player.Message(MessageHud.MessageType.TopLeft, $"Cold Steel! +{frostDamage:F0} frost damage");
-        }
     }
     #endregion
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Fixed the second active class slot (meant to unlock once any class reaches level 50) being impossible to actually select: the Obelisk's class-selection UI only ever supported picking one class at a time, and the one selection method that was wired up always replaced your active class instead of adding to it. Selecting a class at the Obelisk now activates/deactivates it directly - swapping your one active class if you haven't unlocked a second slot yet, or freely activating/deactivating either of your two slots once you have (including running two non-max-level classes if you choose to deactivate your level-50 one).
+- Removed the frequent per-hit combat notifications ("Weapon Mastery: +X% damage!", Fencer's Footwork, Weakpoint, Long Shot, Adrenaline Rush, Magic Shot, Cold Steel, Venom Applied) that could pop up on nearly every attack. The perks themselves are unchanged - only the chat spam is gone. Level Up!, Perk Unlocked!, and per-kill XP notifications are unaffected.
+
 ## 1.0.4
 
 - Rebalanced class leveling so max level (50) is reachable in roughly 3-4 biomes of normal play instead of an extreme end-game grind. The old curve required 1,089,861 total XP to hit level 50 and grew 625x from level 1 to level 50, badly outpacing how much tougher enemies actually get across biomes - the last ~15 levels alone ate over 70% of the total XP requirement. The new curve tops out at 100,000 XP with a much gentler, still-smoothly-increasing growth rate that tracks enemy health scaling far more closely.

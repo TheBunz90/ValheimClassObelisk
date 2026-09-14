@@ -250,11 +250,6 @@ public static class SwordMasterPerkManager
         float buffEndTime = Time.time + FENCER_FOOTWORK_DURATION;
 
         fencerFootworkBuffs[playerID] = buffEndTime;
-        // Don't show message for every hit to avoid spam
-        if (Random.Range(0f, 1f) < 0.3f) // 30% chance
-        {
-            player.Message(MessageHud.MessageType.TopLeft, "Fencer's Footwork! +10% movement speed");
-        }
     }
     #endregion
 
@@ -272,12 +267,6 @@ public static class SwordMasterPerkManager
 
         // Add true damage that bypasses armor
         hit.m_damage.m_damage += trueDamageAmount;
-
-        // Show message occasionally to indicate armor penetration
-        if (Random.Range(0f, 1f) < 0.2f) // 20% chance
-        {
-            player.Message(MessageHud.MessageType.TopLeft, $"Weakpoint! +{trueDamageAmount:F0} true damage");
-        }
     }
 
     /// <summary>

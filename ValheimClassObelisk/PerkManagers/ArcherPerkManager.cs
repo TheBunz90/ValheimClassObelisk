@@ -255,12 +255,6 @@ public static class ArcherPerkManager
             float bonusDamage = baseDamage * 0.15f; // 15% bonus
             DevLog.Log($"Wind Reader: Long-range shot ({distance:F1}m) +15% damage (+{bonusDamage:F1})");
 
-            // Show message occasionally
-            if (Random.Range(0f, 1f) < 0.2f)
-            {
-                archer.Message(MessageHud.MessageType.TopLeft, $"Long Shot! +15% damage ({distance:F0}m)");
-            }
-
             return baseDamage + bonusDamage;
         }
 
@@ -284,27 +278,6 @@ public static class ArcherPerkManager
     }
     #endregion
 
-    #region Level 40 - Magic Shot
-    /// <summary>
-    /// Lv40 – Magic Shot: 50% chance to not consume an arrow on attack
-    /// Check this when consuming ammunition
-    /// </summary>
-    public static bool ShouldConsumeArrow(Player archer)
-    {
-        if (!HasArcherPerk(archer, 40)) return true;
-
-        // 50% chance to not consume arrow
-        if (Random.Range(0f, 1f) < 0.5f)
-        {
-            archer.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
-            DevLog.Log($"Magic Shot triggered for {archer.GetPlayerName()} - arrow not consumed");
-            return false;
-        }
-
-        return true;
-    }
-    #endregion
-
     #region Level 50 - Adrenaline Rush
     /// <summary>
     /// Lv50 – Adrenaline Rush: Arrow hits return 5% stamina
@@ -319,12 +292,6 @@ public static class ArcherPerkManager
         float staminaRestore = maxStamina * 0.05f;
 
         archer.AddStamina(staminaRestore);
-
-        // Show message occasionally to avoid spam
-        if (Random.Range(0f, 1f) < 0.3f) // 30% chance
-        {
-            archer.Message(MessageHud.MessageType.TopLeft, $"Adrenaline Rush! +{staminaRestore:F0} stamina");
-        }
 
         DevLog.Log($"Adrenaline Rush: Restored {staminaRestore:F1} stamina for {archer.GetPlayerName()}");
     }
@@ -610,8 +577,6 @@ public static class ArcherPerkPatches
                         // Add to the smallest stack (even if it goes over max - the removal will balance it)
                         var smallestStack = existingStacks.First();
                         smallestStack.m_stack += amount;
-
-                        player.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
                     }
                 }
             }

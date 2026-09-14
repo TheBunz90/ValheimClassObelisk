@@ -552,6 +552,17 @@ public static class Player_Save_Patch
     {
         try
         {
+            // The main-menu character-preview model (FejdStartup.SetupCharacterPreview) is
+            // instantiated with ZNetView.m_forceDisableInit = true, so it never gets a real ZDO
+            // and Player.GetPlayerID() always reports 0 for it - yet both browsing the character
+            // list and finishing "New Character" route through this same Player.Save patch.
+            // Treating that shared "0" bucket as a real player let one character's class data
+            // leak into whatever character got created or saved next in the same session
+            // (surviving even deleting the source character in between, since the leak happens
+            // in memory at menu time, not through the deleted file). Skip it - only the real
+            // spawned player (valid ZDO, real per-character ID) should ever persist class data.
+            if (__instance.GetPlayerID() == 0) return;
+
             DevLog.Log($"[PATCH:SAVE] Saving class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
 
             var playerData = PlayerClassManager.GetPlayerData(__instance);
@@ -587,6 +598,12 @@ public static class Player_Load_Patch
     {
         try
         {
+            // Same disabled-ZNetView menu character-preview object as Player_Save_Patch above -
+            // skip it so we never cache a real character's class data under the shared "0"
+            // bucket, where a later Save from that same object could leak it into an unrelated
+            // character's save file.
+            if (__instance.GetPlayerID() == 0) return;
+
             DevLog.Log($"[PATCH:LOAD] Loading class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
 
             // Check if there's more data to read

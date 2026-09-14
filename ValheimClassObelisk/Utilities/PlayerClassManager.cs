@@ -192,24 +192,22 @@ public class PlayerClassData
         CheckForLevelUp(className);
     }
 
+    // Sets the class to whatever level its total XP actually corresponds to, not just
+    // currentLevel+1 - a single kill (especially with a boosted kill-bonus multiplier, or a
+    // large XP award after being under-leveled for a while) can carry enough XP to cross
+    // several level thresholds at once.
     private void CheckForLevelUp(string className)
     {
         int currentLevel = GetClassLevel(className);
         if (currentLevel >= 50) return; // Max level
 
         float currentXP = GetClassXP(className);
-        float totalXPForNextLevel = XPCurveHelper.GetTotalXPForLevel(currentLevel + 1);
+        int correctLevel = XPCurveHelper.GetLevelFromXP(currentXP);
 
-        if (currentXP >= totalXPForNextLevel)
+        if (correctLevel > currentLevel)
         {
-            classLevels[className] = currentLevel + 1;
-            Debug.Log($"Class {className} leveled up to {currentLevel + 1}!");
-
-            // Check if it's a perk level (10, 20, 30, 40, 50)
-            if ((currentLevel + 1) % 10 == 0)
-            {
-                Debug.Log($"New perk unlocked for {className} at level {currentLevel + 1}!");
-            }
+            classLevels[className] = correctLevel;
+            Debug.Log($"Class {className} leveled up to {correctLevel}! (was {currentLevel})");
         }
     }
 
@@ -730,9 +728,13 @@ public static class ClassSyncRpc
         {
             localPlayer.Message(MessageHud.MessageType.Center, $"{className} Level Up! Level {newLevel}");
 
-            if (newLevel % 10 == 0)
+            // Announce every perk tier crossed by this award, not just whether newLevel itself
+            // is a multiple of 10 - a multi-level jump (e.g. 38 -> 42) can skip straight past a
+            // perk tier (40) without landing on it.
+            int firstPerkTier = ((oldLevel / 10) + 1) * 10;
+            for (int perkLevel = firstPerkTier; perkLevel <= newLevel; perkLevel += 10)
             {
-                localPlayer.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked!");
+                localPlayer.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked! (Level {perkLevel})");
             }
 
             // Fires exactly once per character - CanSelectSecondClass() only flips false->true

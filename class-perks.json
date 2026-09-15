@@ -1,0 +1,260 @@
+{
+  "classes": [
+    {
+      "className": "Archer",
+      "intro": "Expert marksmen with unparalleled bow and crossbow mastery.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Steady Draw",
+          "description": "-15% stamina drain while drawing"
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Arrow Slinger",
+          "description": "Arrows give a buff on hit that reduces draw time by 50% for 10 seconds"
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Wind Reader",
+          "description": "+15% damage beyond 25m; -25% stamina while aiming"
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Magic Shot",
+          "description": "50% chance to not consume an arrow on attack"
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Adrenaline Rush",
+          "description": "Consecutive hits return 5% stamina"
+        }
+      ],
+      "outro": "Perfect for players who enjoy ranged combat and precision shooting."
+    },
+    {
+      "className": "Assassin",
+      "intro": "Stealthy fighters who strike from the shadows with deadly precision.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Cutthroat",
+          "description": "+15% knife damage; +30% backstab multiplier"
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Venom Coating",
+          "description": "Knife hits apply stacking Poison (up to 3 stacks) based on skill level"
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Envenomous",
+          "description": "Poisons apply 15% movement speed slow per stack"
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Assassination",
+          "description": "First knife hit from stealth deals +100% damage"
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Twist the Knife",
+          "description": "+25% damage to poisoned targets; poisoned enemies deal -10% damage"
+        }
+      ],
+      "outro": "Great for players who prefer tactical, stealthy gameplay and damage over time."
+    },
+    {
+      "className": "Brawler",
+      "intro": "Bare-knuckle brawlers with unmatched unarmed combat skills.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "One-Two Combo",
+          "description": "Every 3rd consecutive punch deals +100% damage and restores 5% stamina"
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Break Guard",
+          "description": "Fist attacks deal +50% stagger damage"
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Iron Fist",
+          "description": "Fist attacks deal extra damage equal to 10% max health; +20% attack speed"
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Tough",
+          "description": "When not wearing chest piece, gain +25% physical damage resistance"
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Rage",
+          "description": "After unblocked damage, enter 5s rage: +50% attack speed, +50% damage resist, +25% fist damage (15s cooldown)"
+        }
+      ],
+      "outro": "For players who want to fight with their fists like a true Viking warrior."
+    },
+    {
+      "className": "Bulwark",
+      "intro": "Defensive specialists who excel at protection and shield mastery.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Shield Wall",
+          "description": "+15% Block Power; -15% block stamina cost."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Perfect Guard",
+          "description": "Blocked attacks restore 5 stamina. Reduce Block Stamina consumption by 50%."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Towering Presence",
+          "description": "Tower shields gain an additional +25% Block Power."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Thorns",
+          "description": "Blocked attacks return 50% of the original damage back to the attacker.\n\nThis damage deals increased stagger damage (20%)."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Reverb!",
+          "description": "After blocking 200 damage, release shockwave dealing 200 blunt damage in 5m (10s cooldown)."
+        }
+      ],
+      "outro": "Best for players who want to be the party's shield and ultimate protector."
+    },
+    {
+      "className": "Crusher",
+      "intro": "Powerful warriors who excel with heavy blunt weapons.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Bonebreaker",
+          "description": "+15% blunt damage; +25% stagger power"
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Cold Steel",
+          "description": "Melee attacks imbued with frost dealing +20% weapon damage as frost"
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Thundering Blows",
+          "description": "Heavy melee attacks generate 2m shockwave of lightning damage"
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Might of the Earth",
+          "description": "-30% stamina drain on attacks from wielding heavy weapons"
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Colossus",
+          "description": "Ignore movement speed penalties from armor weight"
+        }
+      ],
+      "outro": "Best suited for players who like devastating area attacks and crowd control."
+    },
+    {
+      "className": "Lancer",
+      "intro": "Spear specialists with superior reach and polearm technique.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Reach Advantage",
+          "description": "+15% pierce damage; -15% stamina cost when attacking."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Spear Storm",
+          "description": "Successful hits apply a stacking buff. Each stack causes your attacks to deal 5% additional damage as lightning damage for 5 seconds. Stacks up to 5 times, stacks refresh on hit."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Disruptive Strikes",
+          "description": "Hits have a 50% chance to disable the targets movement."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Impressive Throw",
+          "description": "Damage increases the further the target is away from you. Up to 300% for 100 meters away."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Spear Of Relocation",
+          "description": "When a thrown spear connects with an enemy you teleport to that enemy."
+        }
+      ],
+      "outro": "Perfect for players who like versatile polearm combat and tactical positioning."
+    },
+    {
+      "className": "SwordMaster",
+      "intro": "Masters of blade combat with exceptional swordsmanship skills.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Riposte Training",
+          "description": "+10% sword damage. After you parry, next sword hit within 2s deals +25% damage"
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Dancing Steel",
+          "description": "15% increased attack speed with swords"
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Fencer's Footwork",
+          "description": "-15% sword stamina cost; +10% movement speed for 3s after hits"
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Weakpoint Cut",
+          "description": "+15% armor penetration; +25% stagger vs. humanoids/undead"
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Counter Attacker",
+          "description": "+50% Parry Bonus, +40 Block Power with all swords"
+        }
+      ],
+      "outro": "Ideal for players who prefer melee combat with finesse and precision."
+    },
+    {
+      "className": "Wizard",
+      "intro": "Mystical practitioners of elemental magic and arcane arts.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Eitr Weave",
+          "description": "+50% Eitr regeneration."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Icy Hot",
+          "description": "+25% Fire and Frost damage."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Essence Leech",
+          "description": "Gain Eitr equal to 5% of damage dealt from Magical Attacks."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Frost Armor",
+          "description": "Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Immolation Aura",
+          "description": "Dealing 500 fire damage triggers Immolation Aura (30s): +25% speed, 15 fire DPS to nearby enemies"
+        }
+      ],
+      "outro": "Ideal for players who want to master Valheim's magic system and elemental combat."
+    }
+  ]
+}

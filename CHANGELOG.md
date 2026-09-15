@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.0.5
 
 - Fixed leveling up only ever advancing one level per XP award, even when a kill granted enough XP to cross multiple level thresholds at once - a class's level now gets set to whatever its total XP actually corresponds to. Perk-unlock notifications are also fixed to announce every perk tier crossed in a multi-level jump (e.g. going from 38 to 42 now still announces the level-40 perk), not just whether the final level happens to land exactly on one.
 - Fixed Archer's Arrow Slinger (and the equivalent Lancer spear perk) proccing from unrelated hits - e.g. a Greydwarf's thrown rock hitting some other nearby creature could incorrectly trigger it, even with no bow involved. The code determining who fired a hit projectile could fall back to "whichever player is standing nearby" when it couldn't otherwise identify an owner, which any monster-thrown projectile hits. Ownership and weapon type are now read directly from the projectile itself instead of guessed.
+- Fixed Assassin's Venom Coating poison roughly double-applying damage by fighting the game's own poison system instead of just using it. Poison duration now scales with the total damage applied rather than always lasting a fixed 10 seconds. Also fixed the Envenomous movement slow incorrectly stacking on top of itself across poison stacks, and fixed it applying before the Level 30 perk that's supposed to unlock it.
+- Removed the flat +0.5% weapon damage bonus every class was passively getting per level, on top of its named tier perks. Each class's damage bonus now comes only from its advertised perks.
 
 ## 1.0.4
 

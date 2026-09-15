@@ -173,9 +173,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +10% sword damage (additional)
         if (level >= 10) bonus += 0.10f;
 
@@ -191,9 +188,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 50: Eagle Eye - fully drawn shots deal +20% damage (additional)
         if (level >= 50) bonus += 0.20f;
 
@@ -205,9 +199,6 @@ public static class ClassCombatManager
         if (!IsBluntWeapon(weapon)) return 1f;
 
         float bonus = 0f;
-
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
 
         // Level 10: +12% blunt damage (additional)
         if (level >= 10) bonus += 0.12f;
@@ -221,9 +212,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +12% knife damage (additional)
         if (level >= 10) bonus += 0.12f;
 
@@ -236,9 +224,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +15% unarmed damage (additional)
         if (level >= 10) bonus += 0.15f;
 
@@ -250,9 +235,6 @@ public static class ClassCombatManager
         if (!IsMagicWeapon(weapon)) return 1f;
 
         float bonus = 0f;
-
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
 
         // Level 10: +8% magic damage (additional)
         if (level >= 10) bonus += 0.08f;
@@ -268,9 +250,6 @@ public static class ClassCombatManager
         if (!IsSpearWeapon(weapon)) return 1f;
 
         float bonus = 0f;
-
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
 
         // Level 10: +10% spear damage (additional)
         if (level >= 10) bonus += 0.10f;

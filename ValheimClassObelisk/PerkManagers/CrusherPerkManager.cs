@@ -1,18 +1,16 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Logger = Jotunn.Logger;
+using ValheimClassObelisk;
 
 /// <summary>
-/// Crusher class perk system - focused on heavy blunt weapons, elemental damage, and stamina efficiency
+/// Crusher class perk system - focused on heavy blunt weapons, split between 1H maces and
+/// 2H hammers (which have no Heavy Attack, so several perks branch on ClassCombatManager.IsTwoHandedWeapon).
 /// </summary>
 public static class CrusherPerkManager
 {
-    // Configuration
-    public const float COLD_STEEL_FROST_MULTIPLIER = 0.20f; // 20% of weapon damage as frost
-    public const float THUNDERING_BLOWS_RADIUS = 5f; // 5 meter shockwave
-
     /// <summary>
     /// Check if player has Crusher class active and at required level
     /// </summary>
@@ -27,16 +25,16 @@ public static class CrusherPerkManager
     }
 
     // Description metadata, shown in the class selection GUI - locked perks display as "???"
-    private const string Intro = "Powerful warriors who excel with heavy blunt weapons.";
-    private const string Outro = "Best suited for players who like devastating area attacks and crowd control.";
+    private const string Intro = "Heavy blunt weapon specialists who break armor, shake crowds, and turn slow weapons into decisive hits.";
+    private const string Outro = "Best for players who want both maces and two-handed hammers to receive a meaningful version of each perk tier.";
 
     public static readonly List<PerkInfo> Perks = new List<PerkInfo>
     {
-        new PerkInfo { RequiredLevel = 10, Name = "Bonebreaker", Description = "+15% blunt damage; +25% stagger power" },
-        new PerkInfo { RequiredLevel = 20, Name = "Cold Steel", Description = "Melee attacks imbued with frost dealing +20% weapon damage as frost" },
-        new PerkInfo { RequiredLevel = 30, Name = "Thundering Blows", Description = "Heavy melee attacks generate 2m shockwave of lightning damage" },
-        new PerkInfo { RequiredLevel = 40, Name = "Might of the Earth", Description = "-30% stamina drain on attacks from wielding heavy weapons" },
-        new PerkInfo { RequiredLevel = 50, Name = "Colossus", Description = "Ignore movement speed penalties from armor weight" },
+        new PerkInfo { RequiredLevel = 10, Name = "Bonebreaker", Description = "+8% blunt damage with clubs, maces, and two-handed hammers." },
+        new PerkInfo { RequiredLevel = 20, Name = "Colossus", Description = "Blunt weapons weigh 50% less and impose no movement speed penalties." },
+        new PerkInfo { RequiredLevel = 30, Name = "Thundering Blows", Description = "One-handed mace heavy attacks create a 3m shockwave for 25% weapon damage. Two-handed hammer attacks create a 3m aftershock on direct enemy hits for 20% weapon damage." },
+        new PerkInfo { RequiredLevel = 40, Name = "Cold Steel", Description = "Blunt attacks deal bonus frost damage equal to 12% of weapon damage." },
+        new PerkInfo { RequiredLevel = 50, Name = "Earthshaker", Description = "+15% blunt damage. Staggering an enemy grants +10% attack speed with blunt weapons for 5s." },
     };
 
     public static string GetClassDescription(Player player)
@@ -45,48 +43,17 @@ public static class CrusherPerkManager
         return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
     }
 
-    #region Level 10 - Bonebreaker
-    /// <summary>
-    /// Lv10 – Bonebreaker: +15% blunt damage; +25% stagger power
-    /// </summary>
-    public static float ApplyLv10_BonebreakerDamage(Player player, float baseDamage)
-    {
-        if (!HasCrusherPerk(player, 10)) return baseDamage;
-
-        return baseDamage * 1.15f; // 15% increased blunt damage
-    }
-
-    public static float ApplyLv10_BonebreakerStagger(Player player, float baseStagger)
-    {
-        if (!HasCrusherPerk(player, 10)) return baseStagger;
-
-        return baseStagger * 1.25f; // 25% increased stagger power
-    }
-    #endregion
-
-    #region Level 20 - Cold Steel
-    /// <summary>
-    /// Lv20 – Cold Steel: Your melee weapon attacks are imbued with frost dealing +20% weapon damage as frost damage
-    /// </summary>
-    public static void ApplyLv20_ColdSteelFrost(Player player, ref HitData hit, float weaponDamage)
-    {
-        if (!HasCrusherPerk(player, 20)) return;
-
-        // Add frost damage equal to 20% of weapon damage
-        float frostDamage = weaponDamage * COLD_STEEL_FROST_MULTIPLIER;
-        hit.m_damage.m_frost += frostDamage;
-    }
-    #endregion
-
     #region Level 30 - Thundering Blows
-    /// <summary>
-    /// Lv30 – Thundering Blows: Heavy melee attacks generate a 2m shockwave of lightning damage
-    /// </summary>
-    public static void TriggerLv30_ThunderingBlows(Player player, Vector3 hitPoint, float baseDamage)
-    {
-        if (!HasCrusherPerk(player, 30)) return;
+    public const float THUNDERING_BLOWS_RADIUS = 3f;
+    public const float THUNDERING_BLOWS_1H_PERCENT = 0.25f;
+    public const float THUNDERING_BLOWS_2H_PERCENT = 0.20f;
 
-        // Find all enemies within radius
+    /// <summary>
+    /// Lv30 - Thundering Blows: 1H mace heavy attacks and every 2H hammer hit create a 3m
+    /// shockwave (percent of weapon damage varies by caller - see the two trigger sites below).
+    /// </summary>
+    public static void TriggerThunderingBlows(Player player, Vector3 hitPoint, float weaponDamage, float percent)
+    {
         var nearbyEnemies = Physics.OverlapSphere(hitPoint, THUNDERING_BLOWS_RADIUS)
             .Select(c => c.GetComponent<Character>())
             .Where(c => c != null && c != player && !c.IsDead() && c.IsMonsterFaction(0f))
@@ -94,89 +61,60 @@ public static class CrusherPerkManager
 
         if (nearbyEnemies.Count == 0) return;
 
-        // Calculate lightning damage (50% of base damage for shockwave)
-        float lightningDamage = baseDamage * 0.5f;
+        float shockwaveDamage = weaponDamage * percent;
 
         foreach (var enemy in nearbyEnemies)
         {
-            // Create hit data for lightning damage
             HitData shockwaveHit = new HitData();
             shockwaveHit.m_attacker = player.GetZDOID();
-            shockwaveHit.m_damage.m_lightning = lightningDamage;
+            shockwaveHit.m_damage.m_blunt = shockwaveDamage;
             shockwaveHit.m_point = enemy.transform.position;
             shockwaveHit.m_dir = (enemy.transform.position - hitPoint).normalized;
-            shockwaveHit.m_skill = Skills.SkillType.Clubs; // Use clubs skill for blunt weapons
+            shockwaveHit.m_skill = Skills.SkillType.Clubs;
 
             enemy.Damage(shockwaveHit);
         }
-
-        // Visual effect - try to create lightning VFX
-        // Note: removed this visual effect because it nukes the player killing them.
-        // May want to try other effects in the future for fun.
-        // CreateThunderingBlowsEffect(hitPoint);
-
-        player.Message(MessageHud.MessageType.TopLeft, $"Thundering Blow! Hit {nearbyEnemies.Count} enemies");
-    }
-
-    private static void CreateThunderingBlowsEffect(Vector3 position)
-    {
-        try
-        {
-            // Try to find and use a lightning effect from the game
-            var lightningAOE = ZNetScene.instance?.GetPrefab("lightningAOE");
-            if (lightningAOE != null)
-            {
-                Object.Instantiate(lightningAOE, position, Quaternion.identity);
-            }
-            else
-            {
-                // Fallback to a generic impact effect
-                var impactEffect = ZNetScene.instance?.GetPrefab("vfx_HitSparks");
-                if (impactEffect != null)
-                {
-                    Object.Instantiate(impactEffect, position, Quaternion.identity);
-                }
-            }
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogWarning($"Could not create Thundering Blows effect: {ex.Message}");
-        }
     }
     #endregion
 
-    #region Level 40 - Might of the Earth
+    #region Level 40 - Cold Steel
+    public const float COLD_STEEL_FROST_PERCENT = 0.12f;
+
     /// <summary>
-    /// Lv40 – Might of the Earth: Your strength from wielding heavy weapons mitigates stamina drain from attacks. -30% stamina drain on attacks
+    /// Lv40 - Cold Steel: blunt attacks deal bonus frost damage equal to 12% of weapon damage.
     /// </summary>
-    public static float ApplyLv40_MightOfTheEarthStamina(Player player, float staminaCost)
+    public static void ApplyColdSteelFrost(ref HitData hit, float weaponDamage)
     {
-        if (!HasCrusherPerk(player, 40)) return staminaCost;
-
-        // Check if this is an attack action (not blocking or other stamina uses)
-        var weapon = player.GetCurrentWeapon();
-        if (weapon != null && ClassCombatManager.IsBluntWeapon(weapon))
-        {
-            return staminaCost * 0.70f; // 30% reduction in stamina cost
-        }
-
-        return staminaCost;
+        hit.m_damage.m_frost += weaponDamage * COLD_STEEL_FROST_PERCENT;
     }
     #endregion
 
-    #region level 50 - Colossus
-    // This perk gets applied by the EquipItem patch in patches.
-    // Summary: it checks for negative movespeed modifiers and removes them.
-    #endregion
+    #region Level 50 - Earthshaker
+    public const float EARTHSHAKER_ATTACK_SPEED = 1.10f;
+    public const float EARTHSHAKER_DURATION = 5f;
+    public const string EARTHSHAKER_AS_KEY = "Crusher_Earthshaker_AS";
 
-    #region Utility Methods
-    /// <summary>
-    /// Check if an attack is a heavy attack (secondary attack)
-    /// </summary>
-    public static bool IsHeavyAttack(Attack.AttackType attackType)
+    // Per-player expiry tracking for the temporary attack-speed buff (mirrors Brawler's Rage).
+    private static readonly Dictionary<Player, float> earthshakerExpire = new Dictionary<Player, float>();
+
+    public static void TriggerEarthshaker(Player player)
     {
-        // In Valheim, secondary attacks are typically considered "heavy" attacks
-        return attackType == Attack.AttackType.Vertical;
+        AnimationSpeedManager.Set(player, EARTHSHAKER_AS_KEY, EARTHSHAKER_ATTACK_SPEED);
+        earthshakerExpire[player] = Time.time + EARTHSHAKER_DURATION;
+    }
+
+    public static void ProcessEarthshakerExpiry()
+    {
+        var toRemove = new List<Player>();
+        foreach (var kvp in earthshakerExpire)
+        {
+            if (kvp.Key == null || Time.time >= kvp.Value)
+            {
+                if (kvp.Key != null) AnimationSpeedManager.Clear(kvp.Key, EARTHSHAKER_AS_KEY);
+                toRemove.Add(kvp.Key);
+            }
+        }
+        foreach (var p in toRemove) earthshakerExpire.Remove(p);
     }
     #endregion
 }
@@ -187,44 +125,64 @@ public static class CrusherPerkManager
 [HarmonyPatch]
 public static class CrusherPerkPatches
 {
-    private static bool triggerThunderingBlowsDamage;
+    // Per-player tracking of whether the current attack is a heavy/secondary attack, needed for
+    // Thundering Blows' 1H-mace-heavy-only trigger. Per-player (not a shared module-level flag)
+    // so this is multiplayer-safe - same pattern as AxemasterPerkManager.pendingTwoHandedSpecialAttack.
+    private static readonly Dictionary<Player, bool> pendingHeavyAttack = new Dictionary<Player, bool>();
 
-    #region Damage Patches
-    /// <summary>
-    /// Apply Crusher damage bonuses and elemental effects when using blunt weapons
-    /// </summary>
-    [HarmonyPatch(typeof(Character), "Damage")]
+    [HarmonyPatch(typeof(Humanoid), "StartAttack")]
     [HarmonyPrefix]
-    public static void Character_Damage_Crusher_Prefix(Character __instance, ref HitData hit)
+    public static void Humanoid_StartAttack_Crusher_Prefix(Humanoid __instance, bool secondaryAttack)
     {
         try
         {
+            if (!(__instance is Player player)) return;
+
+            var weapon = player.GetCurrentWeapon();
+            if (weapon == null || !ClassCombatManager.IsBluntWeapon(weapon))
+            {
+                pendingHeavyAttack.Remove(player);
+                return;
+            }
+
+            pendingHeavyAttack[player] = secondaryAttack;
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Humanoid_StartAttack_Crusher_Prefix: {ex.Message}");
+        }
+    }
+
+    #region Damage Patches
+    /// <summary>
+    /// Apply Cold Steel's instant frost bonus (Level 40) and snapshot the target's pre-hit
+    /// stagger state (for Earthshaker's post-stagger detection in the postfix below). The flat
+    /// Bonebreaker (L10) and Earthshaker (L50) damage bonuses live only in
+    /// ClassCombatManager.GetCrusherDamageBonus - not duplicated here.
+    /// </summary>
+    [HarmonyPatch(typeof(Character), "Damage")]
+    [HarmonyPrefix]
+    public static void Character_Damage_Crusher_Prefix(Character __instance, ref HitData hit, out bool __state)
+    {
+        __state = false;
+        try
+        {
+            if (hit.m_skill == Skills.SkillType.None) return;
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
 
-            // Only apply to blunt weapon damage
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsBluntWeapon(weapon)) return;
 
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Crusher)) return;
+            if (!CrusherPerkManager.HasCrusherPerk(player, 1)) return;
 
-            float originalDamage = hit.GetTotalDamage();
+            // Snapshot pre-hit stagger state so the postfix can tell whether *this* hit is what
+            // pushed the target into a stagger (Earthshaker, Level 50).
+            __state = __instance.IsStaggering();
 
-            // Apply Bonebreaker damage bonus (Level 10)
-            float bluntDamage = hit.m_damage.m_blunt;
-            if (bluntDamage > 0)
+            if (CrusherPerkManager.HasCrusherPerk(player, 40))
             {
-                hit.m_damage.m_blunt = CrusherPerkManager.ApplyLv10_BonebreakerDamage(player, bluntDamage);
+                CrusherPerkManager.ApplyColdSteelFrost(ref hit, hit.GetTotalDamage());
             }
-
-            // Apply Bonebreaker stagger bonus (Level 10)
-            hit.m_staggerMultiplier = CrusherPerkManager.ApplyLv10_BonebreakerStagger(player, hit.m_staggerMultiplier);
-
-            // Apply Cold Steel frost damage (Level 20)
-            CrusherPerkManager.ApplyLv20_ColdSteelFrost(player, ref hit, originalDamage);
-
-            // Check for Thundering Blows trigger (Level 30)
-            // We'll trigger this in the postfix after the hit lands
         }
         catch (System.Exception ex)
         {
@@ -232,46 +190,39 @@ public static class CrusherPerkPatches
         }
     }
 
-    // Summary
-    // Patch Humanoid StartAttack and set a flag for triggering
-    // Thundering Blows if the attack was a Secondary Attack.
-    // End Summary
-    [HarmonyPatch(typeof(Humanoid), "StartAttack")]
-    [HarmonyPrefix]
-    public static void Humanoid_StartAttack_Prefix(Character target, bool secondaryAttack)
-    {
-        // get current weapon.
-        var player = Player.m_localPlayer;
-        var currentWeapon = player.GetCurrentWeapon();
-        // check weapon matches active class weapons.
-        if (!ClassCombatManager.IsBluntWeapon(currentWeapon)) return;
-        // set flag true.
-        if (secondaryAttack) triggerThunderingBlowsDamage = true;
-    }
-
     /// <summary>
-    /// Trigger Thundering Blows shockwave after heavy attack hits
+    /// Trigger Thundering Blows (Level 30, 1H-heavy vs. every-2H-hit) and Earthshaker's
+    /// post-stagger attack-speed buff (Level 50) after the hit lands.
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPostfix]
-    public static void Character_Damage_Crusher_Postfix(Character __instance, HitData hit)
+    public static void Character_Damage_Crusher_Postfix(Character __instance, HitData hit, bool __state)
     {
         try
         {
+            if (hit.m_skill == Skills.SkillType.None) return;
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
+            if (hit.GetTotalDamage() <= 0) return;
 
-            // Only apply to blunt weapon damage
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsBluntWeapon(weapon)) return;
 
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Crusher)) return;
-
-            // Check if this was a heavy attack for Thundering Blows
-            if (hit.m_damage.m_blunt > 0 && triggerThunderingBlowsDamage)
+            if (CrusherPerkManager.HasCrusherPerk(player, 30))
             {
-                CrusherPerkManager.TriggerLv30_ThunderingBlows(player, hit.m_point, hit.GetTotalDamage());
-                triggerThunderingBlowsDamage = false;
+                if (ClassCombatManager.IsTwoHandedWeapon(weapon))
+                {
+                    CrusherPerkManager.TriggerThunderingBlows(player, hit.m_point, hit.GetTotalDamage(), CrusherPerkManager.THUNDERING_BLOWS_2H_PERCENT);
+                }
+                else if (pendingHeavyAttack.TryGetValue(player, out var wasHeavy) && wasHeavy)
+                {
+                    CrusherPerkManager.TriggerThunderingBlows(player, hit.m_point, hit.GetTotalDamage(), CrusherPerkManager.THUNDERING_BLOWS_1H_PERCENT);
+                }
+            }
+
+            // Earthshaker (Level 50): this hit pushed the target from not-staggering into staggering.
+            if (CrusherPerkManager.HasCrusherPerk(player, 50) && !__state && __instance.IsStaggering())
+            {
+                CrusherPerkManager.TriggerEarthshaker(player);
             }
         }
         catch (System.Exception ex)
@@ -281,51 +232,67 @@ public static class CrusherPerkPatches
     }
     #endregion
 
-    #region Stamina Patches
+    #region Movement Speed / Weight Patches
     /// <summary>
-    /// Apply Might of the Earth stamina reduction when using stamina for attacks
+    /// Colossus (Level 20): cancels an equipped blunt weapon's own movement-speed penalty
+    /// without touching the item's shared data - only offsets this player's own equipment
+    /// movement modifier, mirroring AxemasterPerkManager's Woodsman's Carry.
     /// </summary>
-    [HarmonyPatch(typeof(Player), "UseStamina")]
-    [HarmonyPrefix]
-    public static void Player_UseStamina_Crusher_Prefix(Player __instance, ref float v)
+    [HarmonyPatch(typeof(Player), "GetEquipmentMovementModifier")]
+    [HarmonyPostfix]
+    public static void Player_GetEquipmentMovementModifier_Crusher_Postfix(Player __instance, ref float __result)
     {
         try
         {
-            if (__instance == null) return;
+            if (!CrusherPerkManager.HasCrusherPerk(__instance, 20)) return;
 
-            // Apply Might of the Earth stamina reduction (Level 40)
-            v = CrusherPerkManager.ApplyLv40_MightOfTheEarthStamina(__instance, v);
+            var weapon = __instance.GetCurrentWeapon();
+            if (weapon == null || !ClassCombatManager.IsBluntWeapon(weapon)) return;
+
+            float weaponPenalty = weapon.m_shared.m_movementModifier;
+            if (weaponPenalty < 0f) __result -= weaponPenalty;
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Player_UseStamina_Crusher_Prefix: {ex.Message}");
+            Logger.LogError($"Error in Player_GetEquipmentMovementModifier_Crusher_Postfix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Colossus (Level 20): halves a blunt weapon's carry weight for the local player only
+    /// (encumbrance is evaluated client-side).
+    /// </summary>
+    [HarmonyPatch(typeof(ItemDrop.ItemData), "GetWeight")]
+    [HarmonyPostfix]
+    public static void ItemData_GetWeight_Crusher_Postfix(ItemDrop.ItemData __instance, ref float __result)
+    {
+        try
+        {
+            var localPlayer = Player.m_localPlayer;
+            if (localPlayer == null || !CrusherPerkManager.HasCrusherPerk(localPlayer, 20)) return;
+            if (!ClassCombatManager.IsBluntWeapon(__instance)) return;
+
+            __result *= 0.5f;
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in ItemData_GetWeight_Crusher_Postfix: {ex.Message}");
         }
     }
     #endregion
 
-    #region Movement Speed Patches
-    [HarmonyPatch(typeof(Humanoid), "EquipItem")]
+    #region Periodic Cleanup
+    [HarmonyPatch(typeof(Game), "Update")]
     [HarmonyPostfix]
-    public static void Humanoid_EquipItem_Prefix(ItemDrop.ItemData item, bool triggerEquipEffects = true)
+    public static void Game_Update_Crusher_Postfix()
     {
         try
         {
-            // Check item is null.
-            if (item == null) return;
-
-            // Check is player has colossus perk.
-            var player = Player.m_localPlayer;
-            if (!CrusherPerkManager.HasCrusherPerk(player, 50)) return;
-
-            // TODO: remove the movementModifier for item if it's negative.
-            var movementModifier = item.m_shared.m_movementModifier;
-            if (movementModifier > 0f) return;
-
-            item.m_shared.m_movementModifier = 0f;
+            CrusherPerkManager.ProcessEarthshakerExpiry();
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Player_GetRunSpeedFactor_Crusher_Postfix: {ex.Message}");
+            Logger.LogError($"Error in Game_Update_Crusher_Postfix: {ex.Message}");
         }
     }
     #endregion

@@ -75,6 +75,14 @@ public static class ClassCombatManager
                weapon.m_shared.m_skillType == Skills.SkillType.Polearms;
     }
 
+    // Narrower than IsSpearWeapon - distinguishes the two Lancer weapon sub-types for perks
+    // that behave differently on spears (thrown/thrust, 1H) vs polearms (swept, 2H).
+    public static bool IsPolearmWeapon(ItemDrop.ItemData weapon)
+    {
+        if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.Polearms;
+    }
+
     public static bool IsUnarmedAttack(ItemDrop.ItemData weapon)
     {
         return weapon == null ||
@@ -193,11 +201,8 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Level 10: +10% sword damage (additional)
-        if (level >= 10) bonus += 0.10f;
-
-        // Level 50: Dancing Steel effect would be handled separately
-        // For now, just the base damage bonus
+        // Level 10: Blade Training - +7% sword damage (1H and greatswords alike)
+        if (level >= 10) bonus += 0.07f;
 
         return 1f + bonus;
     }
@@ -236,8 +241,12 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Level 10: +12% blunt damage (additional)
-        if (level >= 10) bonus += 0.12f;
+        // Level 10: Bonebreaker - +8% blunt damage (1H maces and 2H hammers alike)
+        if (level >= 10) bonus += 0.08f;
+
+        // Level 50: Earthshaker - +15% blunt damage (flat component; the conditional
+        // post-stagger attack-speed bonus is handled separately in CrusherPerkManager)
+        if (level >= 50) bonus += 0.15f;
 
         return 1f + bonus;
     }
@@ -288,8 +297,12 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Level 10: +10% spear damage (additional)
-        if (level >= 10) bonus += 0.10f;
+        // Level 10: Reach Advantage - +8% pierce damage (spears and polearms alike)
+        if (level >= 10) bonus += 0.08f;
+
+        // Level 50: Impaling Momentum - +15% spear/polearm damage (flat component; the
+        // conditional distance/special-attack bonus is handled separately in LancerPerkManager)
+        if (level >= 50) bonus += 0.15f;
 
         return 1f + bonus;
     }

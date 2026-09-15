@@ -358,7 +358,7 @@ public static class ArcherPerkPatches
     /// </summary>
     [HarmonyPatch(typeof(Projectile), "OnHit")]
     [HarmonyPrefix]
-    public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint)
+    public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, Character ___m_owner)
     {
         try
         {
@@ -368,9 +368,17 @@ public static class ArcherPerkPatches
             var hitCharacter = collider.GetComponent<Character>();
             if (hitCharacter == null || hitCharacter is Player) return;
 
-            // Find the archer who fired this projectile
-            var archer = FindProjectileOwner(__instance);
-            if (archer == null) return;
+            // The projectile's own owner/skill (set once in Projectile.Setup and never
+            // touched again) is the only reliable way to know who fired this and with what.
+            // The previous FindProjectileOwner helper fell back to "whichever player is
+            // within 100m" when a projectile had no resolvable ZDO owner - which includes
+            // any monster-thrown projectile (e.g. a Greydwarf's rock hitting another
+            // creature nearby), misattributing it to a nearby Archer and proccing their
+            // bow perks. Also gate on the shot actually being a bow/crossbow shot, not just
+            // any projectile a player happens to have fired. (m_owner is private on the real
+            // Projectile class, hence the Harmony ___m_owner field-injection parameter above.)
+            if (!(___m_owner is Player archer)) return;
+            if (__instance.m_skill != Skills.SkillType.Bows && __instance.m_skill != Skills.SkillType.Crossbows) return;
 
             // Only trigger for players with Archer class active
             var playerData = PlayerClassManager.GetPlayerData(archer);
@@ -495,39 +503,6 @@ public static class ArcherPerkPatches
     #endregion
 
     #region Helper Methods
-    /// <summary>
-    /// Find the player who owns a projectile
-    /// </summary>
-    private static Player FindProjectileOwner(Projectile projectile)
-    {
-        try
-        {
-            // Try to get owner from ZNetView
-            var znetView = projectile.GetComponent<ZNetView>();
-            if (znetView != null && znetView.IsValid())
-            {
-                long ownerID = znetView.GetZDO().GetLong("owner");
-                if (ownerID != 0)
-                {
-                    return Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == ownerID);
-                }
-            }
-
-            // Fallback to local player if nearby
-            var localPlayer = Player.m_localPlayer;
-            if (localPlayer != null && Vector3.Distance(localPlayer.transform.position, projectile.transform.position) < 100f)
-            {
-                return localPlayer;
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     /// <summary>
     /// Check if hit data represents projectile damage
     /// </summary>

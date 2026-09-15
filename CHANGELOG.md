@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fixed leveling up only ever advancing one level per XP award, even when a kill granted enough XP to cross multiple level thresholds at once - a class's level now gets set to whatever its total XP actually corresponds to. Perk-unlock notifications are also fixed to announce every perk tier crossed in a multi-level jump (e.g. going from 38 to 42 now still announces the level-40 perk), not just whether the final level happens to land exactly on one.
+- Fixed Archer's Arrow Slinger (and the equivalent Lancer spear perk) proccing from unrelated hits - e.g. a Greydwarf's thrown rock hitting some other nearby creature could incorrectly trigger it, even with no bow involved. The code determining who fired a hit projectile could fall back to "whichever player is standing nearby" when it couldn't otherwise identify an owner, which any monster-thrown projectile hits. Ownership and weapon type are now read directly from the projectile itself instead of guessed.
 
 ## 1.0.4
 

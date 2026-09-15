@@ -7,6 +7,17 @@ using HarmonyLib;
 using ValheimClassObelisk;
 using Logger = Jotunn.Logger;
 
+// Outcome of PlayerClassManager.ActivateClass, so callers (the Obelisk UI) can show
+// the right feedback without re-deriving why the activation did or didn't apply.
+public enum ClassActivationResult
+{
+    Activated,
+    Swapped,
+    AtLimit,
+    NotUnlocked,
+    Error
+}
+
 // Player class data storage with persistence
 [Serializable]
 public class PlayerClassData
@@ -108,23 +119,6 @@ public class PlayerClassData
         return activeClasses.Count < GetMaxActiveClasses();
     }
 
-    public void SetActiveClass(PlayerClass playerClass)
-    {
-        string className = PlayerClassHelper.GetInternalName(playerClass);
-        if (!classUnlocked.ContainsKey(className) || !classUnlocked[className])
-        {
-            Debug.LogWarning($"Cannot set active class {className}: class not unlocked");
-            return;
-        }
-
-        // Clear all active classes and set the new one
-        var previousClasses = new List<string>(activeClasses);
-        activeClasses.Clear();
-        activeClasses.Add(className);
-
-        Debug.Log($"Set active class: {className} (was: {string.Join(", ", previousClasses)})");
-    }
-
     public void AddActiveClass(PlayerClass playerClass)
     {
         if (!CanActivateClass(playerClass))
@@ -198,24 +192,22 @@ public class PlayerClassData
         CheckForLevelUp(className);
     }
 
+    // Sets the class to whatever level its total XP actually corresponds to, not just
+    // currentLevel+1 - a single kill (especially with a boosted kill-bonus multiplier, or a
+    // large XP award after being under-leveled for a while) can carry enough XP to cross
+    // several level thresholds at once.
     private void CheckForLevelUp(string className)
     {
         int currentLevel = GetClassLevel(className);
         if (currentLevel >= 50) return; // Max level
 
         float currentXP = GetClassXP(className);
-        float totalXPForNextLevel = XPCurveHelper.GetTotalXPForLevel(currentLevel + 1);
+        int correctLevel = XPCurveHelper.GetLevelFromXP(currentXP);
 
-        if (currentXP >= totalXPForNextLevel)
+        if (correctLevel > currentLevel)
         {
-            classLevels[className] = currentLevel + 1;
-            Debug.Log($"Class {className} leveled up to {currentLevel + 1}!");
-
-            // Check if it's a perk level (10, 20, 30, 40, 50)
-            if ((currentLevel + 1) % 10 == 0)
-            {
-                Debug.Log($"New perk unlocked for {className} at level {currentLevel + 1}!");
-            }
+            classLevels[className] = correctLevel;
+            Debug.Log($"Class {className} leveled up to {correctLevel}! (was {currentLevel})");
         }
     }
 
@@ -301,7 +293,7 @@ public static class PlayerClassManager
     }
 
     // Broadcasts one player's own current active classes to every connected peer. Used both
-    // by SetPlayerActiveClass (a live reselection) and by Player_Load_Patch (below) for the
+    // by ActivateClass/DeactivateClass (a live reselection) and by Player_Load_Patch (below) for the
     // case that turned out to be the actual gap: a player's own client is the ONLY place that
     // correctly loads their pre-existing saved selection (via Player.Load, which never runs on
     // the dedicated server), but nothing was ever telling anyone else about it - the old code
@@ -324,46 +316,83 @@ public static class PlayerClassManager
         ZRoutedRpc.instance?.InvokeRoutedRPC(ZRoutedRpc.Everybody, "CO_AwardClassXP", targetPlayerId, className, xpAmount);
     }
 
-    // Enhanced class selection method with enum support
-    public static bool SetPlayerActiveClass(Player player, PlayerClass playerClass)
+    // Activates a class for the player. If they still have a free slot (GetMaxActiveClasses(),
+    // 1 normally, 2 once any class hits level 50), it's simply added. If they're full but only
+    // have 1 max slot (haven't unlocked dual classes), the currently active class is swapped out
+    // for this one. If they're full WITH 2 max slots, nothing changes - the UI should keep the
+    // activation control disabled in that case rather than relying on this to reject it.
+    public static ClassActivationResult ActivateClass(Player player, string className)
     {
         var data = GetPlayerData(player);
         if (data == null)
         {
             Debug.LogError($"Could not get player data for {player?.GetPlayerName() ?? "null"}");
-            return false;
+            return ClassActivationResult.Error;
         }
 
-        // Get previous state for debugging
-        var previousClasses = string.Join(", ", data.activeClasses);
+        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
+        if (!playerClass.HasValue)
+        {
+            Debug.LogError($"Invalid class name: {className}");
+            return ClassActivationResult.Error;
+        }
 
-        // Set the class
-        data.SetActiveClass(playerClass);
+        if (data.IsClassActive(playerClass.Value)) return ClassActivationResult.Activated; // already active, nothing to do
 
-        // Verify the change was applied
-        var newClasses = string.Join(", ", data.activeClasses);
+        int maxSlots = data.GetMaxActiveClasses();
+        ClassActivationResult result;
 
-        Debug.Log($"Class change for {player.GetPlayerName()}: '{previousClasses}' -> '{newClasses}'");
+        if (data.activeClasses.Count < maxSlots)
+        {
+            if (!data.CanActivateClass(playerClass.Value)) return ClassActivationResult.NotUnlocked;
+            data.AddActiveClass(playerClass.Value);
+            result = ClassActivationResult.Activated;
+        }
+        else if (maxSlots == 1)
+        {
+            // Single-slot players swap directly: drop whatever's active, activate the new pick.
+            foreach (string activeClassName in new List<string>(data.activeClasses))
+            {
+                var activePlayerClass = PlayerClassHelper.ParseFromInternalName(activeClassName);
+                if (activePlayerClass.HasValue) data.RemoveActiveClass(activePlayerClass.Value);
+            }
+            data.AddActiveClass(playerClass.Value);
+            result = ClassActivationResult.Swapped;
+        }
+        else
+        {
+            // No state change, so nothing to broadcast - the UI should already have this control
+            // disabled in this state, so reaching here means it let a stale click through.
+            return ClassActivationResult.AtLimit;
+        }
+
+        Debug.Log($"Activated class for {player.GetPlayerName()}: {className} -> {result} (active: {string.Join(", ", data.activeClasses)})");
 
         // Let every other connected peer (including the server, and whichever peer ends up
         // owning a given monster's ZDO) know right away, instead of waiting for the next
         // Player.Save/Load cycle to carry it over.
         BroadcastMyActiveClasses(player.GetPlayerID(), data.activeClasses);
 
-        return data.IsClassActive(playerClass);
+        return result;
     }
 
-    // Overload for backwards compatibility with string
-    public static bool SetPlayerActiveClass(Player player, string className)
+    // Deactivates a class the player currently has active. No-op if it wasn't active.
+    public static void DeactivateClass(Player player, string className)
     {
-        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
-        if (!playerClass.HasValue)
+        var data = GetPlayerData(player);
+        if (data == null)
         {
-            Debug.LogError($"Invalid class name: {className}");
-            return false;
+            Debug.LogError($"Could not get player data for {player?.GetPlayerName() ?? "null"}");
+            return;
         }
 
-        return SetPlayerActiveClass(player, playerClass.Value);
+        var playerClass = PlayerClassHelper.ParseFromInternalName(className);
+        if (!playerClass.HasValue || !data.IsClassActive(playerClass.Value)) return;
+
+        data.RemoveActiveClass(playerClass.Value);
+        Debug.Log($"Deactivated class for {player.GetPlayerName()}: {className} (active: {string.Join(", ", data.activeClasses)})");
+
+        BroadcastMyActiveClasses(player.GetPlayerID(), data.activeClasses);
     }
 
     // Get all class names (for backwards compatibility)
@@ -428,6 +457,12 @@ public static class PlayerClassManager
         }
 
         var sb = new StringBuilder();
+
+        if (data.activeClasses.Count < data.GetMaxActiveClasses())
+        {
+            sb.Append("<color=#FFD700><b>★ A second class slot is available — visit a Class Obelisk to activate one! ★</b></color>\n\n");
+        }
+
         foreach (var playerClass in data.GetActiveClassEnums())
         {
             int level = data.GetClassLevel(playerClass);
@@ -449,12 +484,7 @@ public static class PlayerClassManager
             sb.Append("\n\n");
         }
 
-        if (data.activeClasses.Count < data.GetMaxActiveClasses())
-        {
-            sb.Append("<color=#AAAAAA>A second class slot is available — visit a Class Obelisk to choose one.</color>");
-        }
-
-        return sb.ToString();
+        return sb.ToString().TrimEnd();
     }
 
     // Debug method to clear all data (for testing)
@@ -521,6 +551,17 @@ public static class Player_Save_Patch
     {
         try
         {
+            // The main-menu character-preview model (FejdStartup.SetupCharacterPreview) is
+            // instantiated with ZNetView.m_forceDisableInit = true, so it never gets a real ZDO
+            // and Player.GetPlayerID() always reports 0 for it - yet both browsing the character
+            // list and finishing "New Character" route through this same Player.Save patch.
+            // Treating that shared "0" bucket as a real player let one character's class data
+            // leak into whatever character got created or saved next in the same session
+            // (surviving even deleting the source character in between, since the leak happens
+            // in memory at menu time, not through the deleted file). Skip it - only the real
+            // spawned player (valid ZDO, real per-character ID) should ever persist class data.
+            if (__instance.GetPlayerID() == 0) return;
+
             DevLog.Log($"[PATCH:SAVE] Saving class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
 
             var playerData = PlayerClassManager.GetPlayerData(__instance);
@@ -556,6 +597,12 @@ public static class Player_Load_Patch
     {
         try
         {
+            // Same disabled-ZNetView menu character-preview object as Player_Save_Patch above -
+            // skip it so we never cache a real character's class data under the shared "0"
+            // bucket, where a later Save from that same object could leak it into an unrelated
+            // character's save file.
+            if (__instance.GetPlayerID() == 0) return;
+
             DevLog.Log($"[PATCH:LOAD] Loading class data for {__instance.GetPlayerName()} (ID: {__instance.GetPlayerID()})");
 
             // Check if there's more data to read
@@ -671,6 +718,7 @@ public static class ClassSyncRpc
         if (playerData == null) return;
 
         int oldLevel = playerData.GetClassLevel(className);
+        bool couldSelectSecondClass = playerData.CanSelectSecondClass();
         playerData.AddClassXP(className, xpAmount);
         int newLevel = playerData.GetClassLevel(className);
 
@@ -680,9 +728,21 @@ public static class ClassSyncRpc
         {
             localPlayer.Message(MessageHud.MessageType.Center, $"{className} Level Up! Level {newLevel}");
 
-            if (newLevel % 10 == 0)
+            // Announce every perk tier crossed by this award, not just whether newLevel itself
+            // is a multiple of 10 - a multi-level jump (e.g. 38 -> 42) can skip straight past a
+            // perk tier (40) without landing on it.
+            int firstPerkTier = ((oldLevel / 10) + 1) * 10;
+            for (int perkLevel = firstPerkTier; perkLevel <= newLevel; perkLevel += 10)
             {
-                localPlayer.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked!");
+                localPlayer.Message(MessageHud.MessageType.Center, $"New {className} Perk Unlocked! (Level {perkLevel})");
+            }
+
+            // Fires exactly once per character - CanSelectSecondClass() only flips false->true
+            // the first time ANY class reaches 50, so a later class also reaching 50 finds it
+            // already true and this is skipped.
+            if (!couldSelectSecondClass && playerData.CanSelectSecondClass())
+            {
+                localPlayer.Message(MessageHud.MessageType.Center, "★ Dual Class Unlocked! ★\nVisit a Class Obelisk to activate a 2nd class.");
             }
         }
 

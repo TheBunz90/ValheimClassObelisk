@@ -21,7 +21,6 @@ public static class AssassinPerkManager
 
     // Configuration
     public const int   MAX_POISON_STACKS = 3;
-    public const float POISON_DURATION = 10f;
     public const float ASSASSINATION_SPEED_DURATION = 5f;
     public const float ASSASSINATION_SPEED_BONUS = 2.00f; // 100% attack speed
     public const float ENVENOMOUS_SLOW_PER_STACK = 0.20f; // 20% slow per stack
@@ -35,10 +34,14 @@ public static class AssassinPerkManager
     public class PoisonData
     {
         public int stacks = 0;
-        public float endTime = 0f;
-        public float lastTickTime = 0f;
-        public float damagePerTick = 0f;
-        public float totalDamage = 0f;
+        // Estimate of when vanilla's own SE_Poison will consider this application expired
+        // (see EstimateVanillaPoisonTTL) - used only for our own stack-reset/cleanup/Twist the
+        // Knife bookkeeping. Vanilla manages the real timing itself.
+        public float expireTime = 0f;
+        // The stack-scaled total damage that still needs to be handed to vanilla's SE_Poison
+        // (via ProcessPoisonExpiry). Set by ApplyLv20_VenomCoating, applied once, then cleared.
+        public float pendingTotalDamage = 0f;
+        public bool damagePending = false;
         public Player source = null;
         public float originalSpeed = 0f;
         public float originalRunSpeed = 0f;
@@ -78,57 +81,70 @@ public static class AssassinPerkManager
 
     #region Level 20 - Venom Coating
     /// <summary>
-    /// Lv20 – Venom Coating: Knife hits apply a stacking Poison (up to 3 stacks). 
-    /// Poison damage per stack is your vanilla Knife skill level over 5 seconds
+    /// Mirrors vanilla SE_Poison.AddDamage's own TTL formula (m_baseTTL=2, m_TTLPerDamage=2,
+    /// m_TTLPower=0.5), so our own bookkeeping (stack-reset window, Twist the Knife, UI tooltip)
+    /// estimates roughly the same expiry vanilla will actually use.
+    /// </summary>
+    private static float EstimateVanillaPoisonTTL(float totalDamage)
+    {
+        return 2f + Mathf.Pow(totalDamage * 2f, 0.5f);
+    }
+
+    /// <summary>
+    /// Lv20 – Venom Coating: Knife hits apply a stacking Poison (up to 3 stacks), scaled by
+    /// knife skill level. The actual damage-over-time is handled entirely by vanilla's own
+    /// SE_Poison (see ProcessPoisonExpiry) - this just tracks stacks/expiry and computes the
+    /// new stack-scaled total to hand off.
     /// </summary>
     public static void ApplyLv20_VenomCoating(Player player, Character target, HitData hit)
     {
         if (!HasAssassinPerk(player, 20) || target == null || target.IsDead()) return;
 
-        // Get knife skill level for poison damage calculation
         float knifeSkillLevel = player.GetSkillLevel(Skills.SkillType.Knives);
-        float poisonDamagePerStack = knifeSkillLevel; // Total damage over 10 seconds
-        float damagePerTick = poisonDamagePerStack / POISON_DURATION; // 1 tick per second
 
-        // Get or create poison data for this target
-        if (!poisonTracking.ContainsKey(target))
+        // Start a fresh stack count if our previous application has fully worn off; otherwise
+        // add a stack to the still-active one.
+        if (!poisonTracking.TryGetValue(target, out var poisonData) || Time.time >= poisonData.expireTime)
         {
-            poisonTracking[target] = new PoisonData();
+            poisonData = new PoisonData();
+            poisonTracking[target] = poisonData;
+
+            // Capture the true baseline speed only once, when there's no active poison to
+            // stack onto - recapturing it on every stacking hit would bake the previous
+            // stack's already-slowed speed in as the new "original", compounding the slow.
+            poisonData.originalSpeed = target.m_speed;
+            poisonData.originalRunSpeed = target.m_runSpeed;
         }
 
-        var poisonData = poisonTracking[target];
-
-        // Add a stack (up to max)
         if (poisonData.stacks < MAX_POISON_STACKS)
         {
             poisonData.stacks++;
-
-            // Add visual status effect
-            AddPoisonStatusEffect(target, poisonData.stacks);
-
-            // Show message
-            player.Message(MessageHud.MessageType.TopLeft, $"Venom Applied! {poisonData.stacks}/{MAX_POISON_STACKS} stacks");
         }
 
-        // Reset or set poison timer
-        poisonData.endTime = Time.time + POISON_DURATION;
-        poisonData.damagePerTick = damagePerTick * poisonData.stacks;
+        // Total damage for the current stack count - handed to vanilla's own SE_Poison once
+        // (via ProcessPoisonExpiry) instead of manually ticking it ourselves every second,
+        // which was fighting vanilla's own concurrent SE_Poison tick and roughly
+        // double-applying damage.
+        float totalPoisonDamage = knifeSkillLevel * poisonData.stacks;
+        float estimatedTTL = EstimateVanillaPoisonTTL(totalPoisonDamage);
+
+        poisonData.pendingTotalDamage = totalPoisonDamage;
+        poisonData.damagePending = true;
+        poisonData.expireTime = Time.time + estimatedTTL;
         poisonData.source = player;
-        poisonData.totalDamage = poisonDamagePerStack * poisonData.stacks;
 
-        StatusEffect currentPoison = target.GetSEMan().GetStatusEffect("Poison".GetStableHashCode());
+        AddPoisonStatusEffect(target, poisonData.stacks, estimatedTTL);
 
-        // Calculate slow multiplier
-        var debuffMult = 1 - (poisonData.stacks * ENVENOMOUS_SLOW_PER_STACK);
-        // Apply Movement speed slow.
-        poisonData.originalSpeed = target.m_speed;
-        target.m_speed *= debuffMult;
-        // Apply run speed slow.
-        poisonData.originalRunSpeed = target.m_runSpeed;
-        target.m_runSpeed *= debuffMult;
+        // Envenomous (Level 30): movement speed slow, scaled by stacks
+        if (HasAssassinPerk(player, 30))
+        {
+            var debuffMult = 1f - (poisonData.stacks * ENVENOMOUS_SLOW_PER_STACK);
+            target.m_speed = poisonData.originalSpeed * debuffMult;
+            target.m_runSpeed = poisonData.originalRunSpeed * debuffMult;
+        }
     }
 
-    private static void AddPoisonStatusEffect(Character target, int stacks)
+    private static void AddPoisonStatusEffect(Character target, int stacks, float ttl)
     {
         try
         {
@@ -151,7 +167,7 @@ public static class AssassinPerkManager
                 statusEffect.m_icon = poisonIcon;
             }
 
-            statusEffect.m_ttl = POISON_DURATION;
+            statusEffect.m_ttl = ttl;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
         }
@@ -243,9 +259,11 @@ public static class AssassinPerkManager
 
     #region Utility Methods
     /// <summary>
-    /// Process poison damage ticks
+    /// Applies any newly-stacked poison total to vanilla's own SE_Poison (once per stack
+    /// change, not ticked ourselves - see ApplyLv20_VenomCoating) and cleans up tracking once
+    /// our estimated expiry has passed or the target has died.
     /// </summary>
-    public static void ProcessPoisonDamage()
+    public static void ProcessPoisonExpiry()
     {
         float currentTime = Time.time;
         var toRemove = new List<Character>();
@@ -255,29 +273,26 @@ public static class AssassinPerkManager
             var target = kvp.Key;
             var poisonData = kvp.Value;
 
-            // Check if target is dead or poison expired
-            if (target == null || target.IsDead() || currentTime > poisonData.endTime)
+            // Check if target is dead or our estimated expiry has passed
+            if (target == null || target.IsDead() || currentTime > poisonData.expireTime)
             {
                 ClearSpeedDebuff(target, poisonData.originalSpeed, poisonData.originalRunSpeed);
                 toRemove.Add(target);
                 continue;
             }
 
-            // Apply poison tick damage (once per second)
-            if (currentTime - poisonData.lastTickTime >= 1f)
+            // Hand the current stack-scaled total to vanilla's SE_Poison exactly once - it
+            // owns all the actual tick timing/damage/visuals/sound from here.
+            if (poisonData.damagePending)
             {
-                poisonData.lastTickTime = currentTime;
+                poisonData.damagePending = false;
 
-                // Create poison damage
                 HitData poisonHit = new HitData();
-                poisonHit.m_damage.m_poison = poisonData.damagePerTick;
+                poisonHit.m_damage.m_poison = poisonData.pendingTotalDamage;
                 poisonHit.m_attacker = poisonData.source?.GetZDOID() ?? ZDOID.None;
                 poisonHit.m_point = target.transform.position;
 
                 target.Damage(poisonHit);
-
-                // Visual feedback
-                // DamageText.instance.ShowText(DamageText.TextType.Normal, target.GetCenterPoint(), poisonData.damagePerTick);
             }
         }
 
@@ -403,9 +418,11 @@ public static class AssassinPerkManager
             // If Player is being damaged check for and apply damage reduction from poison.
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player)
             {
-                // Get Attack and check if they are poisoned.
+                // Get Attack and check if they are poisoned (and not just a stale,
+                // not-yet-cleaned-up tracking entry).
                 var attacker = hit.GetAttacker();
-                var characterIsPoisoned = poisonTracking.ContainsKey(attacker);
+                var characterIsPoisoned = poisonTracking.TryGetValue(attacker, out var attackerPoisonData)
+                    && Time.time < attackerPoisonData.expireTime;
 
                 if (characterIsPoisoned)
                 {
@@ -499,8 +516,8 @@ public static class AssassinPerkManager
     {
         try
         {
-            // Process poison damage every frame (handles its own timing)
-            ProcessPoisonDamage();
+            // Apply any newly-stacked poison and process expiry every frame
+            ProcessPoisonExpiry();
 
             // Clean up buffs every second
             if (Time.time % 1f < Time.deltaTime)

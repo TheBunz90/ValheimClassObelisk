@@ -255,12 +255,6 @@ public static class ArcherPerkManager
             float bonusDamage = baseDamage * 0.15f; // 15% bonus
             DevLog.Log($"Wind Reader: Long-range shot ({distance:F1}m) +15% damage (+{bonusDamage:F1})");
 
-            // Show message occasionally
-            if (Random.Range(0f, 1f) < 0.2f)
-            {
-                archer.Message(MessageHud.MessageType.TopLeft, $"Long Shot! +15% damage ({distance:F0}m)");
-            }
-
             return baseDamage + bonusDamage;
         }
 
@@ -284,27 +278,6 @@ public static class ArcherPerkManager
     }
     #endregion
 
-    #region Level 40 - Magic Shot
-    /// <summary>
-    /// Lv40 – Magic Shot: 50% chance to not consume an arrow on attack
-    /// Check this when consuming ammunition
-    /// </summary>
-    public static bool ShouldConsumeArrow(Player archer)
-    {
-        if (!HasArcherPerk(archer, 40)) return true;
-
-        // 50% chance to not consume arrow
-        if (Random.Range(0f, 1f) < 0.5f)
-        {
-            archer.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
-            DevLog.Log($"Magic Shot triggered for {archer.GetPlayerName()} - arrow not consumed");
-            return false;
-        }
-
-        return true;
-    }
-    #endregion
-
     #region Level 50 - Adrenaline Rush
     /// <summary>
     /// Lv50 – Adrenaline Rush: Arrow hits return 5% stamina
@@ -319,12 +292,6 @@ public static class ArcherPerkManager
         float staminaRestore = maxStamina * 0.05f;
 
         archer.AddStamina(staminaRestore);
-
-        // Show message occasionally to avoid spam
-        if (Random.Range(0f, 1f) < 0.3f) // 30% chance
-        {
-            archer.Message(MessageHud.MessageType.TopLeft, $"Adrenaline Rush! +{staminaRestore:F0} stamina");
-        }
 
         DevLog.Log($"Adrenaline Rush: Restored {staminaRestore:F1} stamina for {archer.GetPlayerName()}");
     }
@@ -391,7 +358,7 @@ public static class ArcherPerkPatches
     /// </summary>
     [HarmonyPatch(typeof(Projectile), "OnHit")]
     [HarmonyPrefix]
-    public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint)
+    public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, Character ___m_owner)
     {
         try
         {
@@ -401,9 +368,17 @@ public static class ArcherPerkPatches
             var hitCharacter = collider.GetComponent<Character>();
             if (hitCharacter == null || hitCharacter is Player) return;
 
-            // Find the archer who fired this projectile
-            var archer = FindProjectileOwner(__instance);
-            if (archer == null) return;
+            // The projectile's own owner/skill (set once in Projectile.Setup and never
+            // touched again) is the only reliable way to know who fired this and with what.
+            // The previous FindProjectileOwner helper fell back to "whichever player is
+            // within 100m" when a projectile had no resolvable ZDO owner - which includes
+            // any monster-thrown projectile (e.g. a Greydwarf's rock hitting another
+            // creature nearby), misattributing it to a nearby Archer and proccing their
+            // bow perks. Also gate on the shot actually being a bow/crossbow shot, not just
+            // any projectile a player happens to have fired. (m_owner is private on the real
+            // Projectile class, hence the Harmony ___m_owner field-injection parameter above.)
+            if (!(___m_owner is Player archer)) return;
+            if (__instance.m_skill != Skills.SkillType.Bows && __instance.m_skill != Skills.SkillType.Crossbows) return;
 
             // Only trigger for players with Archer class active
             var playerData = PlayerClassManager.GetPlayerData(archer);
@@ -529,39 +504,6 @@ public static class ArcherPerkPatches
 
     #region Helper Methods
     /// <summary>
-    /// Find the player who owns a projectile
-    /// </summary>
-    private static Player FindProjectileOwner(Projectile projectile)
-    {
-        try
-        {
-            // Try to get owner from ZNetView
-            var znetView = projectile.GetComponent<ZNetView>();
-            if (znetView != null && znetView.IsValid())
-            {
-                long ownerID = znetView.GetZDO().GetLong("owner");
-                if (ownerID != 0)
-                {
-                    return Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == ownerID);
-                }
-            }
-
-            // Fallback to local player if nearby
-            var localPlayer = Player.m_localPlayer;
-            if (localPlayer != null && Vector3.Distance(localPlayer.transform.position, projectile.transform.position) < 100f)
-            {
-                return localPlayer;
-            }
-
-            return null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
     /// Check if hit data represents projectile damage
     /// </summary>
     private static bool IsProjectileDamage(HitData hit)
@@ -610,8 +552,6 @@ public static class ArcherPerkPatches
                         // Add to the smallest stack (even if it goes over max - the removal will balance it)
                         var smallestStack = existingStacks.First();
                         smallestStack.m_stack += amount;
-
-                        player.Message(MessageHud.MessageType.TopLeft, "Magic Shot! Arrow not consumed");
                     }
                 }
             }

@@ -148,39 +148,6 @@ namespace ValheimClassObelisk
             return result;
         }
 
-        /// <summary>
-        /// Find the player who owns a projectile
-        /// </summary>
-        private static Player FindProjectileOwner(Projectile projectile)
-        {
-            try
-            {
-                // Try to get owner from ZNetView
-                var znetView = projectile.GetComponent<ZNetView>();
-                if (znetView != null && znetView.IsValid())
-                {
-                    long ownerID = znetView.GetZDO().GetLong("owner");
-                    if (ownerID != 0)
-                    {
-                        return Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == ownerID);
-                    }
-                }
-
-                // Fallback to local player if nearby
-                var localPlayer = Player.m_localPlayer;
-                if (localPlayer != null && Vector3.Distance(localPlayer.transform.position, projectile.transform.position) < 100f)
-                {
-                    return localPlayer;
-                }
-
-                return null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
         public static void HandleSpearOfRelocation(Player player, Character target)
         {
             if (player == null || target == null) return;
@@ -370,32 +337,33 @@ namespace ValheimClassObelisk
         // Apply Relocation Effect if Spear Hits an enemy
         [HarmonyPatch(typeof(Projectile), "OnHit")]
         [HarmonyPrefix]
-        public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint)
+        public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, Character ___m_owner)
         {
             try
             {
                 if (__instance == null || collider == null) return;
 
-                // Check if this is an arrow/bolt hitting a valid target
+                // Check if this is a thrown spear hitting a valid target
                 var hitCharacter = collider.GetComponent<Character>();
                 if (hitCharacter == null || hitCharacter is Player) return;
 
-                // Find the archer who fired this projectile
-                var thrower = FindProjectileOwner(__instance);
-                if (thrower == null) return;
+                // The projectile's own owner/skill (set once in Projectile.Setup and never
+                // touched again) is the only reliable way to know who threw this and with
+                // what. The previous FindProjectileOwner helper fell back to "whichever
+                // player is within 100m" when a projectile had no resolvable ZDO owner -
+                // which includes any monster-thrown projectile, misattributing it to a
+                // nearby Lancer. Also gate on the throw actually being a spear, not just
+                // any projectile a player happens to have thrown. (m_owner is private on the
+                // real Projectile class, hence the Harmony ___m_owner field-injection
+                // parameter above.)
+                if (!(___m_owner is Player thrower)) return;
+                if (__instance.m_skill != Skills.SkillType.Spears) return;
 
-                // Only trigger for players with Archer class active
+                // Only trigger for players with Lancer class active
                 var playerData = PlayerClassManager.GetPlayerData(thrower);
                 if (playerData == null || !playerData.IsClassActive(PlayerClass.Lancer) || !HasLancerPerk(thrower, 50)) return;
 
-                // TODO: Check Projectile type is spear.
-                var isSpear = __instance.m_skill == Skills.SkillType.Spears;
-
-                // TODO: handleRelocation
-                if (isSpear)
-                {
-                    HandleSpearOfRelocation(thrower, hitCharacter);
-                }
+                HandleSpearOfRelocation(thrower, hitCharacter);
             }
             catch (System.Exception ex)
             {

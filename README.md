@@ -12,9 +12,9 @@ Each class deals bonus damage with its associated weapon type and gains XP from 
 
 | Field | Value |
 |---|---|
-| GUID | `com.bunzboi.classobelisk` |
-| Name | Class Obelisk |
-| Version | 1.0.0 |
+| GUID | `com.bunzboi.valheimweaponclass` |
+| Name | ValheimWeaponClasses |
+| Version | 1.0.3 |
 
 ## 2. Requirements / Dependencies
 

@@ -173,9 +173,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +10% sword damage (additional)
         if (level >= 10) bonus += 0.10f;
 
@@ -191,9 +188,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 50: Eagle Eye - fully drawn shots deal +20% damage (additional)
         if (level >= 50) bonus += 0.20f;
 
@@ -205,9 +199,6 @@ public static class ClassCombatManager
         if (!IsBluntWeapon(weapon)) return 1f;
 
         float bonus = 0f;
-
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
 
         // Level 10: +12% blunt damage (additional)
         if (level >= 10) bonus += 0.12f;
@@ -221,9 +212,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +12% knife damage (additional)
         if (level >= 10) bonus += 0.12f;
 
@@ -236,9 +224,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +15% unarmed damage (additional)
         if (level >= 10) bonus += 0.15f;
 
@@ -250,9 +235,6 @@ public static class ClassCombatManager
         if (!IsMagicWeapon(weapon)) return 1f;
 
         float bonus = 0f;
-
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
 
         // Level 10: +8% magic damage (additional)
         if (level >= 10) bonus += 0.08f;
@@ -269,9 +251,6 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Base: 0.5% per level
-        bonus += level * 0.005f;
-
         // Level 10: +10% spear damage (additional)
         if (level >= 10) bonus += 0.10f;
 
@@ -283,20 +262,6 @@ public static class ClassCombatManager
         // Bulwark doesn't get weapon damage bonuses, they get defensive bonuses
         // Those would be handled in different patches (block power, etc.)
         return 1f;
-    }
-
-    // Method to show damage bonus feedback to player
-    public static void ShowDamageBonusMessage(Player player, float multiplier, string weaponType)
-    {
-        if (multiplier > 1f && player == Player.m_localPlayer)
-        {
-            float bonusPercent = (multiplier - 1f) * 100f;
-            // Only show occasionally to avoid spam
-            if (Random.Range(0f, 1f) < 0.1f) // 10% chance
-            {
-                player.Message(MessageHud.MessageType.TopLeft, $"{weaponType} Mastery: +{bonusPercent:F0}% damage!");
-            }
-        }
     }
 
     // Public version of damage multiplier calculation for console commands
@@ -363,13 +328,6 @@ public static class CombatPatches
                     hit.m_damage.m_pierce *= multiplier;
                     hit.m_damage.m_blunt *= multiplier;
                     hit.m_damage.m_chop *= multiplier;
-
-                    // Show feedback message
-                    string weaponType = GetWeaponTypeName(weapon);
-                    ClassCombatManager.ShowDamageBonusMessage(player, multiplier, weaponType);
-
-                    // Debug logging
-                    // Debug.Log($"Applied {multiplier:F2}x damage multiplier for {player.GetPlayerName()} using {weaponType}");
                 }
             }
         }
@@ -377,19 +335,6 @@ public static class CombatPatches
         {
             Logger.LogError($"Error in Character_Damage_Prefix: {ex.Message}");
         }
-    }
-
-    // Helper method to get weapon type name for feedback
-    private static string GetWeaponTypeName(ItemDrop.ItemData weapon)
-    {
-        if (ClassCombatManager.IsSwordWeapon(weapon)) return "Sword";
-        if (ClassCombatManager.IsBowWeapon(weapon)) return "Bow";
-        if (ClassCombatManager.IsBluntWeapon(weapon)) return "Blunt";
-        if (ClassCombatManager.IsKnifeWeapon(weapon)) return "Knife";
-        if (ClassCombatManager.IsSpearWeapon(weapon)) return "Spear";
-        if (ClassCombatManager.IsUnarmedAttack(weapon)) return "Unarmed";
-        if (ClassCombatManager.IsMagicWeapon(weapon)) return "Magic";
-        return "Weapon";
     }
 }
 

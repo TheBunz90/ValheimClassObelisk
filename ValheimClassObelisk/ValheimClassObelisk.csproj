@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ValheimClassObelisk</RootNamespace>
-    <AssemblyName>ValheimClassObelisk</AssemblyName>
+    <AssemblyName>ValheimWeaponClasses</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
@@ -110,7 +110,6 @@
     <Compile Include="TestingResources\BowTestingCommands.cs" />
     <Compile Include="PerkManagers\BrawlerPerkManager.cs" />
     <Compile Include="Utilities\ClassCombatManager.cs" />
-    <Compile Include="Utilities\ClassDamageBonusSystem.cs" />
     <Compile Include="ClassObeliskMod.cs" />
     <Compile Include="PerkManagers\CrusherPerkManager.cs" />
     <Compile Include="PerkManagers\LancerPerkManager.cs" />

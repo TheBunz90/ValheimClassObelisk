@@ -75,6 +75,12 @@ namespace ValheimClassObelisk
         private static readonly ConditionalWeakTable<Character, PerCharacterBag> _perChar
             = new ConditionalWeakTable<Character, PerCharacterBag>();
 
+        // Tracks the last anim.speed value *we* wrote per-Character, so we can tell whether
+        // vanilla has since written a fresh base value of its own (rescale) or whether the
+        // field still holds our own last output (leave alone) - see ApplyIfNeeded.
+        private static readonly ConditionalWeakTable<Character, float[]> _lastAppliedSpeed
+            = new ConditionalWeakTable<Character, float[]>();
+
         private static readonly MethodInfo _miInAttack = AccessTools.Method(typeof(Humanoid), "InAttack");
 
         private static bool IsAttackActive(Character c)
@@ -297,25 +303,19 @@ namespace ValheimClassObelisk
             if (player == null) return;
 
             var currentWeapon = player.GetCurrentWeapon();
-
-            // Log weapon info
-            string weaponName = currentWeapon?.m_shared?.m_name ?? "null";
             bool isKnife = ClassCombatManager.IsKnifeWeapon(currentWeapon);
             bool isUnarmed = ClassCombatManager.IsUnarmedAttack(currentWeapon);
 
             float mult = 1f; // Default to 1f (no modification)
-            string modifierSource = "none";
 
             // Check weapon type and get appropriate multiplier
             if (isKnife)
             {
                 mult = GetKnifeMultiplier(c);
-                modifierSource = "knife";
             }
             else if (isUnarmed)
             {
                 mult = GetFistMultiplier(c);
-                modifierSource = "fist";
             }
 
             // If mult is still 1f (no modifiers active), ensure animator is at normal speed
@@ -325,16 +325,28 @@ namespace ValheimClassObelisk
                 {
                     anim.speed = 1f;
                 }
+                _lastAppliedSpeed.Remove(c);
                 return;
             }
 
-            float target = Mathf.Max(0.0001f, mult);
-
             if (attacking)
             {
-                if (Mathf.Abs(anim.speed - target) > 0.001f)
+                // Vanilla itself varies anim.speed across an attack's phases (e.g. unarmed
+                // combo swings alternate between 1.0 and 2.0), but it only rewrites that
+                // field at certain phase transitions - not every tick. If we always treated
+                // the current anim.speed as "vanilla's base" and multiplied it, then on every
+                // tick where vanilla hadn't touched it we'd be reading back our own last
+                // output and re-multiplying it, compounding the buff exponentially. So only
+                // rescale when anim.speed no longer matches what we last wrote (meaning
+                // vanilla set a fresh base); otherwise leave it alone - it's already correct.
+                bool hasLast = _lastAppliedSpeed.TryGetValue(c, out var lastBox);
+                if (!hasLast || Mathf.Abs(anim.speed - lastBox[0]) > 0.001f)
                 {
+                    float baseSpeed = anim.speed;
+                    float target = Mathf.Max(0.0001f, baseSpeed * mult);
                     anim.speed = target;
+                    if (hasLast) lastBox[0] = target;
+                    else _lastAppliedSpeed.Add(c, new float[] { target });
                 }
             }
             else
@@ -344,6 +356,7 @@ namespace ValheimClassObelisk
                 {
                     anim.speed = 1f;
                 }
+                _lastAppliedSpeed.Remove(c);
             }
         }
     }

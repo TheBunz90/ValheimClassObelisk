@@ -248,8 +248,9 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Level 10: +12% knife damage (additional)
-        if (level >= 10) bonus += 0.12f;
+        // Level 10: Cutthroat - +7% knife damage (the only flat bonus Assassin gets; Twist the
+        // Knife at 50 is conditional on the target being poisoned, handled in AssassinPerkManager)
+        if (level >= 10) bonus += 0.07f;
 
         return 1f + bonus;
     }
@@ -260,8 +261,8 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Level 10: +15% unarmed damage (additional)
-        if (level >= 10) bonus += 0.15f;
+        // Level 10: Bare-Knuckle Training - +8% unarmed damage
+        if (level >= 10) bonus += 0.08f;
 
         return 1f + bonus;
     }

@@ -1,14 +1,12 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Logger = Jotunn.Logger;
-using System.Runtime.CompilerServices;
 using ValheimClassObelisk;
-using System.Reflection;
 
 /// <summary>
-/// Assassin class perk system - focused on knives, stealth, poison, and burst damage
+/// Assassin class perk system - knife mastery building into stealth burst and poison execution
 /// </summary>
 [HarmonyPatch]
 public static class AssassinPerkManager
@@ -16,19 +14,26 @@ public static class AssassinPerkManager
     // Poison tracking - tracks poison stacks per creature
     public static Dictionary<Character, PoisonData> poisonTracking = new Dictionary<Character, PoisonData>();
 
-    // Assassination buff tracking (attack speed after stealth hit)
-    private static Dictionary<Player, float> assassinationBuffs = new Dictionary<Player, float>(); // playerID -> buff end time
+    // Assassination attack-speed buff tracking
+    private static Dictionary<Player, float> assassinationBuffs = new Dictionary<Player, float>(); // player -> buff end time
+
+    // Normal movement speed (m_speed - the jog/run baseline, distinct from m_walkSpeed which
+    // is the toggled walk-mode speed, already close to vanilla's own crouch speed) cached in a
+    // Prefix on Player.SetCrouch, before the original method runs - used instead of a live
+    // re-read in the Postfix, in case anything in between changes m_speed.
+    private static readonly Dictionary<Player, float> _cachedMoveSpeed = new Dictionary<Player, float>();
 
     // Configuration
-    public const int   MAX_POISON_STACKS = 3;
+    public const int MAX_POISON_STACKS = 3;
     public const float ASSASSINATION_SPEED_DURATION = 5f;
-    public const float ASSASSINATION_SPEED_BONUS = 2.00f; // 100% attack speed
-    public const float ENVENOMOUS_SLOW_PER_STACK = 0.20f; // 20% slow per stack
-    public const float TWIST_KNIFE_DAMAGE_BONUS = 0.25f; // 25% more damage to poisoned
-    public const float TWIST_KNIFE_DAMAGE_REDUCTION = 0.15f; // poisoned enemies deal 15% less
-    public const float ASSASSIN_BACKSTAB_BONUS = 0.3f;
-    public const float ASSASSIN_CUT_THROAT_BONUS = 0.15f;
-    public const float ASSASSIN_STEALTH_BONUS = 1.0f;
+    public const float ASSASSINATION_SPEED_BONUS = 1.20f; // +20% attack speed
+    public const float ASSASSINATION_DAMAGE_BONUS = 0.50f; // +50% damage on the stealth hit itself
+    public const float SILENT_HANDS_STAMINA_REDUCTION = 0.15f;
+    // Vanilla's own default for Character.m_crouchSpeed - restored when Silent Hands isn't
+    // active, so a player who deactivates Assassin later doesn't stay permanently faster.
+    private const float VANILLA_BASE_CROUCH_SPEED = 2f;
+    public const float TWIST_KNIFE_DAMAGE_BONUS = 0.15f; // vs. poisoned targets
+    public const float TWIST_KNIFE_DAMAGE_REDUCTION = 0.10f; // poisoned enemies deal less
     public static bool DAMAGE_MODS_ON = true;
 
     public class PoisonData
@@ -39,12 +44,10 @@ public static class AssassinPerkManager
         // Knife bookkeeping. Vanilla manages the real timing itself.
         public float expireTime = 0f;
         // The stack-scaled total damage that still needs to be handed to vanilla's SE_Poison
-        // (via ProcessPoisonExpiry). Set by ApplyLv20_VenomCoating, applied once, then cleared.
+        // (via ProcessPoisonExpiry). Set by ApplyLv40_VenomCoating, applied once, then cleared.
         public float pendingTotalDamage = 0f;
         public bool damagePending = false;
         public Player source = null;
-        public float originalSpeed = 0f;
-        public float originalRunSpeed = 0f;
     }
 
     /// <summary>
@@ -61,16 +64,16 @@ public static class AssassinPerkManager
     }
 
     // Description metadata, shown in the class selection GUI - locked perks display as "???"
-    private const string Intro = "Stealthy fighters who strike from the shadows with deadly precision.";
-    private const string Outro = "Great for players who prefer tactical, stealthy gameplay and damage over time.";
+    private const string Intro = "Stealthy fighters who use knives, positioning, and toxins to end fights quickly.";
+    private const string Outro = "Best for players who want the class to build from light knife mastery into stealth burst and poison execution.";
 
     public static readonly List<PerkInfo> Perks = new List<PerkInfo>
     {
-        new PerkInfo { RequiredLevel = 10, Name = "Cutthroat", Description = "+15% knife damage; +30% backstab multiplier" },
-        new PerkInfo { RequiredLevel = 20, Name = "Venom Coating", Description = "Knife hits apply stacking Poison (up to 3 stacks) based on skill level" },
-        new PerkInfo { RequiredLevel = 30, Name = "Envenomous", Description = "Poisons apply 15% movement speed slow per stack" },
-        new PerkInfo { RequiredLevel = 40, Name = "Assassination", Description = "First knife hit from stealth deals +100% damage" },
-        new PerkInfo { RequiredLevel = 50, Name = "Twist the Knife", Description = "+25% damage to poisoned targets; poisoned enemies deal -10% damage" },
+        new PerkInfo { RequiredLevel = 10, Name = "Cutthroat", Description = "+7% knife damage." },
+        new PerkInfo { RequiredLevel = 20, Name = "Silent Hands", Description = "Knife attacks and stealth movement consume 15% less stamina. Additionally, you move at normal movement speed while crouched." },
+        new PerkInfo { RequiredLevel = 30, Name = "Assassination", Description = "First knife hit from stealth deals +50% damage. After a stealth hit, knife attack speed is increased by 20% for 5s." },
+        new PerkInfo { RequiredLevel = 40, Name = "Venom Coating", Description = "Knife hits apply stacking poison damage over time, up to 3 stacks. Poison damage scales with knife skill." },
+        new PerkInfo { RequiredLevel = 50, Name = "Twist the Knife", Description = "+15% knife damage against poisoned targets. Poisoned enemies deal 10% less damage to you." },
     };
 
     public static string GetClassDescription(Player player)
@@ -79,7 +82,82 @@ public static class AssassinPerkManager
         return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
     }
 
-    #region Level 20 - Venom Coating
+    #region Level 20 - Silent Hands
+    /// <summary>
+    /// Applies (or clears) Silent Hands' crouch movement speed - moving at normal movement
+    /// speed while crouched, instead of vanilla's slower sneak pace. Uses m_speed (the
+    /// jog/run baseline) rather than m_walkSpeed - m_walkSpeed is the toggled walk-mode speed,
+    /// which is already close to vanilla's own crouch speed, so matching it wouldn't be a
+    /// noticeable buff. Uses the speed cached by Player_SetCrouch_Assassin_Prefix (captured
+    /// before the crouch toggle runs) rather than a live re-read, in case something between the
+    /// Prefix and Postfix changes m_speed; falls back to a live read if there's no cached value
+    /// yet (e.g. the spawn hook, before any crouch toggle has happened this session).
+    /// Character.m_crouchSpeed is a plain per-instance field (unlike ItemData.m_shared,
+    /// mutating it only affects this one player), read fresh every frame by the game's own
+    /// movement update - so setting it once here is enough, no continuous per-frame patch
+    /// needed.
+    /// </summary>
+    private static void RefreshSilentHandsCrouchSpeed(Player player)
+    {
+        if (player == null) return;
+
+        float moveSpeed = _cachedMoveSpeed.TryGetValue(player, out var cached) ? cached : player.m_speed;
+
+        player.m_crouchSpeed = HasAssassinPerk(player, 20) ? moveSpeed : VANILLA_BASE_CROUCH_SPEED;
+    }
+    #endregion
+
+    #region Level 30 - Assassination
+    private static void ApplyAssassinationSpeedBuff(Player player)
+    {
+        float buffEndTime = Time.time + ASSASSINATION_SPEED_DURATION;
+        assassinationBuffs[player] = buffEndTime;
+
+        AnimationSpeedManager.Set(player, "Assassin_Knife_AS", ASSASSINATION_SPEED_BONUS);
+        AddAssassinationStatusEffect(player);
+    }
+
+    private static void AddAssassinationStatusEffect(Player player)
+    {
+        try
+        {
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            seman.RemoveStatusEffect("SE_AssassinationSpeed".GetStableHashCode(), quiet: true);
+
+            var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
+            statusEffect.name = "SE_AssassinationSpeed";
+            statusEffect.m_name = "Assassination";
+            statusEffect.m_tooltip = "+20% knife attack speed";
+            statusEffect.m_icon = player.GetCurrentWeapon()?.GetIcon();
+            statusEffect.m_ttl = ASSASSINATION_SPEED_DURATION;
+
+            seman.AddStatusEffect(statusEffect, resetTime: true);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error adding assassination status effect: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Check if a hit is from stealth (enemy was unaware)
+    /// </summary>
+    public static bool IsStealthHit(Player attacker, Character target)
+    {
+        if (attacker == null || target == null) return false;
+
+        var baseAI = target.GetBaseAI();
+        if (baseAI == null) return false;
+        if (baseAI.IsAlerted()) return false;
+        if (baseAI.HaveTarget()) return false;
+
+        return true;
+    }
+    #endregion
+
+    #region Level 40 - Venom Coating
     /// <summary>
     /// Mirrors vanilla SE_Poison.AddDamage's own TTL formula (m_baseTTL=2, m_TTLPerDamage=2,
     /// m_TTLPower=0.5), so our own bookkeeping (stack-reset window, Twist the Knife, UI tooltip)
@@ -91,14 +169,14 @@ public static class AssassinPerkManager
     }
 
     /// <summary>
-    /// Lv20 – Venom Coating: Knife hits apply a stacking Poison (up to 3 stacks), scaled by
+    /// Lv40 – Venom Coating: Knife hits apply a stacking Poison (up to 3 stacks), scaled by
     /// knife skill level. The actual damage-over-time is handled entirely by vanilla's own
     /// SE_Poison (see ProcessPoisonExpiry) - this just tracks stacks/expiry and computes the
     /// new stack-scaled total to hand off.
     /// </summary>
-    public static void ApplyLv20_VenomCoating(Player player, Character target, HitData hit)
+    public static void ApplyLv40_VenomCoating(Player player, Character target, HitData hit)
     {
-        if (!HasAssassinPerk(player, 20) || target == null || target.IsDead()) return;
+        if (!HasAssassinPerk(player, 40) || target == null || target.IsDead()) return;
 
         float knifeSkillLevel = player.GetSkillLevel(Skills.SkillType.Knives);
 
@@ -108,12 +186,6 @@ public static class AssassinPerkManager
         {
             poisonData = new PoisonData();
             poisonTracking[target] = poisonData;
-
-            // Capture the true baseline speed only once, when there's no active poison to
-            // stack onto - recapturing it on every stacking hit would bake the previous
-            // stack's already-slowed speed in as the new "original", compounding the slow.
-            poisonData.originalSpeed = target.m_speed;
-            poisonData.originalRunSpeed = target.m_runSpeed;
         }
 
         if (poisonData.stacks < MAX_POISON_STACKS)
@@ -122,9 +194,7 @@ public static class AssassinPerkManager
         }
 
         // Total damage for the current stack count - handed to vanilla's own SE_Poison once
-        // (via ProcessPoisonExpiry) instead of manually ticking it ourselves every second,
-        // which was fighting vanilla's own concurrent SE_Poison tick and roughly
-        // double-applying damage.
+        // (via ProcessPoisonExpiry) instead of manually ticking it ourselves every second.
         float totalPoisonDamage = knifeSkillLevel * poisonData.stacks;
         float estimatedTTL = EstimateVanillaPoisonTTL(totalPoisonDamage);
 
@@ -134,14 +204,6 @@ public static class AssassinPerkManager
         poisonData.source = player;
 
         AddPoisonStatusEffect(target, poisonData.stacks, estimatedTTL);
-
-        // Envenomous (Level 30): movement speed slow, scaled by stacks
-        if (HasAssassinPerk(player, 30))
-        {
-            var debuffMult = 1f - (poisonData.stacks * ENVENOMOUS_SLOW_PER_STACK);
-            target.m_speed = poisonData.originalSpeed * debuffMult;
-            target.m_runSpeed = poisonData.originalRunSpeed * debuffMult;
-        }
     }
 
     private static void AddPoisonStatusEffect(Character target, int stacks, float ttl)
@@ -151,16 +213,13 @@ public static class AssassinPerkManager
             var seman = target.GetSEMan();
             if (seman == null) return;
 
-            // Remove existing poison effect to refresh it
             seman.RemoveStatusEffect("SE_AssassinPoison".GetStableHashCode(), quiet: true);
 
-            // Create poison status effect
             var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
             statusEffect.name = "SE_AssassinPoison";
             statusEffect.m_name = $"Venom ({stacks} stacks)";
             statusEffect.m_tooltip = $"Taking poison damage over time. {stacks}/{MAX_POISON_STACKS} stacks";
 
-            // Try to get a poison icon
             var poisonIcon = GetPoisonIcon();
             if (poisonIcon != null)
             {
@@ -181,87 +240,19 @@ public static class AssassinPerkManager
     {
         try
         {
-            // Try to find poison-related status effect icons
             var poisoned = ObjectDB.instance?.GetStatusEffect("Poison".GetStableHashCode());
-            if (poisoned != null)
-            {
-                return poisoned.m_icon;
-            }
-            return null;
+            return poisoned?.m_icon;
         }
         catch
         {
             return null;
         }
     }
-    #endregion
 
-    #region Level 30 - Envenomous
-    /// <summary>
-    /// Lv30 – Envenomous: Your poisons now apply a 15% movement speed slow per stack
-    /// </summary>
-    public static float ApplyLv30_EnvenomousMovementSlow(Character target, float baseSpeed)
-    {
-        if (target == null || !poisonTracking.ContainsKey(target)) return baseSpeed;
-
-        var poisonData = poisonTracking[target];
-        if (poisonData.source == null || !HasAssassinPerk(poisonData.source, 30)) return baseSpeed;
-
-        // Apply slow based on poison stacks
-        float slowMultiplier = 1f - (poisonData.stacks * ENVENOMOUS_SLOW_PER_STACK);
-        slowMultiplier = Mathf.Max(slowMultiplier, 0.25f); // Cap at 75% slow max
-
-        return baseSpeed * slowMultiplier;
-    }
-    #endregion
-
-    #region Level 40 - Assassination
-    private static void ApplyAssassinationSpeedBuff(Character c, Player player)
-    {
-        long playerID = player.GetPlayerID();
-        float buffEndTime = Time.time + ASSASSINATION_SPEED_DURATION;
-
-        assassinationBuffs[player] = buffEndTime;
-
-        // Set the players attack speed factor.
-        AnimationSpeedManager.Set(player, "Assassin_Knife_AS", ASSASSINATION_SPEED_BONUS);
-
-        // Add visual status effect
-        AddAssassinationStatusEffect(player);
-    }
-
-    private static void AddAssassinationStatusEffect(Player player)
-    {
-        try
-        {
-            var seman = player.GetSEMan();
-
-            if (seman == null) return;
-
-            // Remove existing effect to refresh
-            seman.RemoveStatusEffect("SE_AssassinationSpeed".GetStableHashCode(), quiet: true);
-
-            var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
-            statusEffect.name = "SE_AssassinationSpeed";
-            statusEffect.m_name = "Assassination Speed";
-            statusEffect.m_tooltip = "+25% attack speed";
-            statusEffect.m_icon = player.GetCurrentWeapon()?.GetIcon();
-            statusEffect.m_ttl = ASSASSINATION_SPEED_DURATION;
-
-            seman.AddStatusEffect(statusEffect, resetTime: true);
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error adding assassination status effect: {ex.Message}");
-        }
-    }
-    #endregion
-
-    #region Utility Methods
     /// <summary>
     /// Applies any newly-stacked poison total to vanilla's own SE_Poison (once per stack
-    /// change, not ticked ourselves - see ApplyLv20_VenomCoating) and cleans up tracking once
-    /// our estimated expiry has passed or the target has died.
+    /// change, not ticked ourselves) and cleans up tracking once our estimated expiry has
+    /// passed or the target has died.
     /// </summary>
     public static void ProcessPoisonExpiry()
     {
@@ -273,16 +264,12 @@ public static class AssassinPerkManager
             var target = kvp.Key;
             var poisonData = kvp.Value;
 
-            // Check if target is dead or our estimated expiry has passed
             if (target == null || target.IsDead() || currentTime > poisonData.expireTime)
             {
-                ClearSpeedDebuff(target, poisonData.originalSpeed, poisonData.originalRunSpeed);
                 toRemove.Add(target);
                 continue;
             }
 
-            // Hand the current stack-scaled total to vanilla's SE_Poison exactly once - it
-            // owns all the actual tick timing/damage/visuals/sound from here.
             if (poisonData.damagePending)
             {
                 poisonData.damagePending = false;
@@ -296,7 +283,6 @@ public static class AssassinPerkManager
             }
         }
 
-        // Clean up expired/dead targets
         foreach (var target in toRemove)
         {
             if (target != null)
@@ -308,60 +294,18 @@ public static class AssassinPerkManager
         }
     }
 
-    public static void ClearSpeedDebuff(Character target, float originalSpeed, float originalRunSpeed)
+    private static bool IsTargetPoisoned(Character target)
     {
-        if (!target.IsDead())
-        {
-            target.m_speed = originalSpeed;
-            target.m_runSpeed = originalRunSpeed;
-        }
+        return target != null
+            && poisonTracking.TryGetValue(target, out var data)
+            && Time.time < data.expireTime;
     }
+    #endregion
 
-    /// <summary>
-    /// Check if a hit is from stealth (enemy was unaware)
-    /// </summary>
-    public static bool IsStealthHit(Player attacker, Character target)
-    {
-        if (attacker == null || target == null) return false;
-
-        // Check if target is unaware (not alerted)
-        var baseAI = target.GetBaseAI();
-        if (baseAI == null)
-        {
-            return false;
-        }
-
-        if (baseAI.IsAlerted())
-        {
-            return false;
-        }
-
-        if (baseAI.HaveTarget())
-        {
-            return false;
-        }
-
-        // Check alert status
-        return true;
-    }
-
-    /// <summary>
-    /// Check if a hit is a backstab
-    /// </summary>
-    public static bool IsBackstab(Vector3 hitPoint, Character target)
-    {
-        if (target == null) return false;
-
-        Vector3 toHit = (hitPoint - target.transform.position).normalized;
-        float angle = Vector3.Angle(target.transform.forward, toHit);
-
-        // Backstab if hit from behind (more than 120 degrees from front)
-        return angle > 120f;
-    }
-
+    #region Utility Methods
     public static HitData ModDamage(HitData hit, float mod)
     {
-        if (hit == null || mod == null) return hit;
+        if (hit == null) return hit;
         hit.m_damage.m_damage *= mod;
         hit.m_damage.m_slash *= mod;
         hit.m_damage.m_pierce *= mod;
@@ -373,24 +317,18 @@ public static class AssassinPerkManager
         return hit;
     }
 
-    /// <summary>
-    /// Clean up expired buffs
-    /// </summary>
     public static void CleanupBuffs()
     {
         float currentTime = Time.time;
 
-        // Clean up assassination speed buffs
         var expiredBuffs = assassinationBuffs.Where(kvp => kvp.Value < currentTime).Select(kvp => kvp.Key).ToList();
         foreach (var player in expiredBuffs)
         {
-            // remove the buff from the player.
             assassinationBuffs.Remove(player);
 
             if (player != null)
             {
                 player.GetSEMan()?.RemoveStatusEffect("SE_AssassinationSpeed".GetStableHashCode(), quiet: true);
-                // clear the animation speed modifier.
                 AnimationSpeedManager.Clear(player, "Assassin_Knife_AS");
             }
         }
@@ -399,7 +337,8 @@ public static class AssassinPerkManager
 
     #region Damage Patches
     /// <summary>
-    /// Apply Assassin damage bonuses when using knives
+    /// Apply Assassin damage bonuses/reductions when using knives. Cutthroat's flat +7% lives
+    /// in ClassCombatManager.GetAssassinDamageBonus - not duplicated here.
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPrefix]
@@ -407,60 +346,50 @@ public static class AssassinPerkManager
     {
         try
         {
-            // TODO: We need to patch this so it doesn't throw errors for eating puke berries.
-            Player localPlayer = Player.m_localPlayer;
-            var playerData = PlayerClassManager.GetPlayerData(localPlayer);
-            if (!playerData.IsClassActive("Assassin")) return;
-
-            // Skip applying buffs if it's just poison ticking.
+            // Skip poison ticks re-entering Damage() via ProcessPoisonExpiry.
             if (hit.m_damage.m_poison > 0) return;
 
-            // If Player is being damaged check for and apply damage reduction from poison.
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player)
             {
-                // Get Attack and check if they are poisoned (and not just a stale,
-                // not-yet-cleaned-up tracking entry).
+                // The local player is being damaged - check if the attacker is poisoned
+                // (Twist the Knife, Level 50: poisoned enemies deal less damage).
                 var attacker = hit.GetAttacker();
-                var characterIsPoisoned = poisonTracking.TryGetValue(attacker, out var attackerPoisonData)
-                    && Time.time < attackerPoisonData.expireTime;
+                var localPlayerData = PlayerClassManager.GetPlayerData(Player.m_localPlayer);
+                if (localPlayerData == null || !localPlayerData.IsClassActive(PlayerClass.Assassin)) return;
+                if (!HasAssassinPerk(Player.m_localPlayer, 50)) return;
 
-                if (characterIsPoisoned)
+                if (IsTargetPoisoned(attacker))
                 {
-                    // Apply Twist the Knife damage reduction from poisoned enemies (Level 50)
-                    var reductionMultiplier = TWIST_KNIFE_DAMAGE_REDUCTION;
-                    hit = ModDamage(hit, reductionMultiplier);
+                    hit = ModDamage(hit, 1f - TWIST_KNIFE_DAMAGE_REDUCTION);
                 }
             }
             else
             {
-                // Apply damage boosts from Assassin skills.
                 var weapon = player.GetCurrentWeapon();
                 if (!ClassCombatManager.IsKnifeWeapon(weapon)) return;
 
+                var playerData = PlayerClassManager.GetPlayerData(player);
                 if (playerData == null || !playerData.IsClassActive(PlayerClass.Assassin)) return;
 
-                float multiplier = 0f;
+                float bonus = 0f;
 
-                // Apply Cutthroat damage bonus (Level 10)
-                if (HasAssassinPerk(player, 10)) multiplier += ASSASSIN_CUT_THROAT_BONUS;
-
-                // Check for backstab and apply bonus (Level 10)
-                if (IsBackstab(hit.m_point, __instance) && HasAssassinPerk(player, 10)) multiplier += ASSASSIN_BACKSTAB_BONUS;
-
-                // Check for stealth hit and apply Assassination (Level 40)
-                bool isStealthHit = IsStealthHit(player, __instance);
-                if (isStealthHit && HasAssassinPerk(player, 40))
+                // Assassination (Level 30): first knife hit from stealth
+                if (HasAssassinPerk(player, 30) && IsStealthHit(player, __instance))
                 {
-                    multiplier += ASSASSIN_STEALTH_BONUS;
-                    ApplyAssassinationSpeedBuff(__instance, player);
+                    bonus += ASSASSINATION_DAMAGE_BONUS;
+                    ApplyAssassinationSpeedBuff(player);
                 }
 
-                // Apply Twist the Knife damage bonus to poisoned targets (Level 50)
-                if (HasAssassinPerk(player, 50)) multiplier += TWIST_KNIFE_DAMAGE_BONUS;
+                // Twist the Knife (Level 50): bonus damage against poisoned targets only
+                if (HasAssassinPerk(player, 50) && IsTargetPoisoned(__instance))
+                {
+                    bonus += TWIST_KNIFE_DAMAGE_BONUS;
+                }
 
-                var originalSlash = hit.m_damage.m_slash;
-                var originalPierce = hit.m_damage.m_pierce;
-                if (DAMAGE_MODS_ON) hit = ModDamage(hit, multiplier+1f);
+                if (bonus > 0f && DAMAGE_MODS_ON)
+                {
+                    hit = ModDamage(hit, bonus + 1f);
+                }
             }
         }
         catch (System.Exception ex)
@@ -470,7 +399,7 @@ public static class AssassinPerkManager
     }
 
     /// <summary>
-    /// Apply poison after successful knife hit
+    /// Apply poison after a successful knife hit.
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPostfix]
@@ -478,26 +407,20 @@ public static class AssassinPerkManager
     {
         try
         {
-            // Skip poison ticks.
             if (hit.m_damage.m_poison > 0) return;
-
-            // Skip this section if it's not a player.
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
-
-            // Only apply to knife damage that actually dealt damage
             if (hit.GetTotalDamage() <= 0) return;
 
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsKnifeWeapon(weapon)) return;
 
-            // Make sure damage type is physical. (prevents poison from re-applying itself).
-            if (hit.m_damage.m_blunt == 0f && hit.m_damage.m_slash == 0f && hit.m_damage.m_pierce == 0f) return;
-
             var playerData = PlayerClassManager.GetPlayerData(player);
             if (playerData == null || !playerData.IsClassActive(PlayerClass.Assassin)) return;
 
-            // Apply Venom Coating poison (Level 20)
-            ApplyLv20_VenomCoating(player, __instance, hit);
+            // Make sure damage type is physical (prevents poison ticks from re-applying poison).
+            if (hit.m_damage.m_blunt == 0f && hit.m_damage.m_slash == 0f && hit.m_damage.m_pierce == 0f) return;
+
+            ApplyLv40_VenomCoating(player, __instance, hit);
         }
         catch (System.Exception ex)
         {
@@ -506,20 +429,97 @@ public static class AssassinPerkManager
     }
     #endregion
 
-    #region Periodic Updates
+    #region Stamina Patches
     /// <summary>
-    /// Process poison damage and cleanup
+    /// Silent Hands (Level 20): knife attacks and stealth (crouched) movement consume 15% less
+    /// stamina. Player.UseStamina is the single funnel for stamina costs in this codebase
+    /// (matches the pattern already used by Archer/Crusher/Bulwark for their own reductions).
     /// </summary>
+    [HarmonyPatch(typeof(Player), "UseStamina")]
+    [HarmonyPrefix]
+    public static void Player_UseStamina_Assassin_Prefix(Player __instance, ref float v)
+    {
+        try
+        {
+            if (!HasAssassinPerk(__instance, 20)) return;
+
+            bool isKnife = ClassCombatManager.IsKnifeWeapon(__instance.GetCurrentWeapon());
+            bool isSneaking = __instance.IsCrouching();
+
+            if (isKnife || isSneaking)
+            {
+                v *= (1f - SILENT_HANDS_STAMINA_REDUCTION);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Player_UseStamina_Assassin_Prefix: {ex.Message}");
+        }
+    }
+    #endregion
+
+    #region Spawn
+    [HarmonyPatch(typeof(Player), "OnSpawned")]
+    [HarmonyPostfix]
+    public static void Player_OnSpawned_Assassin_Postfix(Player __instance)
+    {
+        try
+        {
+            RefreshSilentHandsCrouchSpeed(__instance);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Player_OnSpawned_Assassin_Postfix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Caches m_speed before Player.SetCrouch (and anything else in that call) runs, for the
+    /// Postfix below to use instead of a live re-read.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "SetCrouch")]
+    [HarmonyPrefix]
+    public static void Player_SetCrouch_Assassin_Prefix(Player __instance)
+    {
+        try
+        {
+            _cachedMoveSpeed[__instance] = __instance.m_speed;
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Player_SetCrouch_Assassin_Prefix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Player.SetCrouch is just `m_crouchToggled = crouch;` - the actual moment the player
+    /// toggles crouch on/off (both directions). Refreshing here, rather than reactively on
+    /// spawn/hit, ties the speed value directly to the action that actually uses it.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "SetCrouch")]
+    [HarmonyPostfix]
+    public static void Player_SetCrouch_Assassin_Postfix(Player __instance)
+    {
+        try
+        {
+            RefreshSilentHandsCrouchSpeed(__instance);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Player_SetCrouch_Assassin_Postfix: {ex.Message}");
+        }
+    }
+    #endregion
+
+    #region Periodic Updates
     [HarmonyPatch(typeof(Game), "Update")]
     [HarmonyPostfix]
     public static void Game_Update_Assassin_Postfix()
     {
         try
         {
-            // Apply any newly-stacked poison and process expiry every frame
             ProcessPoisonExpiry();
 
-            // Clean up buffs every second
             if (Time.time % 1f < Time.deltaTime)
             {
                 CleanupBuffs();

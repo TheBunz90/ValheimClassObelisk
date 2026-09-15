@@ -21,13 +21,28 @@ public static class ClassCombatManager
                type == ItemDrop.ItemData.ItemType.Bow;
     }
 
+    // Mirrors vanilla's own (private) ItemDrop.ItemData.IsTwoHanded() - confirmed via decompile.
+    // The one generic 1H/2H primitive for classes that need different perk behavior per hand
+    // count (Axemaster now; Crusher/Sword Master/Lancer in later reworks).
+    public static bool IsTwoHandedWeapon(ItemDrop.ItemData weapon)
+    {
+        if (weapon?.m_shared == null) return false;
+        ItemDrop.ItemData.ItemType type = weapon.m_shared.m_itemType;
+        return type == ItemDrop.ItemData.ItemType.TwoHandedWeapon ||
+               type == ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft ||
+               type == ItemDrop.ItemData.ItemType.Bow;
+    }
+
     public static bool IsSwordWeapon(ItemDrop.ItemData weapon)
     {
         if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.Swords;
+    }
 
-        // Axes are intentionally treated as Sword Master weapons.
-        return weapon.m_shared.m_skillType == Skills.SkillType.Swords ||
-               weapon.m_shared.m_skillType == Skills.SkillType.Axes;
+    public static bool IsAxeWeapon(ItemDrop.ItemData weapon)
+    {
+        if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.Axes;
     }
 
     public static bool IsBowWeapon(ItemDrop.ItemData weapon)
@@ -81,7 +96,9 @@ public static class ClassCombatManager
         switch (className)
         {
             case "Sword Master":
-                return skill == Skills.SkillType.Swords || skill == Skills.SkillType.Axes;
+                return skill == Skills.SkillType.Swords;
+            case "Axemaster":
+                return skill == Skills.SkillType.Axes;
             case "Archer":
                 return skill == Skills.SkillType.Bows || skill == Skills.SkillType.Crossbows;
             case "Crusher":
@@ -140,6 +157,9 @@ public static class ClassCombatManager
             case "Sword Master":
                 return GetSwordMasterDamageBonus(classLevel, weapon);
 
+            case "Axemaster":
+                return GetAxemasterDamageBonus(classLevel, weapon);
+
             case "Archer":
                 return GetArcherDamageBonus(classLevel, weapon);
 
@@ -178,6 +198,22 @@ public static class ClassCombatManager
 
         // Level 50: Dancing Steel effect would be handled separately
         // For now, just the base damage bonus
+
+        return 1f + bonus;
+    }
+
+    private static float GetAxemasterDamageBonus(int level, ItemDrop.ItemData weapon)
+    {
+        if (!IsAxeWeapon(weapon)) return 1f;
+
+        float bonus = 0f;
+
+        // Level 10: Chopper's Training - +8% axe damage (1H and 2H alike)
+        if (level >= 10) bonus += 0.08f;
+
+        // Level 50: Executioner - +15% axe damage (flat component; the conditional
+        // low-health bonus is handled separately in AxemasterPerkManager)
+        if (level >= 50) bonus += 0.15f;
 
         return 1f + bonus;
     }
@@ -274,6 +310,9 @@ public static class ClassCombatManager
             case "Sword Master":
                 return GetSwordMasterDamageBonus(classLevel, weapon);
 
+            case "Axemaster":
+                return GetAxemasterDamageBonus(classLevel, weapon);
+
             case "Archer":
                 return GetArcherDamageBonus(classLevel, weapon);
 
@@ -312,6 +351,15 @@ public static class CombatPatches
     {
         try
         {
+            // Skip synthetic damage-over-time ticks (e.g. a class's own bleed/poison DoT
+            // re-entering Character.Damage on a timer). A real weapon swing always has
+            // hit.m_skill set by Valheim's own attack pipeline; a hand-built HitData for a DoT
+            // tick leaves it at the default None unless deliberately set otherwise. Without this,
+            // a DoT that uses a physical damage field (m_slash/m_pierce/m_blunt/m_chop, the only
+            // fields this prefix touches) would get re-multiplied by the class's own damage bonus
+            // on every tick.
+            if (hit.m_skill == Skills.SkillType.None) return;
+
             // Only apply to player attacks
             if (hit.GetAttacker() is Player player)
             {

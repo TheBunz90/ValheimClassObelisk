@@ -443,7 +443,8 @@ public static class PlayerClassManager
         { PlayerClass.Brawler, BrawlerPerkManager.GetClassDescription },
         { PlayerClass.Wizard, WizardPerkManager.GetClassDescription },
         { PlayerClass.Lancer, LancerPerkManager.GetClassDescription },
-        { PlayerClass.Bulwark, BulwarkPerkManager.GetClassDescription }
+        { PlayerClass.Bulwark, BulwarkPerkManager.GetClassDescription },
+        { PlayerClass.Axemaster, AxemasterPerkManager.GetClassDescription }
     };
 
     // Builds the rich-text body shown in the "Active Classes" entry of the Valheim Compendium

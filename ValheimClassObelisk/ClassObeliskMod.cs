@@ -153,7 +153,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Brawler",
         "Wizard",
         "Lancer",
-        "Bulwark"
+        "Bulwark",
+        "Axemaster"
     };
 
     // Per-class description providers backed by the PerkManagers - builds each class's
@@ -167,7 +168,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         { "Brawler", BrawlerPerkManager.GetClassDescription },
         { "Wizard", WizardPerkManager.GetClassDescription },
         { "Lancer", LancerPerkManager.GetClassDescription },
-        { "Bulwark", BulwarkPerkManager.GetClassDescription }
+        { "Bulwark", BulwarkPerkManager.GetClassDescription },
+        { "Axemaster", AxemasterPerkManager.GetClassDescription }
     };
 
     private void Start()
@@ -255,7 +257,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             CreateWoodenGUIPanel();
 
             // Create class selection buttons in 2 columns
-            CreateTwoColumnClassButtons(player);
+            CreateClassButtonGrid(player);
 
             // Create the description window
             CreateDescriptionWindow(player);
@@ -341,7 +343,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         GUIManager.BlockInput(state);
     }
 
-    private void CreateTwoColumnClassButtons(Player player)
+    private void CreateClassButtonGrid(Player player)
     {
         // Create container for buttons
         var buttonContainer = new GameObject("ButtonContainer");
@@ -349,25 +351,30 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
         var containerRect = buttonContainer.AddComponent<RectTransform>();
         containerRect.anchorMin = new Vector2(0.05f, 0.65f);  // Positioned above description window
-        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 4 columns
+        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 3 columns
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
 
-        // Create buttons in 4 columns, 2 rows
-        float buttonWidth = 180f;  // Adjusted for 4 columns
-        float buttonHeight = 50f;  // Slightly taller for better readability
-        float columnSpacing = 25f; // Spacing between columns
-        float rowSpacing = 15f;    // Spacing between rows
+        // 3 columns x 3 rows (9 classes) - button height/spacing kept small enough that 3 rows
+        // still fit inside this container's existing ~180px height without overlapping the
+        // description window directly below it.
+        const int columns = 3;
+        float buttonWidth = 250f;
+        float buttonHeight = 44f;
+        float columnSpacing = 35f;
+        float rowSpacing = 12f;
 
-        // Calculate starting positions for centered layout with 4 columns
-        float totalWidth = (buttonWidth * 4) + (columnSpacing * 3);
+        int rows = Mathf.CeilToInt(ClassNames.Length / (float)columns);
+
+        // Calculate starting positions for a grid centered in the container
+        float totalWidth = (buttonWidth * columns) + (columnSpacing * (columns - 1));
         float startX = -totalWidth / 2f + buttonWidth / 2f;
-        float startY = 25f; // Start from center of container
+        float startY = (buttonHeight + rowSpacing) * (rows - 1) / 2f;
 
         for (int i = 0; i < ClassNames.Length; i++)
         {
-            int col = i % 4; // 0, 1, 2, or 3 (4 columns)
-            int row = i / 4; // 0 or 1 (2 rows)
+            int col = i % columns;
+            int row = i / columns;
 
             float x = startX + (col * (buttonWidth + columnSpacing));
             float y = startY - (row * (buttonHeight + rowSpacing));

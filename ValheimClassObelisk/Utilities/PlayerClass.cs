@@ -14,7 +14,8 @@ public enum PlayerClass
     Brawler,
     Wizard,
     Lancer,
-    Bulwark
+    Bulwark,
+    Axemaster
 }
 
 /// <summary>
@@ -32,7 +33,8 @@ public static class PlayerClassHelper
         { PlayerClass.Brawler, "Brawler" },
         { PlayerClass.Wizard, "Wizard" },
         { PlayerClass.Lancer, "Lancer" },
-        { PlayerClass.Bulwark, "Bulwark" }
+        { PlayerClass.Bulwark, "Bulwark" },
+        { PlayerClass.Axemaster, "Axemaster" }
     };
 
     // Internal names for save data (legacy support)
@@ -45,7 +47,8 @@ public static class PlayerClassHelper
         { PlayerClass.Brawler, "Brawler" },
         { PlayerClass.Wizard, "Wizard" },
         { PlayerClass.Lancer, "Lancer" },
-        { PlayerClass.Bulwark, "Bulwark" }
+        { PlayerClass.Bulwark, "Bulwark" },
+        { PlayerClass.Axemaster, "Axemaster" }
     };
 
     // Weapon type descriptions for each class
@@ -58,7 +61,8 @@ public static class PlayerClassHelper
         { PlayerClass.Brawler, "Unarmed" },
         { PlayerClass.Wizard, "Staves" },
         { PlayerClass.Lancer, "Spears & Polearms" },
-        { PlayerClass.Bulwark, "Shields" }
+        { PlayerClass.Bulwark, "Shields" },
+        { PlayerClass.Axemaster, "Axes & Battleaxes" }
     };
 
     /// <summary>
@@ -166,6 +170,8 @@ public static class PlayerClassHelper
                 return ClassCombatManager.IsSpearWeapon(weapon);
             case PlayerClass.Bulwark:
                 return true; // Bulwark gains XP from any combat (defensive class)
+            case PlayerClass.Axemaster:
+                return ClassCombatManager.IsAxeWeapon(weapon);
             default:
                 return false;
         }

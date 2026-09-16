@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 using System;
@@ -8,31 +8,35 @@ using System.Collections.Generic;
 
 namespace ValheimClassObelisk
 {
+    /// <summary>
+    /// Wizard class perk system - Elemental Magic only (Blood Magic split out into Warlock).
+    /// Sustained casting, Eitr management, and four affinity-based Archmage auras (Fire/Frost/
+    /// Lightning/Poison).
+    /// </summary>
     [HarmonyPatch]
     public static class WizardPerkManager
     {
-        // Initialize Constants
-        private static float ICY_HOT = 0.25f;
-        private static float ESSENCE_LEECH = 0.05f;
-        private static float AURA_DURATION = 30.0f;
-        private static float FROST_ARMOR = 0.25f;
-        private static float EITR_WEAVE_PASSIVE = 0.50f; // 50% eitr regen bonus for level 10
+        private const float ARCANE_SURGE_REGEN_BONUS = 0.25f;
+        private const float ARCANE_SURGE_DURATION = 6f;
+        private const float ARCANE_EFFICIENCY_EITR_MULT = 0.90f;
+        private const float ARCHMAGE_THRESHOLD = 500f;
+        private const float ARCHMAGE_AURA_DURATION = 20f;
+        private const float STORMSTRIDE_SPEED_BONUS = 0.20f;
+        private const float FROST_ARMOR_BONUS = 0.25f;
+        private const float IMMOLATION_AURA_RADIUS = 5f;
+        private const float IMMOLATION_AURA_DAMAGE = 15f;
+        private const float VERDANT_AURA_RADIUS = 8f;
+        private const float VERDANT_AURA_HEAL_PER_SEC = 2f;
 
-        // Initialize trackers
-        private static float _frostDamage = 0f;
-        private static float _fireDamage = 0f;
-
-        // Icon Resources
+        // Icon Resources (all three already embedded from the previous Wizard implementation)
         private const string FROST_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.frost_armor_128.rgba";
         private const string FIRE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.immolation_aura_128.rgba";
         private const string EITR_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.eitrweave_fist.rgba";
 
-        // Sprites
         private static Sprite _cachedFrostIcon;
         private static Sprite _cachedFireIcon;
         private static Sprite _cachedEitrIcon;
 
-        #region Wizard Service Classes
         public static bool HasWizardPerk(Player player, int requiredLevel)
         {
             if (player == null) return false;
@@ -44,16 +48,16 @@ namespace ValheimClassObelisk
         }
 
         // Description metadata, shown in the class selection GUI - locked perks display as "???"
-        private const string Intro = "Mystical practitioners of elemental magic and arcane arts.";
-        private const string Outro = "Ideal for players who want to master Valheim's magic system and elemental combat.";
+        private const string Intro = "Elemental magic specialists who turn Eitr, spell momentum, and elemental affinities into sustained magical pressure.";
+        private const string Outro = "Best for players who want Elemental Magic to grow from efficient casting into sustained spell pressure and affinity-based Archmage auras.";
 
         public static readonly List<PerkInfo> Perks = new List<PerkInfo>
         {
-            new PerkInfo { RequiredLevel = 10, Name = "Eitr Weave", Description = "+50% Eitr regeneration." },
-            new PerkInfo { RequiredLevel = 20, Name = "Icy Hot", Description = "+25% Fire and Frost damage." },
-            new PerkInfo { RequiredLevel = 30, Name = "Essence Leech", Description = "Gain Eitr equal to 5% of damage dealt from Magical Attacks." },
-            new PerkInfo { RequiredLevel = 40, Name = "Frost Armor", Description = "Dealing 300 frost damage triggers Frost Armor (30s): +25% armor, fire immunity." },
-            new PerkInfo { RequiredLevel = 50, Name = "Immolation Aura", Description = "Dealing 500 fire damage triggers Immolation Aura (30s): +25% speed, 15 fire DPS to nearby enemies" },
+            new PerkInfo { RequiredLevel = 10, Name = "Eitr Weave", Description = "+7% elemental magic damage." },
+            new PerkInfo { RequiredLevel = 20, Name = "Arcane Nourishment", Description = "Eitr granted by food is increased by 15%." },
+            new PerkInfo { RequiredLevel = 30, Name = "Arcane Surge", Description = "Dealing elemental magic damage grants +25% Eitr regeneration for 6s. Additional elemental magic damage refreshes the duration." },
+            new PerkInfo { RequiredLevel = 40, Name = "Arcane Efficiency", Description = "Elemental magic weapon Eitr costs are reduced by 10%." },
+            new PerkInfo { RequiredLevel = 50, Name = "Archmage", Description = "Dealing 500 damage of a single elemental affinity triggers its matching Archmage aura for 20s. Only one Archmage aura may be active at a time." },
         };
 
         public static string GetClassDescription(Player player)
@@ -62,183 +66,237 @@ namespace ValheimClassObelisk
             return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
         }
 
-        public static HitData ApplyIcyHot(HitData hit)
+        #region Level 30 - Arcane Surge
+        public static void TriggerArcaneSurge(Player player)
         {
-            float mult = 1f + ICY_HOT;
-            // Multiplies all damage types by 'mod'
-            if (hit == null) return hit;
-            hit.m_damage.m_damage *= mult;
-            hit.m_damage.m_fire *= mult;
-            hit.m_damage.m_frost *= mult;
-            return hit;
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            seman.RemoveStatusEffect("SE_ArcaneSurge".GetStableHashCode(), quiet: true);
+
+            var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
+            statusEffect.name = "SE_ArcaneSurge";
+            statusEffect.m_name = "Arcane Surge";
+            statusEffect.m_tooltip = "+25% Eitr regeneration";
+            statusEffect.m_icon = GetEitrIcon();
+            statusEffect.m_eitrRegenMultiplier = 1f + ARCANE_SURGE_REGEN_BONUS;
+            statusEffect.m_ttl = ARCANE_SURGE_DURATION;
+
+            seman.AddStatusEffect(statusEffect, resetTime: true);
+        }
+        #endregion
+
+        #region Level 50 - Archmage
+        public enum Affinity { Fire, Frost, Lightning, Poison }
+
+        private class AffinityTracker
+        {
+            public Affinity? current;
+            public float damage;
         }
 
+        // Per-player, single rolling tracker (not module statics - the old combined Wizard had
+        // that exact bug, fixed in Phase 4 and kept fixed here). Per feedback: only one affinity
+        // is tracked at a time - dealing damage of a different element clears progress and starts
+        // tracking the new one instead of building four meters in parallel.
+        private static readonly Dictionary<Player, AffinityTracker> archmageTracker = new Dictionary<Player, AffinityTracker>();
+
+        // Every aura name Archmage can activate - used to enforce "only one active at a time" by
+        // clearing all of them before applying a newly-triggered one, and to check whether any is
+        // currently active (damage dealt during an active aura isn't tracked at all).
+        private static readonly string[] ArchmageAuraNames = { "SE_FrostArmor", "SE_ImmolationAura", "SE_Stormstride", "SE_VerdantAura" };
+
+        private static bool IsAnyArchmageAuraActive(Player player)
+        {
+            var seman = player.GetSEMan();
+            if (seman == null) return false;
+
+            foreach (var auraName in ArchmageAuraNames)
+            {
+                if (seman.HaveStatusEffect(auraName.GetStableHashCode())) return true;
+            }
+            return false;
+        }
+
+        private static Affinity? GetDominantAffinity(HitData hit, out float damage)
+        {
+            float fire = hit.m_damage.m_fire;
+            float frost = hit.m_damage.m_frost;
+            float lightning = hit.m_damage.m_lightning;
+            float poison = hit.m_damage.m_poison;
+
+            float max = Mathf.Max(Mathf.Max(fire, frost), Mathf.Max(lightning, poison));
+            if (max <= 0f) { damage = 0f; return null; }
+
+            damage = max;
+            if (fire == max) return Affinity.Fire;
+            if (frost == max) return Affinity.Frost;
+            if (lightning == max) return Affinity.Lightning;
+            return Affinity.Poison;
+        }
+
+        public static void AccumulateArchmageDamage(Player player, HitData hit)
+        {
+            DevLog.Log($"[Wizard] Archmage hit breakdown for {player.GetPlayerName()}: damage={hit.m_damage.m_damage:F1}, blunt={hit.m_damage.m_blunt:F1}, slash={hit.m_damage.m_slash:F1}, pierce={hit.m_damage.m_pierce:F1}, chop={hit.m_damage.m_chop:F1}, fire={hit.m_damage.m_fire:F1}, frost={hit.m_damage.m_frost:F1}, lightning={hit.m_damage.m_lightning:F1}, poison={hit.m_damage.m_poison:F1}, spirit={hit.m_damage.m_spirit:F1}");
+
+            // No tracking while an aura is already active - only one can be active at a time.
+            if (IsAnyArchmageAuraActive(player))
+            {
+                DevLog.Log($"[Wizard] Archmage: not tracking, an aura is already active for {player.GetPlayerName()}");
+                return;
+            }
+
+            var affinity = GetDominantAffinity(hit, out float damageDealt);
+            if (affinity == null)
+            {
+                DevLog.Log($"[Wizard] Archmage: hit had no fire/frost/lightning/poison component - not tracked");
+                return;
+            }
+
+            if (!archmageTracker.TryGetValue(player, out var tracker))
+            {
+                tracker = new AffinityTracker();
+                archmageTracker[player] = tracker;
+            }
+
+            if (tracker.current != affinity)
+            {
+                // Switched elements - clear progress and start tracking the new one.
+                DevLog.Log($"[Wizard] Archmage: {player.GetPlayerName()} switched affinity {(tracker.current == null ? "(none)" : tracker.current.ToString())} -> {affinity} (progress reset from {tracker.damage:F1})");
+                tracker.current = affinity;
+                tracker.damage = 0f;
+            }
+
+            tracker.damage += damageDealt;
+            DevLog.Log($"[Wizard] Archmage: {player.GetPlayerName()} tracking {affinity} at {tracker.damage:F1}/{ARCHMAGE_THRESHOLD:F0} (+{damageDealt:F1})");
+
+            if (tracker.damage >= ARCHMAGE_THRESHOLD)
+            {
+                var triggeredAffinity = affinity.Value;
+                tracker.current = null;
+                tracker.damage = 0f;
+                RefreshAffinityBuff(player, tracker);
+                DevLog.Log($"[Wizard] Archmage: {player.GetPlayerName()} reached threshold - triggering {triggeredAffinity} aura");
+                TriggerArchmageAura(triggeredAffinity, player);
+            }
+            else
+            {
+                RefreshAffinityBuff(player, tracker);
+            }
+        }
+
+        private static void TriggerArchmageAura(Affinity affinity, Player player)
+        {
+            switch (affinity)
+            {
+                case Affinity.Fire: ApplyImmolationAura(player); break;
+                case Affinity.Frost: ApplyFrostArmor(player); break;
+                case Affinity.Lightning: ApplyStormstride(player); break;
+                case Affinity.Poison: ApplyVerdantAura(player); break;
+            }
+        }
+
+        private static void ClearArchmageAuras(SEMan seman)
+        {
+            foreach (var auraName in ArchmageAuraNames)
+            {
+                seman.RemoveStatusEffect(auraName.GetStableHashCode(), quiet: true);
+            }
+        }
+
+        /// <summary>
+        /// Live "progress toward the next Archmage aura" buff, so the player can see how close
+        /// they are. Removed entirely once tracking resets to no affinity (aura triggered, or
+        /// simply never started).
+        /// </summary>
+        private static void RefreshAffinityBuff(Player player, AffinityTracker tracker)
+        {
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            if (tracker.current == null)
+            {
+                seman.RemoveStatusEffect("SE_ElementalAffinity".GetStableHashCode(), quiet: true);
+                return;
+            }
+
+            var existing = seman.GetStatusEffect("SE_ElementalAffinity".GetStableHashCode()) as SE_ElementalAffinity;
+            if (existing != null)
+            {
+                // The same instance is reused across an affinity switch (never removed/recreated),
+                // so the icon has to be refreshed here too - it was previously only ever set once,
+                // at creation, which is why switching affinities kept showing the old element's icon.
+                existing.m_icon = GetAffinityIcon(tracker.current.Value, player);
+                existing.UpdateProgress(tracker.current.Value, tracker.damage, ARCHMAGE_THRESHOLD);
+                return;
+            }
+
+            var statusEffect = ScriptableObject.CreateInstance<SE_ElementalAffinity>();
+            statusEffect.name = "SE_ElementalAffinity";
+            statusEffect.m_icon = GetAffinityIcon(tracker.current.Value, player);
+            statusEffect.m_ttl = 0f; // permanent until it switches/clears/triggers
+            statusEffect.UpdateProgress(tracker.current.Value, tracker.damage, ARCHMAGE_THRESHOLD);
+
+            seman.AddStatusEffect(statusEffect, resetTime: false);
+        }
+
+        private static Sprite GetAffinityIcon(Affinity affinity, Player player)
+        {
+            switch (affinity)
+            {
+                case Affinity.Fire: return GetFireIcon();
+                case Affinity.Frost: return GetFrostIcon();
+                // No dedicated Lightning/Poison icons exist - fall back to the weapon icon,
+                // matching the fallback already used for Combat Rhythm/Blood Pact's buff icons.
+                default: return player.GetCurrentWeapon()?.GetIcon();
+            }
+        }
+        #endregion
+
+        #region Icon Loading
         private static Sprite GetFrostIcon()
         {
             if (_cachedFrostIcon != null) return _cachedFrostIcon;
-
-            try
-            {
-                var asm = Assembly.GetExecutingAssembly();
-                using (Stream s = asm.GetManifestResourceStream(FROST_ICON_RESOURCE))
-                {
-                    if (s == null)
-                    {
-                        Jotunn.Logger.LogWarning($"[Wizard] Embedded icon not found: {FROST_ICON_RESOURCE}");
-                        return null;
-                    }
-
-                    // Read header (width, height)
-                    byte[] header = new byte[8];
-                    int read = s.Read(header, 0, 8);
-                    if (read != 8)
-                    {
-                        Jotunn.Logger.LogWarning("[Wizard] Frost icon header corrupt.");
-                        return null;
-                    }
-
-                    // little-endian UInt32 width/height
-                    int width = BitConverter.ToInt32(header, 0);
-                    int height = BitConverter.ToInt32(header, 4);
-                    int expectedBytes = width * height * 4;
-
-                    // Read raw RGBA32 pixels
-                    byte[] pixels = new byte[expectedBytes];
-                    int off = 0;
-                    while (off < expectedBytes)
-                    {
-                        int n = s.Read(pixels, off, expectedBytes - off);
-                        if (n <= 0) break;
-                        off += n;
-                    }
-                    if (off != expectedBytes)
-                    {
-                        Jotunn.Logger.LogWarning($"[Wizard] Frost icon pixel data incomplete ({off}/{expectedBytes}).");
-                        return null;
-                    }
-
-                    // Create Texture2D and upload raw data (no ImageConversion needed)
-                    Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                    tex.wrapMode = TextureWrapMode.Clamp;
-                    tex.filterMode = FilterMode.Bilinear;
-                    tex.LoadRawTextureData(pixels);
-                    tex.Apply(false, false);
-
-                    // Create UI sprite
-                    _cachedFrostIcon = Sprite.Create(
-                        tex,
-                        new Rect(0, 0, width, height),
-                        new Vector2(0.5f, 0.5f),
-                        100f // pixels per unit; fine for inventory/status icons
-                    );
-                    return _cachedFrostIcon;
-                }
-            }
-            catch (Exception ex)
-            {
-                Jotunn.Logger.LogError($"[Wizard] Failed to load Frost icon: {ex}");
-                return null;
-            }
+            return LoadIconFromResource(FROST_ICON_RESOURCE, "Frost", ref _cachedFrostIcon);
         }
 
         private static Sprite GetFireIcon()
         {
             if (_cachedFireIcon != null) return _cachedFireIcon;
-
-            try
-            {
-                var asm = Assembly.GetExecutingAssembly();
-                using (Stream s = asm.GetManifestResourceStream(FIRE_ICON_RESOURCE))
-                {
-                    if (s == null)
-                    {
-                        Jotunn.Logger.LogWarning($"[Wizard] Embedded icon not found: {FIRE_ICON_RESOURCE}");
-                        return null;
-                    }
-
-                    // Read header (width, height)
-                    byte[] header = new byte[8];
-                    int read = s.Read(header, 0, 8);
-                    if (read != 8)
-                    {
-                        Jotunn.Logger.LogWarning("[Wizard] Fire icon header corrupt.");
-                        return null;
-                    }
-
-                    // little-endian UInt32 width/height
-                    int width = BitConverter.ToInt32(header, 0);
-                    int height = BitConverter.ToInt32(header, 4);
-                    int expectedBytes = width * height * 4;
-
-                    // Read raw RGBA32 pixels
-                    byte[] pixels = new byte[expectedBytes];
-                    int off = 0;
-                    while (off < expectedBytes)
-                    {
-                        int n = s.Read(pixels, off, expectedBytes - off);
-                        if (n <= 0) break;
-                        off += n;
-                    }
-                    if (off != expectedBytes)
-                    {
-                        Jotunn.Logger.LogWarning($"[Wizard] Fire icon pixel data incomplete ({off}/{expectedBytes}).");
-                        return null;
-                    }
-
-                    // Create Texture2D and upload raw data (no ImageConversion needed)
-                    Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                    tex.wrapMode = TextureWrapMode.Clamp;
-                    tex.filterMode = FilterMode.Bilinear;
-                    tex.LoadRawTextureData(pixels);
-                    tex.Apply(false, false);
-
-                    // Create UI sprite
-                    _cachedFireIcon = Sprite.Create(
-                        tex,
-                        new Rect(0, 0, width, height),
-                        new Vector2(0.5f, 0.5f),
-                        100f // pixels per unit; fine for inventory/status icons
-                    );
-                    return _cachedFireIcon;
-                }
-            }
-            catch (Exception ex)
-            {
-                Jotunn.Logger.LogError($"[Wizard] Failed to load Fire icon: {ex}");
-                return null;
-            }
+            return LoadIconFromResource(FIRE_ICON_RESOURCE, "Fire", ref _cachedFireIcon);
         }
 
         private static Sprite GetEitrIcon()
         {
             if (_cachedEitrIcon != null) return _cachedEitrIcon;
+            return LoadIconFromResource(EITR_ICON_RESOURCE, "Eitr", ref _cachedEitrIcon);
+        }
 
+        private static Sprite LoadIconFromResource(string resourceName, string iconType, ref Sprite cachedSprite)
+        {
             try
             {
                 var asm = Assembly.GetExecutingAssembly();
-                using (Stream s = asm.GetManifestResourceStream(EITR_ICON_RESOURCE))
+                using (Stream s = asm.GetManifestResourceStream(resourceName))
                 {
                     if (s == null)
                     {
-                        Jotunn.Logger.LogWarning($"[Wizard] Embedded icon not found: {EITR_ICON_RESOURCE}");
+                        Jotunn.Logger.LogWarning($"[Wizard] Embedded icon not found: {resourceName}");
                         return null;
                     }
 
-                    // Read header (width, height)
                     byte[] header = new byte[8];
                     int read = s.Read(header, 0, 8);
                     if (read != 8)
                     {
-                        Jotunn.Logger.LogWarning("[Wizard] Eitr icon header corrupt.");
+                        Jotunn.Logger.LogWarning($"[Wizard] {iconType} icon header corrupt.");
                         return null;
                     }
 
-                    // little-endian UInt32 width/height
                     int width = BitConverter.ToInt32(header, 0);
                     int height = BitConverter.ToInt32(header, 4);
                     int expectedBytes = width * height * 4;
 
-                    // Read raw RGBA32 pixels
                     byte[] pixels = new byte[expectedBytes];
                     int off = 0;
                     while (off < expectedBytes)
@@ -249,311 +307,135 @@ namespace ValheimClassObelisk
                     }
                     if (off != expectedBytes)
                     {
-                        Jotunn.Logger.LogWarning($"[Wizard] Eitr icon pixel data incomplete ({off}/{expectedBytes}).");
+                        Jotunn.Logger.LogWarning($"[Wizard] {iconType} icon pixel data incomplete ({off}/{expectedBytes}).");
                         return null;
                     }
 
-                    // Create Texture2D and upload raw data (no ImageConversion needed)
                     Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
                     tex.wrapMode = TextureWrapMode.Clamp;
                     tex.filterMode = FilterMode.Bilinear;
                     tex.LoadRawTextureData(pixels);
                     tex.Apply(false, false);
 
-                    // Create UI sprite
-                    _cachedEitrIcon = Sprite.Create(
-                        tex,
-                        new Rect(0, 0, width, height),
-                        new Vector2(0.5f, 0.5f),
-                        100f // pixels per unit; fine for inventory/status icons
-                    );
-                    return _cachedEitrIcon;
+                    cachedSprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
+                    return cachedSprite;
                 }
             }
             catch (Exception ex)
             {
-                Jotunn.Logger.LogError($"[Wizard] Failed to load Eitr icon: {ex}");
+                Jotunn.Logger.LogError($"[Wizard] Failed to load {iconType} icon: {ex}");
                 return null;
             }
         }
+        #endregion
 
+        #region Archmage Aura Effects
         public static void ApplyFrostArmor(Player player)
         {
             var seman = player.GetSEMan();
-
             if (seman == null) return;
 
-            // Remove existing effect to refresh
-            seman.RemoveStatusEffect("SE_FrostArmor".GetStableHashCode(), quiet: true);
+            ClearArchmageAuras(seman);
 
             var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
             statusEffect.name = "SE_FrostArmor";
             statusEffect.m_name = "Frost Armor";
             statusEffect.m_tooltip = "+25% Armor and Fire Immunity";
             statusEffect.m_icon = GetFrostIcon();
-            statusEffect.m_ttl = AURA_DURATION;
+            statusEffect.m_ttl = ARCHMAGE_AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
-            _frostDamage = 0;
         }
 
         public static void ApplyImmolationAura(Player player)
         {
             var seman = player.GetSEMan();
-
             if (seman == null) return;
 
-            // Remove existing effect to refresh
-            seman.RemoveStatusEffect("SE_ImmolationAura".GetStableHashCode(), quiet: true);
+            ClearArchmageAuras(seman);
 
             var statusEffect = ScriptableObject.CreateInstance<SE_ImmolationAura>();
             statusEffect.name = "SE_ImmolationAura";
             statusEffect.m_name = "Immolation Aura";
-            statusEffect.m_tooltip = "+25% Speed, Damage nearby enemies with fire";
+            statusEffect.m_tooltip = "Nearby enemies take fire damage";
             statusEffect.m_icon = GetFireIcon();
-            statusEffect.m_ttl = AURA_DURATION;
+            statusEffect.m_ttl = ARCHMAGE_AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
-            _fireDamage = 0;
         }
 
-        public static HitData ApplyDamageMod(HitData hit, float mod)
+        public static void ApplyStormstride(Player player)
         {
-            if (hit == null || mod == 0f) return hit;
-            hit.m_damage.m_damage *= mod;
-            hit.m_damage.m_slash *= mod;
-            hit.m_damage.m_pierce *= mod;
-            hit.m_damage.m_blunt *= mod;
-            hit.m_damage.m_fire *= mod;
-            hit.m_damage.m_frost *= mod;
-            hit.m_damage.m_spirit *= mod;
-            hit.m_damage.m_poison *= mod;
-            return hit;
-        }
-
-        private static void ApplyEssenceLeech(Player player, HitData hit)
-        {
-            // Check if player and hitData are valid
-            if (player == null || hit == null)
-            {
-                return;
-            }
-
-            // Calculate 5% of the total damage dealt
-            float totalDamage = hit.GetTotalDamage();
-            float eitrReward = totalDamage * ESSENCE_LEECH;
-
-            // Only award eitr if there's actual damage and reward > 0
-            if (eitrReward > 0f)
-            {
-                // Add the eitr to the player
-                player.AddEitr(eitrReward);
-            }
-
-        }
-
-        // Apply Eitr Weave Passive buff for level 10+ wizards
-        public static void ApplyEitrWeavePassive(Player player)
-        {
-            if (player == null) return;
-
             var seman = player.GetSEMan();
             if (seman == null) return;
 
-            string passiveBuffName = "SE_EitrWeavePassive";
-            bool hasPassiveBuff = seman.HaveStatusEffect(passiveBuffName.GetStableHashCode());
+            ClearArchmageAuras(seman);
 
-            // Check if player is level 10+ wizard
-            if (HasWizardPerk(player, 10))
-            {
-                // Apply the passive buff if not already present
-                if (!hasPassiveBuff)
-                {
-                    var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
-                    statusEffect.name = passiveBuffName;
-                    statusEffect.m_name = "Eitr Weave";
-                    statusEffect.m_tooltip = "+50% Eitr Regeneration";
-                    statusEffect.m_eitrRegenMultiplier = 1f + EITR_WEAVE_PASSIVE;
-                    statusEffect.m_icon = GetEitrIcon();
-                    statusEffect.m_ttl = 0f; // Permanent while conditions are met
+            var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
+            statusEffect.name = "SE_Stormstride";
+            statusEffect.m_name = "Stormstride";
+            statusEffect.m_tooltip = "+20% movement speed";
+            statusEffect.m_speedModifier = STORMSTRIDE_SPEED_BONUS;
+            statusEffect.m_ttl = ARCHMAGE_AURA_DURATION;
 
-                    seman.AddStatusEffect(statusEffect, resetTime: false);
-                }
-            }
-            else
-            {
-                // Remove the buff if player no longer meets requirements
-                if (hasPassiveBuff)
-                {
-                    seman.RemoveStatusEffect(passiveBuffName.GetStableHashCode(), quiet: true);
-                }
-            }
+            seman.AddStatusEffect(statusEffect, resetTime: true);
+        }
+
+        public static void ApplyVerdantAura(Player player)
+        {
+            var seman = player.GetSEMan();
+            if (seman == null) return;
+
+            ClearArchmageAuras(seman);
+
+            var statusEffect = ScriptableObject.CreateInstance<SE_VerdantAura>();
+            statusEffect.name = "SE_VerdantAura";
+            statusEffect.m_name = "Verdant Aura";
+            statusEffect.m_tooltip = "Heals you and nearby allies over time";
+            statusEffect.m_ttl = ARCHMAGE_AURA_DURATION;
+
+            seman.AddStatusEffect(statusEffect, resetTime: true);
         }
         #endregion
 
-        #region Wizard Patch Classes
-        // Summary
-        // Apply Damage mod and OnHit effects in here.
-        [HarmonyPatch(typeof(Character), "Damage")]
-        [HarmonyPrefix]
-        public static void Wizard_Damage_Prefix(Character __instance, ref HitData hit)
+        /// <summary>
+        /// Live "progress toward an Archmage aura" display buff - a pure tooltip/icon tracker,
+        /// no gameplay effect of its own. Mirrors the dynamic-tooltip pattern already used by
+        /// Lancer's old SE_SpearStorm (update a public field, refresh m_tooltip from it).
+        /// </summary>
+        public class SE_ElementalAffinity : SE_Stats
         {
-            try
+            public Affinity affinity;
+            public float damage;
+            public float threshold;
+
+            public void UpdateProgress(Affinity affinity, float damage, float threshold)
             {
-                Character attacker = hit.GetAttacker();
-                Character target = __instance;
-                float damageMult = 1f;
-
-                bool isPlayer = attacker is Player;
-                Player player = attacker as Player;
-
-                if (isPlayer)
-                {
-                    if (HasWizardPerk(player, 20)) hit = ApplyIcyHot(hit);
-                }
+                this.affinity = affinity;
+                this.damage = damage;
+                this.threshold = threshold;
+                m_name = $"{affinity} Affinity";
+                m_tooltip = $"{damage:F0} / {threshold:F0} {affinity} damage dealt";
             }
-            catch (System.Exception ex)
+
+            // Same numeric-badge technique as Warlock's SE_Bloodwell - GetIconText normally shows
+            // a countdown (this has no ttl), overridden here to show accumulated damage instead.
+            public override string GetIconText()
             {
-                Logger.LogError($"Error in Character_Damage_Assassin_Prefix: {ex.Message}");
+                return Mathf.RoundToInt(damage).ToString();
             }
         }
-
-        // Summary
-        // Apply Post damage patches.
-        [HarmonyPatch(typeof(Character), "Damage")]
-        [HarmonyPrefix]
-        public static void Wizard_Damage_Postfix(Character __instance, ref HitData hit)
-        {
-            try
-            {
-                Character attacker = hit.GetAttacker();
-                Character target = __instance;
-                float damageMult = 1f;
-
-                bool isPlayer = attacker is Player;
-                Player player = attacker as Player;
-
-                if (isPlayer && ClassCombatManager.IsMagicWeapon(player.GetCurrentWeapon()))
-                {
-                    if (HasWizardPerk(player, 30)) ApplyEssenceLeech(player, hit);
-                    if (HasWizardPerk(player, 40)) _frostDamage += hit.m_damage.m_frost;
-                    if (HasWizardPerk(player, 50)) _fireDamage += hit.m_damage.m_fire;
-                }
-
-                if (_frostDamage >= 300)
-                {
-                    ApplyFrostArmor(player);
-                }
-
-                if (_fireDamage >= 500)
-                {
-                    ApplyImmolationAura(player);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Character_Damage_Assassin_Prefix: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Apply Frost Armor Bonus
-        [HarmonyPatch(typeof(Player), "GetBodyArmor")]
-        [HarmonyPostfix]
-        public static void Wizard_FrostArmor_Postfix(Player __instance, ref float __result)
-        {
-            try
-            {
-                // Check If player has buff.
-                SEMan seman = __instance.GetSEMan();
-                string statusName = "SE_FrostArmor";
-                if (seman.HaveStatusEffect(statusName.GetStableHashCode()))
-                {
-                    // player has the buff
-                    // Multiply total armor by (1 + Percent).
-                    // Example: base armor 60, Percent = 0.25 => 60 * 1.25 = 75
-                    var before = __result;
-                    __result *= (1f + FROST_ARMOR);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error when trying to apply frost armor bonus: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Refresh wizard passive buffs whenever the player deals damage (covers post-level-up refresh)
-        [HarmonyPatch(typeof(Character), "Damage")]
-        [HarmonyPostfix]
-        public static void Wizard_LevelUp_Postfix(Character __instance, HitData hit)
-        {
-            try
-            {
-                if (hit.GetTotalDamage() <= 0) return;
-                if (hit.GetAttacker() is Player player && __instance != null && !(__instance is Player))
-                {
-                    ApplyAllWizardPassiveBuffs(player);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Wizard_LevelUp_Postfix: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Apply wizard buffs when player spawns
-        [HarmonyPatch(typeof(Player), "OnSpawned")]
-        [HarmonyPostfix]
-        public static void Wizard_PlayerSpawn_Postfix(Player __instance)
-        {
-            try
-            {
-                // Apply all wizard passive buffs on spawn
-                ApplyAllWizardPassiveBuffs(__instance);
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Wizard_PlayerSpawn_Postfix: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Method to apply all wizard passive buffs based on current level
-        private static void ApplyAllWizardPassiveBuffs(Player player)
-        {
-            if (player == null) return;
-
-            // Apply Eitr Weave passive (level 10+)
-            ApplyEitrWeavePassive(player);
-
-            // Future passive buffs can be added here for other levels
-            // For example:
-            // if (HasWizardPerk(player, 20)) ApplyAnotherPassiveBuff(player);
-        }
-        #endregion
 
         public class SE_ImmolationAura : SE_Stats
         {
             private float lastDamageTime = 0f;
-            private float damageInterval = 1f; // Damage every second
-            private float AURA_DAMAGE = 15f;
-            private float IMMOLATION_SPEED = 0.25f;
-
-            public override void Setup(Character character)
-            {
-                base.Setup(character);
-
-                // Set the movement speed modifier
-                m_speedModifier = IMMOLATION_SPEED;
-            }
+            private const float DamageInterval = 1f;
 
             public override void UpdateStatusEffect(float dt)
             {
                 base.UpdateStatusEffect(dt);
 
-                if (Time.time - lastDamageTime >= damageInterval)
+                if (Time.time - lastDamageTime >= DamageInterval)
                 {
                     ApplyAuraDamage();
                     lastDamageTime = Time.time;
@@ -564,24 +446,173 @@ namespace ValheimClassObelisk
             {
                 if (!(m_character is Player player)) return;
 
-                // Find enemies within 3m
                 var enemies = new List<Character>();
-                Character.GetCharactersInRange(player.transform.position, 3f, enemies);
+                Character.GetCharactersInRange(player.transform.position, IMMOLATION_AURA_RADIUS, enemies);
 
                 foreach (var enemy in enemies)
                 {
                     if (enemy == player || enemy.IsDead()) continue;
-                    if (enemy.IsPlayer()) continue; // Don't damage other players
+                    if (enemy.IsPlayer() || enemy.IsTamed()) continue;
 
-                    // Create fire damage
                     var hitData = new HitData();
-                    hitData.m_damage.m_fire = AURA_DAMAGE;
+                    hitData.m_damage.m_fire = IMMOLATION_AURA_DAMAGE;
                     hitData.m_point = enemy.GetCenterPoint();
                     hitData.m_dir = (enemy.transform.position - player.transform.position).normalized;
                     hitData.SetAttacker(player);
 
                     enemy.Damage(hitData);
                 }
+            }
+        }
+
+        public class SE_VerdantAura : SE_Stats
+        {
+            private float lastHealTime = 0f;
+            private const float HealInterval = 1f;
+
+            public override void UpdateStatusEffect(float dt)
+            {
+                base.UpdateStatusEffect(dt);
+
+                if (Time.time - lastHealTime >= HealInterval)
+                {
+                    ApplyHealPulse();
+                    lastHealTime = Time.time;
+                }
+            }
+
+            private void ApplyHealPulse()
+            {
+                if (!(m_character is Player player)) return;
+
+                var nearby = new List<Character>();
+                Character.GetCharactersInRange(player.transform.position, VERDANT_AURA_RADIUS, nearby);
+
+                foreach (var target in nearby)
+                {
+                    if (target == player || target.IsDead()) continue;
+                    if (!(target.IsPlayer() || target.IsTamed())) continue;
+
+                    target.Heal(VERDANT_AURA_HEAL_PER_SEC);
+                }
+
+                player.Heal(VERDANT_AURA_HEAL_PER_SEC);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Harmony patches to integrate Wizard perks with game systems
+    /// </summary>
+    [HarmonyPatch]
+    public static class WizardPerkPatches
+    {
+        /// <summary>
+        /// Trigger Arcane Surge's Eitr-regen buff (Level 30) and accumulate Archmage's per-affinity
+        /// damage tracking (Level 50) after an elemental magic hit lands. Eitr Weave's flat +7%
+        /// (Level 10) lives only in ClassCombatManager.GetWizardDamageBonus - not duplicated here.
+        /// </summary>
+        [HarmonyPatch(typeof(Character), "Damage")]
+        [HarmonyPostfix]
+        public static void Character_Damage_Wizard_Postfix(Character __instance, HitData hit)
+        {
+            try
+            {
+                if (__instance == null || __instance is Player) return;
+                if (hit.GetTotalDamage() <= 0) return;
+
+                // Vanilla's own poison DoT ticks never carry an attacker (SE_Poison builds a bare
+                // HitData with no attacker set, confirmed via decompile) - fall back to whoever
+                // most recently applied poison to this target (see
+                // ClassCombatManager.RecordPoisonSource) so Staff of the Wild's vine ticks still
+                // resolve instead of silently going untracked.
+                var attacker = hit.GetAttacker() ?? ClassCombatManager.GetRecentPoisonAttacker(__instance);
+
+                if (attacker is Player player)
+                {
+                    var weapon = player.GetCurrentWeapon();
+                    if (!ClassCombatManager.IsElementalMagicWeapon(weapon)) return;
+                    if (!WizardPerkManager.HasWizardPerk(player, 1)) return;
+
+                    if (WizardPerkManager.HasWizardPerk(player, 30))
+                    {
+                        WizardPerkManager.TriggerArcaneSurge(player);
+                    }
+
+                    if (WizardPerkManager.HasWizardPerk(player, 50))
+                    {
+                        WizardPerkManager.AccumulateArchmageDamage(player, hit);
+                    }
+                }
+                else
+                {
+                    // Attributed summon damage (e.g. Staff of the Wild's vines) counts toward
+                    // Archmage tracking (Level 50) for whoever commands it - same live
+                    // MonsterAI.GetFollowTarget()-based resolution used for Warlock's summons.
+                    // Arcane Surge is deliberately NOT triggered from summon damage - it's meant
+                    // to reward the player's own continuous casting, not an idle summon ticking.
+                    var owner = ClassCombatManager.GetCommandingPlayer(attacker);
+                    if (owner == null) return;
+                    if (!WizardPerkManager.HasWizardPerk(owner, 50)) return;
+
+                    // Mirrors the direct-player IsElementalMagicWeapon gate above - without this,
+                    // a Warlock summon (skeleton/troll) dealing any poison/fire/frost/lightning
+                    // damage would also feed Wizard's Archmage tracking for a player running both
+                    // classes at once, since only "owner has Wizard 50" was checked, not "this
+                    // summon is actually one of Wizard's own".
+                    if (ClassCombatManager.GetCommandedSummonSkill(attacker) != Skills.SkillType.ElementalMagic) return;
+
+                    WizardPerkManager.AccumulateArchmageDamage(owner, hit);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Character_Damage_Wizard_Postfix: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Arcane Efficiency (Level 40): reduces Eitr cost by 10% on top of whatever the vanilla
+        /// Elemental Magic skill has already discounted (GetAttackEitr already applies up to a 33%
+        /// skill-based discount before this runs).
+        /// </summary>
+        [HarmonyPatch(typeof(Attack), "GetAttackEitr", new System.Type[] { })]
+        [HarmonyPostfix]
+        public static void Attack_GetAttackEitr_Wizard_Postfix(ref float __result, Character ___m_character, ItemDrop.ItemData ___m_weapon)
+        {
+            try
+            {
+                if (__result <= 0f) return;
+                if (!(___m_character is Player player)) return;
+                if (!ClassCombatManager.IsElementalMagicWeapon(___m_weapon)) return;
+                if (!WizardPerkManager.HasWizardPerk(player, 40)) return;
+
+                __result *= 0.90f;
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Attack_GetAttackEitr_Wizard_Postfix: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Arcane Nourishment (Level 20): +15% Eitr granted by food. GetTotalFoodValue's `eitr`
+        /// out-param already equals the sum of all active food's Eitr contribution (it has no
+        /// separate "base Eitr" term the way health does), so scaling the whole value is exactly
+        /// equivalent to scaling each qualifying food's own contribution.
+        /// </summary>
+        [HarmonyPatch(typeof(Player), "GetTotalFoodValue")]
+        [HarmonyPostfix]
+        public static void Player_GetTotalFoodValue_Wizard_Postfix(Player __instance, ref float eitr)
+        {
+            try
+            {
+                if (!WizardPerkManager.HasWizardPerk(__instance, 20)) return;
+                eitr *= 1.15f;
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Player_GetTotalFoodValue_Wizard_Postfix: {ex.Message}");
             }
         }
     }

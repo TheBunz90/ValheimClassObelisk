@@ -127,7 +127,7 @@ public static class CrusherPerkPatches
 {
     // Per-player tracking of whether the current attack is a heavy/secondary attack, needed for
     // Thundering Blows' 1H-mace-heavy-only trigger. Per-player (not a shared module-level flag)
-    // so this is multiplayer-safe - same pattern as AxemasterPerkManager.pendingTwoHandedSpecialAttack.
+    // so this is multiplayer-safe - same pattern as ExecutionerPerkManager.pendingTwoHandedSpecialAttack.
     private static readonly Dictionary<Player, bool> pendingHeavyAttack = new Dictionary<Player, bool>();
 
     [HarmonyPatch(typeof(Humanoid), "StartAttack")]
@@ -236,7 +236,7 @@ public static class CrusherPerkPatches
     /// <summary>
     /// Colossus (Level 20): cancels an equipped blunt weapon's own movement-speed penalty
     /// without touching the item's shared data - only offsets this player's own equipment
-    /// movement modifier, mirroring AxemasterPerkManager's Woodsman's Carry.
+    /// movement modifier, mirroring ExecutionerPerkManager's Woodsman's Carry.
     /// </summary>
     [HarmonyPatch(typeof(Player), "GetEquipmentMovementModifier")]
     [HarmonyPostfix]

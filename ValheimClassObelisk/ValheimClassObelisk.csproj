@@ -107,7 +107,8 @@
     <Compile Include="TestingResources\ApiDiscoveryCommands.cs" />
     <Compile Include="PerkManagers\ArcherPerkManager.cs" />
     <Compile Include="PerkManagers\AssassinPerkManager.cs" />
-    <Compile Include="PerkManagers\AxemasterPerkManager.cs" />
+    <Compile Include="PerkManagers\ExecutionerPerkManager.cs" />
+    <Compile Include="PerkManagers\WarlockPerkManager.cs" />
     <Compile Include="TestingResources\BowTestingCommands.cs" />
     <Compile Include="PerkManagers\BrawlerPerkManager.cs" />
     <Compile Include="Utilities\ClassCombatManager.cs" />

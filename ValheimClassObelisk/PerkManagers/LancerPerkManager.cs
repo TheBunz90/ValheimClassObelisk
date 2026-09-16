@@ -149,7 +149,7 @@ namespace ValheimClassObelisk
         }
 
         // Separate stack tracks per weapon sub-type (spear vs polearm), matching
-        // AxemasterPerkManager.rendingRhythmStacks' per-key, self-expiring dictionary pattern.
+        // ExecutionerPerkManager.rendingRhythmStacks' per-key, self-expiring dictionary pattern.
         private static readonly Dictionary<Player, StackData> spearStacks = new Dictionary<Player, StackData>();
         private static readonly Dictionary<Player, StackData> polearmStacks = new Dictionary<Player, StackData>();
 

@@ -1,23 +1,15 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using Logger = Jotunn.Logger;
 
 /// <summary>
-/// Archer class perk system - persistent perks that activate based on class selection
+/// Archer class perk system - focused on bows and crossbows, split by
+/// ItemDrop.ItemData.SharedData.m_skillType (Bows vs. Crossbows) for Combat Rhythm.
 /// </summary>
 public static class ArcherPerkManager
 {
-    // Buff tracking for temporary effects
-    private static Dictionary<long, float> arrowSlingerBuffs = new Dictionary<long, float>(); // playerID -> buff end time
-
-    // Track original draw durations per weapon to restore after modification
-    private static Dictionary<string, float> originalDrawDurations = new Dictionary<string, float>(); // weaponName -> original duration
-
-    // Configuration
-    public const float ARROW_SLINGER_DURATION = 10f;
-
     /// <summary>
     /// Check if player has Archer class active and at required level
     /// </summary>
@@ -32,16 +24,16 @@ public static class ArcherPerkManager
     }
 
     // Description metadata, shown in the class selection GUI - locked perks display as "???"
-    private const string Intro = "Expert marksmen with unparalleled bow and crossbow mastery.";
-    private const string Outro = "Perfect for players who enjoy ranged combat and precision shooting.";
+    private const string Intro = "Expert marksmen with disciplined bow technique and practical crossbow mastery.";
+    private const string Outro = "Best for players who want ranged weapons to feel steady early, distinct by weapon type mid-game, and deadly at mastery.";
 
     public static readonly List<PerkInfo> Perks = new List<PerkInfo>
     {
-        new PerkInfo { RequiredLevel = 10, Name = "Steady Draw", Description = "-15% stamina drain while drawing" },
-        new PerkInfo { RequiredLevel = 20, Name = "Arrow Slinger", Description = "Arrows give a buff on hit that reduces draw time by 50% for 10 seconds" },
-        new PerkInfo { RequiredLevel = 30, Name = "Wind Reader", Description = "+15% damage beyond 25m; -25% stamina while aiming" },
-        new PerkInfo { RequiredLevel = 40, Name = "Magic Shot", Description = "50% chance to not consume an arrow on attack" },
-        new PerkInfo { RequiredLevel = 50, Name = "Adrenaline Rush", Description = "Consecutive hits return 5% stamina" },
+        new PerkInfo { RequiredLevel = 10, Name = "Practiced Aim", Description = "+7% bow and crossbow damage." },
+        new PerkInfo { RequiredLevel = 20, Name = "Magic Shot", Description = "25% chance to not consume arrows or bolts." },
+        new PerkInfo { RequiredLevel = 30, Name = "Combat Rhythm", Description = "Bow hits grant Arrow Slinger for 6s, reducing draw time by 25%. Crossbow hits grant Quick Crank for 6s, reducing reload time by 25%." },
+        new PerkInfo { RequiredLevel = 40, Name = "Storm Fletching", Description = "Bow and crossbow attacks deal bonus lightning damage equal to 12% of weapon damage." },
+        new PerkInfo { RequiredLevel = 50, Name = "Deadeye", Description = "+15% bow and crossbow damage. Hits beyond 25m gain an additional +10% damage." },
     };
 
     public static string GetClassDescription(Player player)
@@ -50,277 +42,97 @@ public static class ArcherPerkManager
         return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
     }
 
-    #region Level 10 - Steady Draw
-    /// <summary>
-    /// Lv10 – Steady Draw: -15% stamina drain while drawing bows
-    /// Apply this modifier when using stamina (checked per use)
-    /// </summary>
-    public static float ApplyLv10_SteadyDrawStamina(Player player, float staminaCost)
+    #region Level 30 - Combat Rhythm
+    public const float COMBAT_RHYTHM_DURATION = 10f;
+    public const float COMBAT_RHYTHM_REDUCTION = 0.25f;
+
+    // Separate per-player expiry tracking for the two branches - a player could in principle
+    // swap weapons mid-buff, so these are independent rather than a single shared timer.
+    private static readonly Dictionary<Player, float> bowBuffExpire = new Dictionary<Player, float>();
+    private static readonly Dictionary<Player, float> crossbowBuffExpire = new Dictionary<Player, float>();
+
+    public static void TriggerArrowSlinger(Player player)
     {
-        if (!HasArcherPerk(player, 10)) return staminaCost;
-
-        // Only apply if player is drawing a bow
-        if (player.IsDrawingBow())
-        {
-            return staminaCost * 0.85f; // 15% reduction
-        }
-
-        return staminaCost;
+        bowBuffExpire[player] = Time.time + COMBAT_RHYTHM_DURATION;
+        ApplyCombatRhythmStatusEffect(player, "SE_ArrowSlinger", "Arrow Slinger", "Draw speed increased by 25%");
+        player.Message(MessageHud.MessageType.TopLeft, $"Arrow Slinger: 25% faster draw for {COMBAT_RHYTHM_DURATION:F0}s!");
     }
-    #endregion
 
-    #region Level 20 - Arrow Slinger
-    /// <summary>
-    /// Store original draw duration and apply Arrow Slinger buff if active
-    /// </summary>
-    public static void ApplyArrowSlingerDrawSpeed(Player player, ItemDrop.ItemData weapon)
+    public static void TriggerQuickCrank(Player player)
     {
-        if (!HasArcherPerk(player, 20) || weapon?.m_shared?.m_attack == null) return;
-
-        string weaponKey = weapon.m_shared.m_name;
-        var attack = weapon.m_shared.m_attack;
-
-        // Store original duration if not already stored
-        if (!originalDrawDurations.ContainsKey(weaponKey))
-        {
-            originalDrawDurations[weaponKey] = attack.m_drawDurationMin;
-        }
-
-        long playerID = player.GetPlayerID();
-
-        // Apply buff if active
-        if (arrowSlingerBuffs.ContainsKey(playerID) && Time.time < arrowSlingerBuffs[playerID])
-        {
-            attack.m_drawDurationMin = originalDrawDurations[weaponKey] * 0.5f; // 50% faster
-        }
-        else
-        {
-            // Restore original duration if no buff
-            attack.m_drawDurationMin = originalDrawDurations[weaponKey];
-        }
+        crossbowBuffExpire[player] = Time.time + COMBAT_RHYTHM_DURATION;
+        ApplyCombatRhythmStatusEffect(player, "SE_QuickCrank", "Quick Crank", "Reload speed increased by 25%");
+        DevLog.Log($"[QuickCrank] Triggered for {player.GetPlayerName()} at t={Time.time:F2}, expires at {Time.time + COMBAT_RHYTHM_DURATION:F2}");
+        player.Message(MessageHud.MessageType.TopLeft, $"Quick Crank: 25% faster reload for {COMBAT_RHYTHM_DURATION:F0}s!");
     }
 
     /// <summary>
-    /// Restore original draw duration after shot
+    /// Visual status effect for the active Combat Rhythm buff, using the player's currently
+    /// equipped weapon icon (matching the pattern already used for Sword Master's Riposte Ready
+    /// and Brawler's Rage).
     /// </summary>
-    public static void RestoreDrawDuration(ItemDrop.ItemData weapon)
-    {
-        if (weapon?.m_shared?.m_attack == null) return;
-
-        string weaponKey = weapon.m_shared.m_name;
-        if (originalDrawDurations.ContainsKey(weaponKey))
-        {
-            weapon.m_shared.m_attack.m_drawDurationMin = originalDrawDurations[weaponKey];
-        }
-    }
-
-    /// <summary>
-    /// Trigger Arrow Slinger buff when arrow hits target
-    /// </summary>
-    public static void TriggerArrowSlingerBuff(Player archer)
-    {
-        if (!HasArcherPerk(archer, 20)) return;
-
-        long playerID = archer.GetPlayerID();
-        float buffEndTime = Time.time + ARROW_SLINGER_DURATION;
-
-        // Extend existing buff or create new one
-        if (!arrowSlingerBuffs.ContainsKey(playerID) || arrowSlingerBuffs[playerID] < buffEndTime)
-        {
-            arrowSlingerBuffs[playerID] = buffEndTime;
-
-            // Add visual status effect
-            AddArrowSlingerStatusEffect(archer);
-
-            archer.Message(MessageHud.MessageType.TopLeft, "Arrow Slinger: 50% faster draw for 10s!");
-            DevLog.Log($"Triggered Arrow Slinger buff for {archer.GetPlayerName()}");
-        }
-    }
-
-    /// <summary>
-    /// Add visual status effect for Arrow Slinger buff
-    /// </summary>
-    public static void AddArrowSlingerStatusEffect(Player player)
+    private static void ApplyCombatRhythmStatusEffect(Player player, string effectName, string displayName, string tooltip)
     {
         try
         {
             var seman = player.GetSEMan();
             if (seman == null) return;
 
-            // Remove existing arrow slinger effect if present
-            RemoveArrowSlingerStatusEffect(player);
+            seman.RemoveStatusEffect(effectName.GetStableHashCode(), quiet: true);
 
-            // Get current weapon icon (bow)
-            var weapon = player.GetCurrentWeapon();
-            Sprite weaponIcon = weapon?.GetIcon();
-
-            // Fallback to a default icon if weapon has no icon
-            if (weaponIcon == null)
-            {
-                weaponIcon = GetDefaultBowIcon();
-            }
-
-            // Create status effect
             var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
-            statusEffect.name = "SE_ArrowSlinger";
-            statusEffect.m_name = "Arrow Slinger";
-            statusEffect.m_tooltip = "Draw speed increased by 50%";
-            statusEffect.m_icon = weaponIcon;
-            statusEffect.m_ttl = ARROW_SLINGER_DURATION;
+            statusEffect.name = effectName;
+            statusEffect.m_name = displayName;
+            statusEffect.m_tooltip = tooltip;
+            statusEffect.m_icon = player.GetCurrentWeapon()?.GetIcon();
+            statusEffect.m_ttl = COMBAT_RHYTHM_DURATION;
             statusEffect.m_startMessage = "";
             statusEffect.m_startMessageType = MessageHud.MessageType.Center;
             statusEffect.m_stopMessage = "";
             statusEffect.m_stopMessageType = MessageHud.MessageType.Center;
 
-            // Add the status effect
             seman.AddStatusEffect(statusEffect, resetTime: true);
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error adding Arrow Slinger status effect: {ex.Message}");
+            Logger.LogError($"Error adding Combat Rhythm status effect ({effectName}): {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// Remove Arrow Slinger status effect
-    /// </summary>
-    private static void RemoveArrowSlingerStatusEffect(Player player)
+    public static bool HasArrowSlingerActive(Player player)
     {
-        try
-        {
-            var seman = player.GetSEMan();
-            if (seman == null) return;
-
-            seman.RemoveStatusEffect("SE_ArrowSlinger".GetStableHashCode(), quiet: true);
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error removing Arrow Slinger status effect: {ex.Message}");
-        }
+        return player != null && bowBuffExpire.TryGetValue(player, out var expire) && Time.time < expire;
     }
 
-    /// <summary>
-    /// Get a default bow icon as fallback
-    /// </summary>
-    private static Sprite GetDefaultBowIcon()
+    public static bool HasQuickCrankActive(Player player)
     {
-        try
-        {
-            // Try to find a bow prefab and get its icon
-            string[] bowNames = { "Bow", "BowFineWood", "BowHuntsman", "BowDraugrFang", "CrossbowArbalest" };
-            foreach (string bowName in bowNames)
-            {
-                var prefab = ObjectDB.instance?.GetItemPrefab(bowName);
-                if (prefab != null)
-                {
-                    var itemDrop = prefab.GetComponent<ItemDrop>();
-                    if (itemDrop?.m_itemData?.GetIcon() != null)
-                    {
-                        return itemDrop.m_itemData.GetIcon();
-                    }
-                }
-            }
-
-            return null; // No fallback found
-        }
-        catch
-        {
-            return null;
-        }
+        return player != null && crossbowBuffExpire.TryGetValue(player, out var expire) && Time.time < expire;
     }
 
-    /// <summary>
-    /// Check if player has active Arrow Slinger buff (for external access)
-    /// </summary>
-    public static bool HasActiveArrowSlingerBuff(long playerID)
-    {
-        return arrowSlingerBuffs.ContainsKey(playerID) && Time.time < arrowSlingerBuffs[playerID];
-    }
-    #endregion
-
-    #region Level 30 - Wind Reader
-    /// <summary>
-    /// Lv30 – Wind Reader: +15% damage beyond 25m travel distance; -25% stamina while aiming
-    /// Apply damage bonus when calculating projectile damage
-    /// </summary>
-    public static float ApplyLv30_WindReaderDamage(Player archer, Vector3 shotOrigin, Vector3 hitPoint, float baseDamage)
-    {
-        if (!HasArcherPerk(archer, 30)) return baseDamage;
-
-        // Calculate travel distance
-        float distance = Vector3.Distance(shotOrigin, hitPoint);
-
-        if (distance > 25f)
-        {
-            float bonusDamage = baseDamage * 0.15f; // 15% bonus
-            DevLog.Log($"Wind Reader: Long-range shot ({distance:F1}m) +15% damage (+{bonusDamage:F1})");
-
-            return baseDamage + bonusDamage;
-        }
-
-        return baseDamage;
-    }
-
-    /// <summary>
-    /// Apply Wind Reader stamina reduction while aiming (checked when using stamina)
-    /// </summary>
-    public static float ApplyLv30_WindReaderStamina(Player archer, float staminaDrain)
-    {
-        if (!HasArcherPerk(archer, 30)) return staminaDrain;
-
-        // Only apply if player is aiming (drawing bow)
-        if (archer.IsDrawingBow())
-        {
-            return staminaDrain * 0.75f; // 25% reduction
-        }
-
-        return staminaDrain;
-    }
-    #endregion
-
-    #region Level 50 - Adrenaline Rush
-    /// <summary>
-    /// Lv50 – Adrenaline Rush: Arrow hits return 5% stamina
-    /// Simple stamina restoration on every hit
-    /// </summary>
-    public static void TriggerAdrenalineRush(Player archer)
-    {
-        if (!HasArcherPerk(archer, 50)) return;
-
-        // Restore stamina (5% of max stamina per hit)
-        float maxStamina = archer.GetMaxStamina();
-        float staminaRestore = maxStamina * 0.05f;
-
-        archer.AddStamina(staminaRestore);
-
-        DevLog.Log($"Adrenaline Rush: Restored {staminaRestore:F1} stamina for {archer.GetPlayerName()}");
-    }
-    #endregion
-
-    #region Utility Methods
-    /// <summary>
-    /// Clean up expired buffs
-    /// </summary>
     public static void UpdateBuffs()
     {
         float currentTime = Time.time;
 
-        // Clean up expired Arrow Slinger buffs
-        var expiredBuffs = arrowSlingerBuffs.Where(kvp => kvp.Value < currentTime).Select(kvp => kvp.Key).ToList();
-        foreach (var playerID in expiredBuffs)
-        {
-            arrowSlingerBuffs.Remove(playerID);
+        var expiredBow = bowBuffExpire.Where(kvp => kvp.Key == null || currentTime >= kvp.Value).Select(kvp => kvp.Key).ToList();
+        foreach (var player in expiredBow) bowBuffExpire.Remove(player);
 
-            // Remove visual status effect from the player if they're still in game
-            var player = Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == playerID);
-            if (player != null)
-            {
-                RemoveArrowSlingerStatusEffect(player);
-            }
-
-            DevLog.Log($"Arrow Slinger buff expired for player {playerID}");
-        }
+        var expiredCrossbow = crossbowBuffExpire.Where(kvp => kvp.Key == null || currentTime >= kvp.Value).Select(kvp => kvp.Key).ToList();
+        foreach (var player in expiredCrossbow) crossbowBuffExpire.Remove(player);
     }
+    #endregion
+
+    #region Level 40 - Storm Fletching
+    public const float STORM_FLETCHING_LIGHTNING_PERCENT = 0.12f;
+
+    public static void ApplyStormFletchingLightning(ref HitData hit, float weaponDamage)
+    {
+        hit.m_damage.m_lightning += weaponDamage * STORM_FLETCHING_LIGHTNING_PERCENT;
+    }
+    #endregion
+
+    #region Level 50 - Deadeye
+    public const float DEADEYE_RANGE_BONUS = 0.10f;
+    public const float DEADEYE_RANGE_THRESHOLD = 25f;
     #endregion
 }
 
@@ -330,194 +142,155 @@ public static class ArcherPerkManager
 [HarmonyPatch]
 public static class ArcherPerkPatches
 {
-    #region Bow Draw Patches
+    #region Damage Patches
     /// <summary>
-    /// Apply Arrow Slinger draw speed when bow is being drawn
-    /// </summary>
-    [HarmonyPatch(typeof(Player), "UpdateAttackBowDraw")]
-    [HarmonyPrefix]
-    public static void Player_UpdateAttackBowDraw_Prefix(Player __instance, ItemDrop.ItemData weapon, float dt)
-    {
-        try
-        {
-            if (__instance == null || weapon == null || !ClassCombatManager.IsBowWeapon(weapon)) return;
-
-            // Apply Arrow Slinger buff to draw speed
-            ArcherPerkManager.ApplyArrowSlingerDrawSpeed(__instance, weapon);
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in Player_UpdateAttackBowDraw_Prefix (Archer): {ex.Message}");
-        }
-    }
-    #endregion
-
-    #region Projectile Hit Patches
-    /// <summary>
-    /// Trigger archer perks when projectiles hit targets and restore draw duration
-    /// </summary>
-    [HarmonyPatch(typeof(Projectile), "OnHit")]
-    [HarmonyPrefix]
-    public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, Character ___m_owner)
-    {
-        try
-        {
-            if (__instance == null || collider == null) return;
-
-            // Check if this is an arrow/bolt hitting a valid target
-            var hitCharacter = collider.GetComponent<Character>();
-            if (hitCharacter == null || hitCharacter is Player) return;
-
-            // The projectile's own owner/skill (set once in Projectile.Setup and never
-            // touched again) is the only reliable way to know who fired this and with what.
-            // The previous FindProjectileOwner helper fell back to "whichever player is
-            // within 100m" when a projectile had no resolvable ZDO owner - which includes
-            // any monster-thrown projectile (e.g. a Greydwarf's rock hitting another
-            // creature nearby), misattributing it to a nearby Archer and proccing their
-            // bow perks. Also gate on the shot actually being a bow/crossbow shot, not just
-            // any projectile a player happens to have fired. (m_owner is private on the real
-            // Projectile class, hence the Harmony ___m_owner field-injection parameter above.)
-            if (!(___m_owner is Player archer)) return;
-            if (__instance.m_skill != Skills.SkillType.Bows && __instance.m_skill != Skills.SkillType.Crossbows) return;
-
-            // Only trigger for players with Archer class active
-            var playerData = PlayerClassManager.GetPlayerData(archer);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer)) return;
-
-            // Restore draw duration after shot (clean slate for next shot)
-            var currentWeapon = archer.GetCurrentWeapon();
-            if (ClassCombatManager.IsBowWeapon(currentWeapon))
-            {
-                ArcherPerkManager.RestoreDrawDuration(currentWeapon);
-            }
-
-            // Trigger Arrow Slinger buff (Level 20)
-            ArcherPerkManager.TriggerArrowSlingerBuff(archer);
-
-            // Trigger Adrenaline Rush (Level 50)
-            ArcherPerkManager.TriggerAdrenalineRush(archer);
-
-            DevLog.Log($"Archer perk triggers for {archer.GetPlayerName()} hitting {hitCharacter.name}");
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in Projectile_OnHit_Prefix (Archer): {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Apply Wind Reader damage bonus to projectile hits
-    /// Only applies when using bows/crossbows
+    /// Apply Storm Fletching's instant lightning bonus (Level 40) and Deadeye's conditional
+    /// beyond-25m bonus (Level 50). Practiced Aim's flat +7% (Level 10) and Deadeye's flat +15%
+    /// (Level 50) live only in ClassCombatManager.GetArcherDamageBonus - not duplicated here.
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPrefix]
-    public static void Character_Damage_Prefix_ArcherPerks(Character __instance, ref HitData hit)
+    public static void Character_Damage_Archer_Prefix(Character __instance, ref HitData hit)
     {
         try
         {
-            if (!(hit.GetAttacker() is Player archer) || __instance == null || __instance is Player) return;
+            if (hit.m_skill == Skills.SkillType.None) return;
+            if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
 
-            // Only apply to projectile damage from bows
-            if (!IsProjectileDamage(hit)) return;
+            var weapon = player.GetCurrentWeapon();
+            if (!ClassCombatManager.IsBowWeapon(weapon)) return;
+            if (!ArcherPerkManager.HasArcherPerk(player, 1)) return;
 
-            // Check if archer is using a bow weapon and has Archer class active
-            var currentWeapon = archer.GetCurrentWeapon();
-            if (!ClassCombatManager.IsBowWeapon(currentWeapon)) return;
-
-            var playerData = PlayerClassManager.GetPlayerData(archer);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Archer)) return;
-
-            // Apply Wind Reader damage bonus
             float originalDamage = hit.GetTotalDamage();
-            Vector3 shotOrigin = archer.transform.position;
-            Vector3 hitPoint = hit.m_point;
 
-            float modifiedDamage = ArcherPerkManager.ApplyLv30_WindReaderDamage(archer, shotOrigin, hitPoint, originalDamage);
-
-            if (modifiedDamage > originalDamage)
+            if (ArcherPerkManager.HasArcherPerk(player, 40))
             {
-                float multiplier = modifiedDamage / originalDamage;
-                // Apply multiplier to all damage types
-                hit.m_damage.m_damage *= multiplier;
-                hit.m_damage.m_pierce *= multiplier;
-                hit.m_damage.m_slash *= multiplier;
+                ArcherPerkManager.ApplyStormFletchingLightning(ref hit, originalDamage);
+            }
+
+            if (ArcherPerkManager.HasArcherPerk(player, 50))
+            {
+                float distance = Vector3.Distance(player.transform.position, hit.m_point);
+                if (distance > ArcherPerkManager.DEADEYE_RANGE_THRESHOLD)
+                {
+                    float multiplier = 1f + ArcherPerkManager.DEADEYE_RANGE_BONUS;
+                    hit.m_damage.m_damage *= multiplier;
+                    hit.m_damage.m_blunt *= multiplier;
+                    hit.m_damage.m_slash *= multiplier;
+                    hit.m_damage.m_pierce *= multiplier;
+                    hit.m_damage.m_chop *= multiplier;
+                    hit.m_damage.m_fire *= multiplier;
+                    hit.m_damage.m_frost *= multiplier;
+                    hit.m_damage.m_lightning *= multiplier;
+                    hit.m_damage.m_poison *= multiplier;
+                    hit.m_damage.m_spirit *= multiplier;
+                }
             }
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Character_Damage_Prefix_ArcherPerks: {ex.Message}");
+            Logger.LogError($"Error in Character_Damage_Archer_Prefix: {ex.Message}");
         }
     }
-    #endregion
-
-    #region Stamina Patches
-    /// <summary>
-    /// Apply Archer stamina reduction perks when using stamina
-    /// </summary>
-    [HarmonyPatch(typeof(Player), "UseStamina")]
-    [HarmonyPrefix]
-    public static void Player_UseStamina_Prefix(Player __instance, ref float v)
-    {
-        try
-        {
-            if (__instance == null) return;
-
-            // Apply Steady Draw stamina reduction (Level 10)
-            v = ArcherPerkManager.ApplyLv10_SteadyDrawStamina(__instance, v);
-
-            // Apply Wind Reader stamina reduction (Level 30)
-            v = ArcherPerkManager.ApplyLv30_WindReaderStamina(__instance, v);
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in Player_UseStamina_Prefix (Archer): {ex.Message}");
-        }
-    }
-    #endregion
-
-    #region Periodic Cleanup
-    // Track last cleanup time to ensure consistent intervals
-    private static float lastCleanupTime = 0f;
 
     /// <summary>
-    /// Clean up expired buffs every 1 second, regardless of framerate
+    /// Trigger Combat Rhythm's bow/crossbow buff (Level 30) after a successful hit.
     /// </summary>
-    [HarmonyPatch(typeof(Game), "Update")]
+    [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPostfix]
-    public static void Game_Update_Postfix()
+    public static void Character_Damage_Archer_Postfix(Character __instance, HitData hit)
     {
         try
         {
-            // Clean up buffs every 1 second
-            if (Time.time - lastCleanupTime >= 1f)
+            if (hit.m_skill == Skills.SkillType.None) return;
+            if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
+            if (hit.GetTotalDamage() <= 0) return;
+
+            var weapon = player.GetCurrentWeapon();
+            if (!ClassCombatManager.IsBowWeapon(weapon)) return;
+            if (!ArcherPerkManager.HasArcherPerk(player, 30)) return;
+
+            if (weapon.m_shared.m_skillType == Skills.SkillType.Crossbows)
             {
-                lastCleanupTime = Time.time;
-                ArcherPerkManager.UpdateBuffs();
+                ArcherPerkManager.TriggerQuickCrank(player);
+            }
+            else
+            {
+                ArcherPerkManager.TriggerArrowSlinger(player);
             }
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Game_Update_Postfix (Archer cleanup): {ex.Message}");
+            Logger.LogError($"Error in Character_Damage_Archer_Postfix: {ex.Message}");
         }
     }
     #endregion
 
-    #region Helper Methods
+    #region Combat Rhythm Patches
     /// <summary>
-    /// Check if hit data represents projectile damage
+    /// Arrow Slinger's non-mutating draw-speed boost: scales the draw-completion percentage up
+    /// directly, rather than mutating the shared weapon.m_shared.m_attack.m_drawDurationMin field
+    /// (the old approach, which leaked the buff to any other player wielding the same bow model).
     /// </summary>
-    private static bool IsProjectileDamage(HitData hit)
+    [HarmonyPatch(typeof(Humanoid), "GetAttackDrawPercentage")]
+    [HarmonyPostfix]
+    public static void Humanoid_GetAttackDrawPercentage_Archer_Postfix(Humanoid __instance, ref float __result)
     {
-        // Check for projectile-related damage types or hit sources
-        return hit.m_skill == Skills.SkillType.Bows ||
-               hit.m_skill == Skills.SkillType.Crossbows ||
-               (hit.m_damage.m_pierce > 0 && hit.m_damage.m_blunt == 0 && hit.m_damage.m_slash == 0);
+        try
+        {
+            if (__result <= 0f || !(__instance is Player player)) return;
+            if (!ArcherPerkManager.HasArrowSlingerActive(player)) return;
+
+            __result = Mathf.Clamp01(__result / (1f - ArcherPerkManager.COMBAT_RHYTHM_REDUCTION));
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Humanoid_GetAttackDrawPercentage_Archer_Postfix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Quick Crank's reload-speed boost. The straightforward approach - scaling
+    /// ItemDrop.ItemData.GetWeaponLoadingTime()'s result - doesn't work: that duration is baked
+    /// into the queued MinorActionData exactly once, the instant a bolt is fired (confirmed via
+    /// logging - the reload gets queued essentially simultaneously with, and just before, the hit
+    /// that would trigger the buff), so the buff is never active yet when it matters. Instead,
+    /// this speeds up the *live* in-progress reload directly: Player.UpdateActionQueue advances
+    /// the current action via `m_time += dt` every FixedUpdate tick, so scaling up dt while a
+    /// Reload action is at the head of the queue and Quick Crank is active works regardless of
+    /// when that reload happened to be queued relative to the buff turning on.
+    /// </summary>
+    [HarmonyPatch(typeof(Player), "UpdateActionQueue")]
+    [HarmonyPrefix]
+    public static void Player_UpdateActionQueue_Archer_Prefix(Player __instance, ref float dt, List<Player.MinorActionData> ___m_actionQueue)
+    {
+        try
+        {
+            if (___m_actionQueue.Count == 0) return;
+
+            var current = ___m_actionQueue[0];
+            if (current.m_type != Player.MinorActionData.ActionType.Reload) return;
+            if (!ArcherPerkManager.HasQuickCrankActive(__instance)) return;
+
+            float before = dt;
+            dt /= 1f - ArcherPerkManager.COMBAT_RHYTHM_REDUCTION;
+
+            // Only log once per reload (right as it starts) rather than every tick.
+            if (current.m_time <= 0f)
+            {
+                DevLog.Log($"[QuickCrank] Speeding up in-progress reload at t={Time.time:F2}: dt {before:F3} -> {dt:F3}, duration={current.m_duration:F2}");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Player_UpdateActionQueue_Archer_Prefix: {ex.Message}");
+        }
     }
     #endregion
 
-    #region Magic Shot Implementation
+    #region Magic Shot
     /// <summary>
-    /// Simplified Magic Shot implementation - just add to existing stacks (allow temporary overflow)
+    /// Magic Shot (Level 20): 25% chance to not consume arrows/bolts.
     /// </summary>
     [HarmonyPatch(typeof(Inventory), "RemoveItem", new System.Type[] { typeof(ItemDrop.ItemData), typeof(int) })]
     [HarmonyPrefix]
@@ -525,34 +298,26 @@ public static class ArcherPerkPatches
     {
         try
         {
-            // Only proceed if this is an arrow/bolt being removed
             if (item == null || !IsArrowItem(item)) return;
 
-            // Find the player who owns this inventory
             var player = FindPlayerWithInventory(__instance);
             if (player == null) return;
 
-            // Check if player is using a bow and has Magic Shot perk
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsBowWeapon(weapon)) return;
+            if (!ArcherPerkManager.HasArcherPerk(player, 20)) return;
 
-            if (ArcherPerkManager.HasArcherPerk(player, 40))
+            if (Random.Range(0f, 1f) < 0.25f)
             {
-                // Check if Magic Shot should trigger (50% chance)
-                if (Random.Range(0f, 1f) < 0.5f)
-                {
-                    // Find the smallest existing stack of this item type
-                    var existingStacks = __instance.GetAllItems()
-                        .Where(i => i.m_shared.m_name == item.m_shared.m_name)
-                        .OrderBy(i => i.m_stack)
-                        .ToList();
+                var existingStacks = __instance.GetAllItems()
+                    .Where(i => i.m_shared.m_name == item.m_shared.m_name)
+                    .OrderBy(i => i.m_stack)
+                    .ToList();
 
-                    if (existingStacks.Count > 0)
-                    {
-                        // Add to the smallest stack (even if it goes over max - the removal will balance it)
-                        var smallestStack = existingStacks.First();
-                        smallestStack.m_stack += amount;
-                    }
+                if (existingStacks.Count > 0)
+                {
+                    var smallestStack = existingStacks.First();
+                    smallestStack.m_stack += amount;
                 }
             }
         }
@@ -562,9 +327,6 @@ public static class ArcherPerkPatches
         }
     }
 
-    /// <summary>
-    /// Helper method to check if item is an arrow/bolt
-    /// </summary>
     private static bool IsArrowItem(ItemDrop.ItemData item)
     {
         if (item?.m_shared == null) return false;
@@ -576,8 +338,29 @@ public static class ArcherPerkPatches
 
     private static Player FindPlayerWithInventory(Inventory inventory)
     {
-        var allPlayers = Player.GetAllPlayers();
-        return allPlayers.FirstOrDefault(p => p.GetInventory() == inventory);
+        return Player.GetAllPlayers().FirstOrDefault(p => p.GetInventory() == inventory);
+    }
+    #endregion
+
+    #region Periodic Cleanup
+    private static float lastCleanupTime = 0f;
+
+    [HarmonyPatch(typeof(Game), "Update")]
+    [HarmonyPostfix]
+    public static void Game_Update_Archer_Postfix()
+    {
+        try
+        {
+            if (Time.time - lastCleanupTime >= 1f)
+            {
+                lastCleanupTime = Time.time;
+                ArcherPerkManager.UpdateBuffs();
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Game_Update_Archer_Postfix: {ex.Message}");
+        }
     }
     #endregion
 }

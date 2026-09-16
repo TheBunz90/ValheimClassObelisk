@@ -23,7 +23,7 @@ internal class ClassObeliskMod : BaseUnityPlugin
 {
     public const string PluginGUID = "com.bunzboi.valheimweaponclass";
     public const string PluginName = "ValheimWeaponClasses";
-    public const string PluginVersion = "1.0.5";
+    public const string PluginVersion = "1.1.0";
 
     private GameObject TestPanel;
 
@@ -154,7 +154,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Wizard",
         "Lancer",
         "Bulwark",
-        "Axemaster"
+        "Executioner",
+        "Warlock"
     };
 
     // Per-class description providers backed by the PerkManagers - builds each class's
@@ -169,7 +170,8 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         { "Wizard", WizardPerkManager.GetClassDescription },
         { "Lancer", LancerPerkManager.GetClassDescription },
         { "Bulwark", BulwarkPerkManager.GetClassDescription },
-        { "Axemaster", AxemasterPerkManager.GetClassDescription }
+        { "Executioner", ExecutionerPerkManager.GetClassDescription },
+        { "Warlock", WarlockPerkManager.GetClassDescription }
     };
 
     private void Start()
@@ -351,18 +353,18 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
         var containerRect = buttonContainer.AddComponent<RectTransform>();
         containerRect.anchorMin = new Vector2(0.05f, 0.65f);  // Positioned above description window
-        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 3 columns
+        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 5 columns
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
 
-        // 3 columns x 3 rows (9 classes) - button height/spacing kept small enough that 3 rows
-        // still fit inside this container's existing ~180px height without overlapping the
-        // description window directly below it.
-        const int columns = 3;
-        float buttonWidth = 250f;
-        float buttonHeight = 44f;
-        float columnSpacing = 35f;
-        float rowSpacing = 12f;
+        // 5 columns x 2 rows (10 classes) - a clean grid rather than an uneven 3x4 with an empty
+        // slot. Only 2 rows now, so there's more headroom than the previous 3x3 layout had within
+        // this container's ~180px height, well clear of the description window below it.
+        const int columns = 5;
+        float buttonWidth = 210f;
+        float buttonHeight = 48f;
+        float columnSpacing = 25f;
+        float rowSpacing = 16f;
 
         int rows = Mathf.CeilToInt(ClassNames.Length / (float)columns);
 

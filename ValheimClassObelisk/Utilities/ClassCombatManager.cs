@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using UnityEngine;
 using Logger = Jotunn.Logger;
 
@@ -23,7 +24,7 @@ public static class ClassCombatManager
 
     // Mirrors vanilla's own (private) ItemDrop.ItemData.IsTwoHanded() - confirmed via decompile.
     // The one generic 1H/2H primitive for classes that need different perk behavior per hand
-    // count (Axemaster now; Crusher/Sword Master/Lancer in later reworks).
+    // count (Executioner now; Crusher/Sword Master/Lancer in later reworks).
     public static bool IsTwoHandedWeapon(ItemDrop.ItemData weapon)
     {
         if (weapon?.m_shared == null) return false;
@@ -105,7 +106,7 @@ public static class ClassCombatManager
         {
             case "Sword Master":
                 return skill == Skills.SkillType.Swords;
-            case "Axemaster":
+            case "Executioner":
                 return skill == Skills.SkillType.Axes;
             case "Archer":
                 return skill == Skills.SkillType.Bows || skill == Skills.SkillType.Crossbows;
@@ -116,7 +117,9 @@ public static class ClassCombatManager
             case "Brawler":
                 return skill == Skills.SkillType.Unarmed;
             case "Wizard":
-                return skill == Skills.SkillType.ElementalMagic || skill == Skills.SkillType.BloodMagic;
+                return skill == Skills.SkillType.ElementalMagic;
+            case "Warlock":
+                return skill == Skills.SkillType.BloodMagic;
             case "Lancer":
                 return skill == Skills.SkillType.Spears || skill == Skills.SkillType.Polearms;
             case "Bulwark":
@@ -128,9 +131,195 @@ public static class ClassCombatManager
 
     public static bool IsMagicWeapon(ItemDrop.ItemData weapon)
     {
+        return IsElementalMagicWeapon(weapon) || IsBloodMagicWeapon(weapon);
+    }
+
+    /// <summary>
+    /// Resolves a tamed/summoned Character's commanding player. Primary mechanism: the same live
+    /// call vanilla itself uses to attribute a summon's skill gains back to its owner
+    /// (Character.RaiseSkill's base implementation redirects through exactly this, confirmed via
+    /// decompile) - always current, not a spawn-time snapshot, works for any roaming/followed
+    /// creature (skeletons, trolls, etc.). Falls back to a time/position-correlated heuristic for
+    /// summons that never get a follow target set at all - confirmed via testing that Staff of the
+    /// Wild's vines have a MonsterAI component but, being stationary, are never "commanded" the
+    /// way a roaming pet is, so the primary mechanism can't resolve them.
+    /// </summary>
+    public static Player GetCommandingPlayer(Character character)
+    {
+        var monsterAI = character?.GetComponent<MonsterAI>();
+        if (monsterAI != null)
+        {
+            var followTarget = monsterAI.GetFollowTarget();
+            var player = followTarget?.GetComponent<Player>();
+            if (player != null) return player;
+        }
+
+        return ResolveFallback(character)?.owner;
+    }
+
+    /// <summary>
+    /// Reads the skill a commanded/summoned Character's actions should credit to its owner
+    /// (Tameable.m_levelUpOwnerSkill - the exact field vanilla's own Character.RaiseSkill reads
+    /// for this same purpose). Lets summon-attributed XP be routed to the correct class the same
+    /// way direct damage already is (via IsSkillAppropriateForClass), instead of hardcoding which
+    /// class(es) can have summons - important once a player has more than one summon-capable
+    /// class active at once (e.g. Wizard's vines and Warlock's skeletons simultaneously).
+    /// </summary>
+    public static Skills.SkillType GetCommandedSummonSkill(Character character)
+    {
+        var tameable = character?.GetComponent<Tameable>();
+        if (tameable != null && tameable.m_levelUpOwnerSkill != Skills.SkillType.None)
+        {
+            return tameable.m_levelUpOwnerSkill;
+        }
+
+        return ResolveFallback(character)?.skill ?? Skills.SkillType.None;
+    }
+
+    #region Summon Ownership Fallback
+    // Best-effort fallback for summons the primary mechanisms above can't resolve at all -
+    // confirmed via testing that Staff of the Wild's vines have neither a commandable
+    // MonsterAI follow-target (they're stationary, never "commanded" the way a roaming pet is)
+    // nor a Tameable component to read a skill from. Records (player, weapon's skill, time,
+    // position) on every SpawnAbility cast (see CombatPatches.SpawnAbility_Setup_Postfix below),
+    // then correlates a recent, nearby cast against a Character the primary lookups failed on.
+    private class PendingSummonCast
+    {
+        public long ownerPlayerID;
+        public Skills.SkillType weaponSkill;
+        public float time;
+        public Vector3 position;
+    }
+
+    private class FallbackAttribution
+    {
+        public Player owner;
+        public Skills.SkillType skill;
+    }
+
+    // 2s was too tight in practice: confirmed via testing that a stationary summon (Staff of the
+    // Wild's vine) can easily take longer than that just to root/animate before landing its first
+    // attack, by which point the cast record it needed to match against had already expired -
+    // meaning it could NEVER resolve an owner, not just "only the first tick or two" as originally
+    // assumed. 15s comfortably covers spawn/target latency for any summon type while the
+    // hostile-faction filter in ResolveFallback (above) keeps a wider window from misattributing
+    // an unrelated hostile creature that merely wanders past within it.
+    private const float SUMMON_FALLBACK_TIME_WINDOW = 15f;
+    private const float SUMMON_FALLBACK_RADIUS = 10f;
+    private static readonly List<PendingSummonCast> pendingSummonCasts = new List<PendingSummonCast>();
+
+    // ConditionalWeakTable (not a plain Dictionary) so a resolved entry is dropped automatically
+    // once the summon Character itself is garbage-collected, rather than leaking one entry per
+    // summon ever cast for the life of the session (same pattern AnimationSpeedManager already
+    // uses for its own per-character tracking). Caching matters here specifically because a
+    // stationary summon lives - and keeps dealing damage - long after the correlation window
+    // that first identified it has closed; without caching, only its first tick or two would
+    // ever resolve an owner (confirmed via testing).
+    private static readonly ConditionalWeakTable<Character, FallbackAttribution> fallbackCache = new ConditionalWeakTable<Character, FallbackAttribution>();
+
+    public static void RecordSummonCast(Player owner, Vector3 position, Skills.SkillType weaponSkill)
+    {
+        pendingSummonCasts.Add(new PendingSummonCast { ownerPlayerID = owner.GetPlayerID(), weaponSkill = weaponSkill, time = Time.time, position = position });
+    }
+
+    private static FallbackAttribution ResolveFallback(Character character)
+    {
+        if (character == null) return null;
+        if (fallbackCache.TryGetValue(character, out var cached)) return cached;
+        if (pendingSummonCasts.Count == 0) return null;
+
+        // A wild hostile creature (e.g. a Troll fighting the player's actual summon) can easily
+        // wander within the time/position window of a recent cast without being the summon at
+        // all - confirmed via testing where a hostile Troll got permanently misattributed as the
+        // player's own summon this way. IsMonsterFaction already returns false for anything tamed,
+        // so this only excludes genuinely wild/hostile factions, never a real player summon.
+        if (character.IsMonsterFaction(0f)) return null;
+
+        Vector3 pos = character.transform.position;
+
+        for (int i = pendingSummonCasts.Count - 1; i >= 0; i--)
+        {
+            var cast = pendingSummonCasts[i];
+            if (Time.time - cast.time > SUMMON_FALLBACK_TIME_WINDOW)
+            {
+                pendingSummonCasts.RemoveAt(i);
+                continue;
+            }
+
+            if (Vector3.Distance(cast.position, pos) <= SUMMON_FALLBACK_RADIUS)
+            {
+                var player = Player.GetAllPlayers().FirstOrDefault(p => p.GetPlayerID() == cast.ownerPlayerID);
+                if (player == null) return null;
+
+                DevLog.Log($"[Ownership] Fallback resolved '{character.name}' owner via a recent nearby cast: player={player.GetPlayerName()}, weaponSkill={cast.weaponSkill}");
+                var result = new FallbackAttribution { owner = player, skill = cast.weaponSkill };
+                fallbackCache.Add(character, result);
+                return result;
+            }
+        }
+
+        return null;
+    }
+    #endregion
+
+    #region Poison DoT Attribution
+    // Vanilla's own poison damage-over-time ticks (SE_Poison.UpdateStatusEffect, confirmed via
+    // decompile) build a bare `new HitData()` with only m_point/m_damage.m_poison/m_hitType set -
+    // never an attacker (StatusEffect.SetAttacker is a no-op base method SE_Poison never
+    // overrides). So hit.GetAttacker() is permanently null for every tick after the first, no
+    // matter who applied it - confirmed via testing that Staff of the Wild's vine poison ticks
+    // against a target produced zero attacker info at all. The ORIGINAL applying hit (a real
+    // Attack/Projectile hit, not a DoT tick) does carry a real attacker, so recording that here
+    // (see CombatPatches.Character_Damage_PoisonSource_Postfix) lets later ticks against the same
+    // target fall back to "whoever most recently poisoned this target" instead of going completely
+    // unattributed.
+    private class PoisonSource
+    {
+        public Character attacker;
+        public float time;
+    }
+
+    private const float POISON_SOURCE_WINDOW = 60f;
+    private static readonly ConditionalWeakTable<Character, PoisonSource> poisonSourceCache = new ConditionalWeakTable<Character, PoisonSource>();
+
+    public static void RecordPoisonSource(Character target, Character attacker)
+    {
+        if (target == null || attacker == null) return;
+        if (poisonSourceCache.TryGetValue(target, out var existing))
+        {
+            existing.attacker = attacker;
+            existing.time = Time.time;
+        }
+        else
+        {
+            poisonSourceCache.Add(target, new PoisonSource { attacker = attacker, time = Time.time });
+        }
+    }
+
+    public static Character GetRecentPoisonAttacker(Character target)
+    {
+        if (target != null && poisonSourceCache.TryGetValue(target, out var source) && Time.time - source.time <= POISON_SOURCE_WINDOW)
+        {
+            return source.attacker;
+        }
+        return null;
+    }
+    #endregion
+
+    // Wizard (elemental) vs. Warlock (blood magic) - classified by skill type like every other
+    // weapon check in this file. The named-staff lists in the design doc (Staff of Embers,
+    // Trollstav, etc.) are just documentation of which real items use which skill type; nothing
+    // here needs to hardcode item names.
+    public static bool IsElementalMagicWeapon(ItemDrop.ItemData weapon)
+    {
         if (!IsWeaponItemType(weapon)) return false;
-        return weapon.m_shared.m_skillType == Skills.SkillType.ElementalMagic ||
-               weapon.m_shared.m_skillType == Skills.SkillType.BloodMagic;
+        return weapon.m_shared.m_skillType == Skills.SkillType.ElementalMagic;
+    }
+
+    public static bool IsBloodMagicWeapon(ItemDrop.ItemData weapon)
+    {
+        if (!IsWeaponItemType(weapon)) return false;
+        return weapon.m_shared.m_skillType == Skills.SkillType.BloodMagic;
     }
 
     // Calculate damage multiplier based on player's active classes and weapon type
@@ -165,8 +354,8 @@ public static class ClassCombatManager
             case "Sword Master":
                 return GetSwordMasterDamageBonus(classLevel, weapon);
 
-            case "Axemaster":
-                return GetAxemasterDamageBonus(classLevel, weapon);
+            case "Executioner":
+                return GetExecutionerDamageBonus(classLevel, weapon);
 
             case "Archer":
                 return GetArcherDamageBonus(classLevel, weapon);
@@ -182,6 +371,9 @@ public static class ClassCombatManager
 
             case "Wizard":
                 return GetWizardDamageBonus(classLevel, weapon);
+
+            case "Warlock":
+                return GetWarlockDamageBonus(classLevel, weapon);
 
             case "Lancer":
                 return GetLancerDamageBonus(classLevel, weapon);
@@ -207,7 +399,7 @@ public static class ClassCombatManager
         return 1f + bonus;
     }
 
-    private static float GetAxemasterDamageBonus(int level, ItemDrop.ItemData weapon)
+    private static float GetExecutionerDamageBonus(int level, ItemDrop.ItemData weapon)
     {
         if (!IsAxeWeapon(weapon)) return 1f;
 
@@ -216,8 +408,8 @@ public static class ClassCombatManager
         // Level 10: Chopper's Training - +8% axe damage (1H and 2H alike)
         if (level >= 10) bonus += 0.08f;
 
-        // Level 50: Executioner - +15% axe damage (flat component; the conditional
-        // low-health bonus is handled separately in AxemasterPerkManager)
+        // Level 50: Execute - +15% axe damage (flat component; the conditional
+        // low-health bonus is handled separately in ExecutionerPerkManager)
         if (level >= 50) bonus += 0.15f;
 
         return 1f + bonus;
@@ -229,8 +421,12 @@ public static class ClassCombatManager
 
         float bonus = 0f;
 
-        // Level 50: Eagle Eye - fully drawn shots deal +20% damage (additional)
-        if (level >= 50) bonus += 0.20f;
+        // Level 10: Practiced Aim - +7% bow/crossbow damage
+        if (level >= 10) bonus += 0.07f;
+
+        // Level 50: Deadeye - +15% bow/crossbow damage (flat component; the conditional
+        // beyond-25m bonus is handled separately in ArcherPerkManager)
+        if (level >= 50) bonus += 0.15f;
 
         return 1f + bonus;
     }
@@ -278,15 +474,27 @@ public static class ClassCombatManager
 
     private static float GetWizardDamageBonus(int level, ItemDrop.ItemData weapon)
     {
-        if (!IsMagicWeapon(weapon)) return 1f;
+        if (!IsElementalMagicWeapon(weapon)) return 1f;
 
         float bonus = 0f;
 
-        // Level 10: +8% magic damage (additional)
-        if (level >= 10) bonus += 0.08f;
+        // Level 10: Eitr Weave - +7% elemental magic damage. Archmage (Level 50) carries no flat
+        // damage bonus in this design - only the affinity-aura trigger, handled in WizardPerkManager.
+        if (level >= 10) bonus += 0.07f;
 
-        // Level 40: +12% magic damage when below 50% Eitr (would need separate check)
-        // For now, just base bonus
+        return 1f + bonus;
+    }
+
+    private static float GetWarlockDamageBonus(int level, ItemDrop.ItemData weapon)
+    {
+        if (!IsBloodMagicWeapon(weapon)) return 1f;
+
+        float bonus = 0f;
+
+        // Level 10: Forbidden Knowledge - +7% blood magic damage (summon damage bonus handled
+        // separately in WarlockPerkManager, since summons don't route through the caster's own
+        // Character.Damage calls). Sanguine Reclamation (Level 50) carries no flat damage bonus.
+        if (level >= 10) bonus += 0.07f;
 
         return 1f + bonus;
     }
@@ -324,8 +532,8 @@ public static class ClassCombatManager
             case "Sword Master":
                 return GetSwordMasterDamageBonus(classLevel, weapon);
 
-            case "Axemaster":
-                return GetAxemasterDamageBonus(classLevel, weapon);
+            case "Executioner":
+                return GetExecutionerDamageBonus(classLevel, weapon);
 
             case "Archer":
                 return GetArcherDamageBonus(classLevel, weapon);
@@ -341,6 +549,9 @@ public static class ClassCombatManager
 
             case "Wizard":
                 return GetWizardDamageBonus(classLevel, weapon);
+
+            case "Warlock":
+                return GetWarlockDamageBonus(classLevel, weapon);
 
             case "Lancer":
                 return GetLancerDamageBonus(classLevel, weapon);
@@ -396,6 +607,63 @@ public static class CombatPatches
         catch (System.Exception ex)
         {
             Logger.LogError($"Error in Character_Damage_Prefix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Feeds ClassCombatManager's summon-ownership fallback (see GetCommandingPlayer) - shared
+    /// infrastructure, not tied to any one class, since any class's summon-type weapon can end up
+    /// needing it (confirmed necessary for Wizard's stationary vine summons; Warlock's roaming
+    /// skeletons/trolls don't need it, but recording the cast for them too is harmless).
+    /// </summary>
+    [HarmonyPatch(typeof(SpawnAbility), "Setup")]
+    [HarmonyPostfix]
+    public static void SpawnAbility_Setup_Postfix(Character owner)
+    {
+        try
+        {
+            if (owner is Player player)
+            {
+                // The currently-equipped weapon at the moment of casting is the reliable signal
+                // for "what skill should this summon's actions credit" - simpler and more robust
+                // than depending on SpawnAbility.Setup's own item parameter being populated the
+                // same way for every possible summon-spawning path.
+                var weaponSkill = player.GetCurrentWeapon()?.m_shared?.m_skillType ?? Skills.SkillType.None;
+                ClassCombatManager.RecordSummonCast(player, player.transform.position, weaponSkill);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in SpawnAbility_Setup_Postfix: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Feeds ClassCombatManager's poison-DoT attribution fallback (see GetRecentPoisonAttacker) -
+    /// records the real attacker whenever a hit that actually carries one also deals poison
+    /// damage, so later attacker-less DoT ticks against the same target can still be traced back
+    /// to whoever poisoned them. Must be a PREFIX, not a postfix: Character.RPC_Damage (called
+    /// synchronously from within Damage() for the local owner, confirmed via decompile) strips
+    /// hit.m_damage.m_poison to 0 on this same HitData object - a reference type - before diverting
+    /// it into the SE_Poison DoT system, so a postfix here would always see it already zeroed.
+    /// </summary>
+    [HarmonyPatch(typeof(Character), "Damage")]
+    [HarmonyPrefix]
+    public static void Character_Damage_PoisonSource_Prefix(Character __instance, HitData hit)
+    {
+        try
+        {
+            if (__instance == null) return;
+            if (hit.m_damage.m_poison <= 0f) return;
+
+            var attacker = hit.GetAttacker();
+            if (attacker == null) return;
+
+            ClassCombatManager.RecordPoisonSource(__instance, attacker);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Character_Damage_PoisonSource_Prefix: {ex.Message}");
         }
     }
 }
@@ -664,7 +932,7 @@ public static class CombatDebugCommands
                 args.Context.AddString($"Is Knife: {ClassCombatManager.IsKnifeWeapon(weapon)}");
                 args.Context.AddString($"Is Spear: {ClassCombatManager.IsSpearWeapon(weapon)}");
                 args.Context.AddString($"Is Unarmed: {ClassCombatManager.IsUnarmedAttack(weapon)}");
-                args.Context.AddString($"Is Magic: {ClassCombatManager.IsMagicWeapon(weapon)}");
+                args.Context.AddString($"Is Magic: {ClassCombatManager.IsMagicWeapon(weapon)} (Elemental: {ClassCombatManager.IsElementalMagicWeapon(weapon)}, Blood: {ClassCombatManager.IsBloodMagicWeapon(weapon)})");
             }
         );
 

@@ -4,20 +4,20 @@ using System.Collections.Generic;
 using Logger = Jotunn.Logger;
 
 /// <summary>
-/// Axemaster class perk system - focused on one-handed axes and battleaxes, bleed damage,
+/// Executioner class perk system - focused on one-handed axes and battleaxes, bleed damage,
 /// and finishing power against weakened enemies. Axes previously lived under Sword Master
 /// (see ClassCombatManager.IsSwordWeapon's history); this is their own class now.
 /// </summary>
-public static class AxemasterPerkManager
+public static class ExecutionerPerkManager
 {
-    public static bool HasAxemasterPerk(Player player, int requiredLevel)
+    public static bool HasExecutionerPerk(Player player, int requiredLevel)
     {
         if (player == null) return false;
 
         var playerData = PlayerClassManager.GetPlayerData(player);
-        if (playerData == null || !playerData.IsClassActive(PlayerClass.Axemaster)) return false;
+        if (playerData == null || !playerData.IsClassActive(PlayerClass.Executioner)) return false;
 
-        return playerData.GetClassLevel(PlayerClass.Axemaster) >= requiredLevel;
+        return playerData.GetClassLevel(PlayerClass.Executioner) >= requiredLevel;
     }
 
     // Description metadata, shown in the class selection GUI - locked perks display as "???"
@@ -30,12 +30,12 @@ public static class AxemasterPerkManager
         new PerkInfo { RequiredLevel = 20, Name = "Woodsman's Carry", Description = "Axes weigh 50% less and impose no movement speed penalties." },
         new PerkInfo { RequiredLevel = 30, Name = "Rending Rhythm", Description = "One-handed axe hits against the same target build up to 3 stacks; each stack grants +5% damage to that target for 5s. Battleaxe special attacks apply all 3 stacks at once." },
         new PerkInfo { RequiredLevel = 40, Name = "Hemorrhage", Description = "Axe attacks apply bleed, dealing slash damage over time equal to 12% of weapon damage over 5s. Reapplying bleed refreshes the duration." },
-        new PerkInfo { RequiredLevel = 50, Name = "Executioner", Description = "+15% axe damage. Axe attacks deal an additional +10% damage against enemies below 40% health." },
+        new PerkInfo { RequiredLevel = 50, Name = "Execute", Description = "+15% axe damage. Axe attacks deal an additional +10% damage against enemies below 40% health." },
     };
 
     public static string GetClassDescription(Player player)
     {
-        int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Axemaster) ?? 0;
+        int level = PlayerClassManager.GetPlayerData(player)?.GetClassLevel(PlayerClass.Executioner) ?? 0;
         return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
     }
 
@@ -100,7 +100,7 @@ public static class AxemasterPerkManager
 
     private static void ApplyHemorrhage(Player player, Character target, float hitDamage)
     {
-        if (!HasAxemasterPerk(player, 40) || target == null || target.IsDead()) return;
+        if (!HasExecutionerPerk(player, 40) || target == null || target.IsDead()) return;
 
         float bleedTotal = hitDamage * HEMORRHAGE_PERCENT;
         if (bleedTotal <= 0f) return;
@@ -167,11 +167,11 @@ public static class AxemasterPerkManager
     /// </summary>
     [HarmonyPatch(typeof(Player), "GetEquipmentMovementModifier")]
     [HarmonyPostfix]
-    public static void Player_GetEquipmentMovementModifier_Axemaster_Postfix(Player __instance, ref float __result)
+    public static void Player_GetEquipmentMovementModifier_Executioner_Postfix(Player __instance, ref float __result)
     {
         try
         {
-            if (!HasAxemasterPerk(__instance, 20)) return;
+            if (!HasExecutionerPerk(__instance, 20)) return;
 
             var weapon = __instance.GetCurrentWeapon();
             if (weapon == null || !ClassCombatManager.IsAxeWeapon(weapon)) return;
@@ -181,7 +181,7 @@ public static class AxemasterPerkManager
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Player_GetEquipmentMovementModifier_Axemaster_Postfix: {ex.Message}");
+            Logger.LogError($"Error in Player_GetEquipmentMovementModifier_Executioner_Postfix: {ex.Message}");
         }
     }
 
@@ -191,19 +191,19 @@ public static class AxemasterPerkManager
     /// </summary>
     [HarmonyPatch(typeof(ItemDrop.ItemData), "GetWeight")]
     [HarmonyPostfix]
-    public static void ItemData_GetWeight_Axemaster_Postfix(ItemDrop.ItemData __instance, ref float __result)
+    public static void ItemData_GetWeight_Executioner_Postfix(ItemDrop.ItemData __instance, ref float __result)
     {
         try
         {
             var localPlayer = Player.m_localPlayer;
-            if (localPlayer == null || !HasAxemasterPerk(localPlayer, 20)) return;
+            if (localPlayer == null || !HasExecutionerPerk(localPlayer, 20)) return;
             if (!ClassCombatManager.IsAxeWeapon(__instance)) return;
 
             __result *= 0.5f;
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in ItemData_GetWeight_Axemaster_Postfix: {ex.Message}");
+            Logger.LogError($"Error in ItemData_GetWeight_Executioner_Postfix: {ex.Message}");
         }
     }
     #endregion
@@ -216,7 +216,7 @@ public static class AxemasterPerkManager
 
     [HarmonyPatch(typeof(Humanoid), "StartAttack")]
     [HarmonyPrefix]
-    public static void Humanoid_StartAttack_Axemaster_Prefix(Humanoid __instance, bool secondaryAttack)
+    public static void Humanoid_StartAttack_Executioner_Prefix(Humanoid __instance, bool secondaryAttack)
     {
         try
         {
@@ -233,20 +233,20 @@ public static class AxemasterPerkManager
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Humanoid_StartAttack_Axemaster_Prefix: {ex.Message}");
+            Logger.LogError($"Error in Humanoid_StartAttack_Executioner_Prefix: {ex.Message}");
         }
     }
     #endregion
 
     #region Damage Patches
     /// <summary>
-    /// Applies Rending Rhythm's existing stack bonus (Level 30) and Executioner's low-health
-    /// bonus (Level 50) to outgoing axe damage. Chopper's Training and Executioner's flat +15%
-    /// are handled entirely by ClassCombatManager.GetAxemasterDamageBonus - not duplicated here.
+    /// Applies Rending Rhythm's existing stack bonus (Level 30) and Execute's low-health
+    /// bonus (Level 50) to outgoing axe damage. Chopper's Training and Execute's flat +15%
+    /// are handled entirely by ClassCombatManager.GetExecutionerDamageBonus - not duplicated here.
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPrefix]
-    public static void Character_Damage_Axemaster_Prefix(Character __instance, ref HitData hit)
+    public static void Character_Damage_Executioner_Prefix(Character __instance, ref HitData hit)
     {
         try
         {
@@ -260,18 +260,18 @@ public static class AxemasterPerkManager
             if (!ClassCombatManager.IsAxeWeapon(weapon)) return;
 
             var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.Axemaster)) return;
+            if (playerData == null || !playerData.IsClassActive(PlayerClass.Executioner)) return;
 
             float bonus = 0f;
 
-            if (HasAxemasterPerk(player, 30))
+            if (HasExecutionerPerk(player, 30))
             {
                 bonus += GetRendingRhythmBonus(__instance);
             }
 
-            if (HasAxemasterPerk(player, 50) && __instance.GetHealthPercentage() < 0.4f)
+            if (HasExecutionerPerk(player, 50) && __instance.GetHealthPercentage() < 0.4f)
             {
-                bonus += 0.10f; // Executioner's conditional low-health bonus
+                bonus += 0.10f; // Execute's conditional low-health bonus
             }
 
             if (bonus > 0f)
@@ -285,7 +285,7 @@ public static class AxemasterPerkManager
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Character_Damage_Axemaster_Prefix: {ex.Message}");
+            Logger.LogError($"Error in Character_Damage_Executioner_Prefix: {ex.Message}");
         }
     }
 
@@ -295,7 +295,7 @@ public static class AxemasterPerkManager
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPostfix]
-    public static void Character_Damage_Axemaster_Postfix(Character __instance, HitData hit)
+    public static void Character_Damage_Executioner_Postfix(Character __instance, HitData hit)
     {
         try
         {
@@ -306,20 +306,20 @@ public static class AxemasterPerkManager
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsAxeWeapon(weapon)) return;
 
-            if (HasAxemasterPerk(player, 30))
+            if (HasExecutionerPerk(player, 30))
             {
                 bool applyAllStacks = pendingTwoHandedSpecialAttack.TryGetValue(player, out var isSpecial) && isSpecial;
                 AddRendingRhythmStack(__instance, applyAllStacks);
             }
 
-            if (HasAxemasterPerk(player, 40))
+            if (HasExecutionerPerk(player, 40))
             {
                 ApplyHemorrhage(player, __instance, hit.GetTotalDamage());
             }
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Character_Damage_Axemaster_Postfix: {ex.Message}");
+            Logger.LogError($"Error in Character_Damage_Executioner_Postfix: {ex.Message}");
         }
     }
     #endregion
@@ -327,7 +327,7 @@ public static class AxemasterPerkManager
     #region Periodic Updates
     [HarmonyPatch(typeof(Game), "Update")]
     [HarmonyPostfix]
-    public static void Game_Update_Axemaster_Postfix()
+    public static void Game_Update_Executioner_Postfix()
     {
         try
         {
@@ -335,7 +335,7 @@ public static class AxemasterPerkManager
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Game_Update_Axemaster_Postfix: {ex.Message}");
+            Logger.LogError($"Error in Game_Update_Executioner_Postfix: {ex.Message}");
         }
     }
     #endregion

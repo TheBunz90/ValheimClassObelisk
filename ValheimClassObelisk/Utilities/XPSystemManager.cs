@@ -373,7 +373,12 @@ public static class XPTrackingPatches
                 return;
             }
 
-            Character hitAttacker = hit.GetAttacker();
+            // Vanilla's own poison DoT ticks never carry an attacker (SE_Poison builds a bare
+            // HitData with no attacker set, confirmed via decompile) - fall back to whoever most
+            // recently applied poison to this target (see ClassCombatManager.RecordPoisonSource)
+            // so a poison-based summon (e.g. Staff of the Wild's vine) still grants XP for its
+            // DoT ticks instead of going completely unattributed.
+            Character hitAttacker = hit.GetAttacker() ?? ClassCombatManager.GetRecentPoisonAttacker(__instance);
             DevLog.Log($"[XPDBG] hit.GetAttacker() = {(hitAttacker == null ? "null" : hitAttacker.name)} ({(hitAttacker == null ? "?" : hitAttacker.GetType().Name)}), target is Player = {__instance is Player}");
 
             // Only award XP for player attacks on non-player creatures
@@ -403,6 +408,40 @@ public static class XPTrackingPatches
                     {
                         ClassXPManager.TrackDamageToCreature(__instance, attacker, hit.GetTotalDamage(), activeClass);
                         DevLog.Log($"[XPDBG] TrackDamageToCreature called: creature={__instance.name}, attacker={attacker.GetPlayerName()}, damage={hit.GetTotalDamage()}, class={activeClass}");
+                    }
+                }
+            }
+            // Summon-attributed damage (Warlock's skeletons/trolls, Wizard's vines, etc.) - the
+            // attacker is a commanded creature, not a player directly, so it never has a
+            // weapon/hit.m_skill to match against a class the way direct player damage does above.
+            // Resolve its owner via ClassCombatManager.GetCommandingPlayer (the same live
+            // MonsterAI.GetFollowTarget() mechanism vanilla itself uses to attribute a summon's
+            // skill gains), then route to the correct class via GetCommandedSummonSkill
+            // (Tameable.m_levelUpOwnerSkill - vanilla's own "which skill does this summon's owner
+            // get credit for" field) + the same IsSkillAppropriateForClass mapping direct damage
+            // uses above. Routing by the summon's own configured skill (not just "is any
+            // summon-capable class active") matters once a player has more than one such class
+            // active at once - e.g. Wizard and Warlock simultaneously, like BunzTest's test
+            // character - so a Blood Magic skeleton's kills don't also credit Wizard and vice versa.
+            else if (hitAttacker != null && !(hitAttacker is Player) && __instance != null && !(__instance is Player))
+            {
+                var owner = ClassCombatManager.GetCommandingPlayer(hitAttacker);
+                if (owner != null)
+                {
+                    var summonSkill = ClassCombatManager.GetCommandedSummonSkill(hitAttacker);
+                    var playerData = PlayerClassManager.GetPlayerData(owner);
+                    DevLog.Log($"[XPDBG] Summon damage: summon={hitAttacker.name}, owner={owner.GetPlayerName()}, summonSkill={summonSkill}, activeClasses={(playerData == null ? "n/a" : string.Join(",", playerData.activeClasses))}");
+
+                    if (playerData != null && summonSkill != Skills.SkillType.None)
+                    {
+                        foreach (string activeClass in playerData.activeClasses)
+                        {
+                            if (ClassCombatManager.IsSkillAppropriateForClass(summonSkill, activeClass))
+                            {
+                                ClassXPManager.TrackDamageToCreature(__instance, owner, hit.GetTotalDamage(), activeClass);
+                                DevLog.Log($"[XPDBG] TrackDamageToCreature (summon) called: creature={__instance.name}, summon={hitAttacker.name}, owner={owner.GetPlayerName()}, damage={hit.GetTotalDamage()}, class={activeClass}");
+                            }
+                        }
                     }
                 }
             }

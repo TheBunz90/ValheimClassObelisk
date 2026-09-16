@@ -15,7 +15,8 @@ public enum PlayerClass
     Wizard,
     Lancer,
     Bulwark,
-    Axemaster
+    Executioner,
+    Warlock
 }
 
 /// <summary>
@@ -34,7 +35,8 @@ public static class PlayerClassHelper
         { PlayerClass.Wizard, "Wizard" },
         { PlayerClass.Lancer, "Lancer" },
         { PlayerClass.Bulwark, "Bulwark" },
-        { PlayerClass.Axemaster, "Axemaster" }
+        { PlayerClass.Executioner, "Executioner" },
+        { PlayerClass.Warlock, "Warlock" }
     };
 
     // Internal names for save data (legacy support)
@@ -48,7 +50,8 @@ public static class PlayerClassHelper
         { PlayerClass.Wizard, "Wizard" },
         { PlayerClass.Lancer, "Lancer" },
         { PlayerClass.Bulwark, "Bulwark" },
-        { PlayerClass.Axemaster, "Axemaster" }
+        { PlayerClass.Executioner, "Executioner" },
+        { PlayerClass.Warlock, "Warlock" }
     };
 
     // Weapon type descriptions for each class
@@ -59,10 +62,11 @@ public static class PlayerClassHelper
         { PlayerClass.Crusher, "Maces & Hammers" },
         { PlayerClass.Assassin, "Knives" },
         { PlayerClass.Brawler, "Unarmed" },
-        { PlayerClass.Wizard, "Staves" },
+        { PlayerClass.Wizard, "Elemental Magic Staves" },
         { PlayerClass.Lancer, "Spears & Polearms" },
         { PlayerClass.Bulwark, "Shields" },
-        { PlayerClass.Axemaster, "Axes & Battleaxes" }
+        { PlayerClass.Executioner, "Axes & Battleaxes" },
+        { PlayerClass.Warlock, "Blood Magic Staves" }
     };
 
     /// <summary>
@@ -165,13 +169,15 @@ public static class PlayerClassHelper
             case PlayerClass.Brawler:
                 return ClassCombatManager.IsUnarmedAttack(weapon);
             case PlayerClass.Wizard:
-                return ClassCombatManager.IsMagicWeapon(weapon);
+                return ClassCombatManager.IsElementalMagicWeapon(weapon);
             case PlayerClass.Lancer:
                 return ClassCombatManager.IsSpearWeapon(weapon);
             case PlayerClass.Bulwark:
                 return true; // Bulwark gains XP from any combat (defensive class)
-            case PlayerClass.Axemaster:
+            case PlayerClass.Executioner:
                 return ClassCombatManager.IsAxeWeapon(weapon);
+            case PlayerClass.Warlock:
+                return ClassCombatManager.IsBloodMagicWeapon(weapon);
             default:
                 return false;
         }

@@ -27,7 +27,7 @@ public static class SwordMasterPerkManager
 
     // Description metadata, shown in the class selection GUI - locked perks display as "???"
     private const string Intro = "Blade specialists who reward clean timing, fast footwork, and precise melee pressure.";
-    private const string Outro = "Best for players who want swords and greatswords to feel precise, reactive, and rewarding without absorbing axe identity.";
+    private const string Outro = "Best for players who want swords and greatswords to feel precise, reactive, and rewarding.";
 
     public static readonly List<PerkInfo> Perks = new List<PerkInfo>
     {
@@ -442,7 +442,7 @@ public static class SwordMasterPerkPatches
     #region Movement Speed Patches
     /// <summary>
     /// Duelist's Balance (Level 20): cancels an equipped sword's own movement-speed penalty
-    /// without touching the item's shared data, mirroring AxemasterPerkManager's Woodsman's Carry.
+    /// without touching the item's shared data, mirroring ExecutionerPerkManager's Woodsman's Carry.
     /// </summary>
     [HarmonyPatch(typeof(Player), "GetEquipmentMovementModifier")]
     [HarmonyPostfix]

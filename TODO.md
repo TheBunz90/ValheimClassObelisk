@@ -3,6 +3,9 @@
 Bugs and changes we want to track and fix one at a time. Add new items to the bottom of Open; move finished items to Done with a one-line note on the fix (and mention it in CHANGELOG.md if it's user-facing).
 
 ## Open
+- [ ] **Reduced Weight and Movespeed Drawback Negation Now Working** The perk for Executioner that reduces the weight of axes and removes the movement speed modifier from them is not working.
+- [ ] **Address Mob XP**
+- [ ] **Address Lancer Perk Triggering on Bow Hits** verify this is not an issue.
 
 ## Done
 

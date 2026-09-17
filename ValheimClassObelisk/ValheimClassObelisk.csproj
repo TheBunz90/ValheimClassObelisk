@@ -143,5 +143,11 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\Reverb_sprite.rgba" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\bloodwell_128.rgba" />
+    <EmbeddedResource Include="Resources\Icons\stormstrider_128.rgba" />
+    <EmbeddedResource Include="Resources\Icons\verdant_aura_128.rgba" />
+    <EmbeddedResource Include="Resources\Icons\sanguine_reclamation_128.rgba" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

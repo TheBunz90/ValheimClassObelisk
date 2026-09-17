@@ -1,8 +1,11 @@
 using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace ValheimClassObelisk
 {
@@ -26,6 +29,11 @@ namespace ValheimClassObelisk
         private const float BLOOD_FEAST_FOOD_HEALTH_BONUS = 0.15f;
         private const float BLOOD_FEAST_REGEN_BONUS = 0.15f;
         private const float DARK_EFFICIENCY_EITR_MULT = 0.90f;
+
+        private const string BLOODWELL_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.bloodwell_128.rgba";
+        private const string SANGUINE_RECLAMATION_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.sanguine_reclamation_128.rgba";
+        private static Sprite _cachedBloodwellIcon;
+        private static Sprite _cachedSanguineReclamationIcon;
 
         public static bool HasWarlockPerk(Player player, int requiredLevel)
         {
@@ -209,6 +217,7 @@ namespace ValheimClassObelisk
             statusEffect.name = "SE_SanguineReclamation";
             statusEffect.m_name = "Sanguine Reclamation";
             statusEffect.m_tooltip = "Blood magic damage heals you (capped)";
+            statusEffect.m_icon = GetSanguineReclamationIcon();
             statusEffect.m_ttl = SANGUINE_RECLAMATION_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
@@ -244,7 +253,7 @@ namespace ValheimClassObelisk
 
             var statusEffect = ScriptableObject.CreateInstance<SE_Bloodwell>();
             statusEffect.name = "SE_Bloodwell";
-            statusEffect.m_icon = player.GetCurrentWeapon()?.GetIcon();
+            statusEffect.m_icon = GetBloodwellIcon();
             statusEffect.m_ttl = 0f; // permanent while the perk is unlocked
             statusEffect.SetCharges(charges, BLOODWELL_THRESHOLD);
 
@@ -273,6 +282,79 @@ namespace ValheimClassObelisk
             cap.healedThisSecond += healAmount;
             player.Heal(healAmount);
             DevLog.Log($"[Warlock] {player.GetPlayerName()}: Sanguine Reclamation healed {healAmount:F1} ({cap.healedThisSecond:F1}/{SANGUINE_RECLAMATION_HEAL_CAP_PER_SEC:F0} this second)");
+        }
+        #endregion
+
+        #region Icon Loading
+        private static Sprite GetBloodwellIcon()
+        {
+            if (_cachedBloodwellIcon != null) return _cachedBloodwellIcon;
+            return LoadIconFromResource(BLOODWELL_ICON_RESOURCE, "Bloodwell", ref _cachedBloodwellIcon);
+        }
+
+        private static Sprite GetSanguineReclamationIcon()
+        {
+            if (_cachedSanguineReclamationIcon != null) return _cachedSanguineReclamationIcon;
+            return LoadIconFromResource(SANGUINE_RECLAMATION_ICON_RESOURCE, "Sanguine Reclamation", ref _cachedSanguineReclamationIcon);
+        }
+
+        // Same custom format WizardPerkManager's loader reads: an 8-byte header (int32 width,
+        // int32 height, little-endian) followed by raw RGBA32 pixel data - not a standard image
+        // container, so it can't go through Unity's normal texture import pipeline.
+        private static Sprite LoadIconFromResource(string resourceName, string iconType, ref Sprite cachedSprite)
+        {
+            try
+            {
+                var asm = Assembly.GetExecutingAssembly();
+                using (Stream s = asm.GetManifestResourceStream(resourceName))
+                {
+                    if (s == null)
+                    {
+                        Logger.LogWarning($"[Warlock] Embedded icon not found: {resourceName}");
+                        return null;
+                    }
+
+                    byte[] header = new byte[8];
+                    int read = s.Read(header, 0, 8);
+                    if (read != 8)
+                    {
+                        Logger.LogWarning($"[Warlock] {iconType} icon header corrupt.");
+                        return null;
+                    }
+
+                    int width = BitConverter.ToInt32(header, 0);
+                    int height = BitConverter.ToInt32(header, 4);
+                    int expectedBytes = width * height * 4;
+
+                    byte[] pixels = new byte[expectedBytes];
+                    int off = 0;
+                    while (off < expectedBytes)
+                    {
+                        int n = s.Read(pixels, off, expectedBytes - off);
+                        if (n <= 0) break;
+                        off += n;
+                    }
+                    if (off != expectedBytes)
+                    {
+                        Logger.LogWarning($"[Warlock] {iconType} icon pixel data incomplete ({off}/{expectedBytes}).");
+                        return null;
+                    }
+
+                    Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+                    tex.wrapMode = TextureWrapMode.Clamp;
+                    tex.filterMode = FilterMode.Bilinear;
+                    tex.LoadRawTextureData(pixels);
+                    tex.Apply(false, false);
+
+                    cachedSprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
+                    return cachedSprite;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"[Warlock] Failed to load {iconType} icon: {ex}");
+                return null;
+            }
         }
         #endregion
 

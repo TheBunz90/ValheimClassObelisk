@@ -2,9 +2,9 @@
 
 ## 1. Overview
 
-Class Obelisk is a Valheim mod (BepInEx plugin, built on the [Jotunn](https://valheim-modding.github.io/Jotunn/) modding library) that adds a craftable "Class Obelisk" piece. A player interacts with the Obelisk to choose one of 8 combat classes:
+Class Obelisk is a Valheim mod (BepInEx plugin, built on the [Jotunn](https://valheim-modding.github.io/Jotunn/) modding library) that adds a craftable "Class Obelisk" piece. A player interacts with the Obelisk to choose from 10 combat classes:
 
-`SwordMaster`, `Archer`, `Crusher`, `Assassin`, `Brawler`, `Wizard`, `Lancer`, `Bulwark`
+`SwordMaster`, `Archer`, `Crusher`, `Assassin`, `Brawler`, `Wizard`, `Lancer`, `Bulwark`, `Executioner`, `Warlock`
 
 Each class deals bonus damage with its associated weapon type and gains XP from combat. Classes level from 1 to 50, unlocking a passive perk every 10 levels (10 / 20 / 30 / 40 / 50).
 
@@ -14,7 +14,7 @@ Each class deals bonus damage with its associated weapon type and gains XP from 
 |---|---|
 | GUID | `com.bunzboi.valheimweaponclass` |
 | Name | ValheimWeaponClasses |
-| Version | 1.0.3 |
+| Version | 1.1.0 |
 
 ## 2. Requirements / Dependencies
 

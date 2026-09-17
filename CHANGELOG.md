@@ -10,6 +10,8 @@ Two new classes have joined the roster, bringing the total from 8 to 10:
 - **Executioner** (Axes & Battleaxes) - axes have been split out of Sword Master into their own dedicated class.
 - **Warlock** (Blood Magic Staves) - Blood Magic has been split out of Wizard into its own class built around health-sacrifice casting, Bloodwell charges, and life-stealing summons. Wizard is now a pure Elemental Magic specialist.
 
+Also: Warlock's Bloodwell and Sanguine Reclamation buffs and Wizard's Storm Strider and Verdant Aura buffs now have their own dedicated icons instead of falling back to your currently equipped weapon's icon, and Storm Strider now also grants +20% jump height on top of its movement speed bonus.
+
 ### Sword Master (Swords)
 - Level 10 - Blade Training: +7% sword damage.
 - Level 20 - Duelist's Balance: Sword stamina costs are reduced by 10%, and swords impose no movement speed penalties.
@@ -71,7 +73,7 @@ Two new classes have joined the roster, bringing the total from 8 to 10:
 - Level 20 - Arcane Nourishment: Eitr granted by food is increased by 15%.
 - Level 30 - Arcane Surge: Dealing elemental magic damage grants +25% Eitr regeneration for 6s. Additional elemental magic damage refreshes the duration.
 - Level 40 - Arcane Efficiency: Elemental magic weapon Eitr costs are reduced by 10%.
-- Level 50 - Archmage: Dealing 500 damage of a single elemental affinity (fire, frost, lightning, or poison/nature) triggers its matching aura - Immolation Aura, Frost Armor, Stormstride, or Verdant Aura - for 20s. Only one Archmage aura may be active at a time, and damage dealt while one is active isn't tracked.
+- Level 50 - Archmage: Dealing 500 damage of a single elemental affinity (fire, frost, lightning, or poison/nature) triggers its matching aura - Immolation Aura, Frost Armor, Storm Strider, or Verdant Aura - for 20s. Only one Archmage aura may be active at a time, and damage dealt while one is active isn't tracked.
 
 ### Warlock (Blood Magic Staves) — NEW CLASS
 - Level 10 - Forbidden Knowledge: +7% blood magic damage and summoned creature damage.

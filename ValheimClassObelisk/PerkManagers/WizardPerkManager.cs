@@ -22,20 +22,25 @@ namespace ValheimClassObelisk
         private const float ARCHMAGE_THRESHOLD = 500f;
         private const float ARCHMAGE_AURA_DURATION = 20f;
         private const float STORMSTRIDE_SPEED_BONUS = 0.20f;
+        private const float STORMSTRIDE_JUMP_BONUS = 0.20f;
         private const float FROST_ARMOR_BONUS = 0.25f;
         private const float IMMOLATION_AURA_RADIUS = 5f;
         private const float IMMOLATION_AURA_DAMAGE = 15f;
         private const float VERDANT_AURA_RADIUS = 8f;
         private const float VERDANT_AURA_HEAL_PER_SEC = 2f;
 
-        // Icon Resources (all three already embedded from the previous Wizard implementation)
+        // Icon Resources
         private const string FROST_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.frost_armor_128.rgba";
         private const string FIRE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.immolation_aura_128.rgba";
         private const string EITR_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.eitrweave_fist.rgba";
+        private const string STORMSTRIDER_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.stormstrider_128.rgba";
+        private const string VERDANT_AURA_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.verdant_aura_128.rgba";
 
         private static Sprite _cachedFrostIcon;
         private static Sprite _cachedFireIcon;
         private static Sprite _cachedEitrIcon;
+        private static Sprite _cachedStormstriderIcon;
+        private static Sprite _cachedVerdantAuraIcon;
 
         public static bool HasWizardPerk(Player player, int requiredLevel)
         {
@@ -246,8 +251,8 @@ namespace ValheimClassObelisk
             {
                 case Affinity.Fire: return GetFireIcon();
                 case Affinity.Frost: return GetFrostIcon();
-                // No dedicated Lightning/Poison icons exist - fall back to the weapon icon,
-                // matching the fallback already used for Combat Rhythm/Blood Pact's buff icons.
+                case Affinity.Lightning: return GetStormstriderIcon();
+                case Affinity.Poison: return GetVerdantAuraIcon();
                 default: return player.GetCurrentWeapon()?.GetIcon();
             }
         }
@@ -270,6 +275,18 @@ namespace ValheimClassObelisk
         {
             if (_cachedEitrIcon != null) return _cachedEitrIcon;
             return LoadIconFromResource(EITR_ICON_RESOURCE, "Eitr", ref _cachedEitrIcon);
+        }
+
+        private static Sprite GetStormstriderIcon()
+        {
+            if (_cachedStormstriderIcon != null) return _cachedStormstriderIcon;
+            return LoadIconFromResource(STORMSTRIDER_ICON_RESOURCE, "Storm Strider", ref _cachedStormstriderIcon);
+        }
+
+        private static Sprite GetVerdantAuraIcon()
+        {
+            if (_cachedVerdantAuraIcon != null) return _cachedVerdantAuraIcon;
+            return LoadIconFromResource(VERDANT_AURA_ICON_RESOURCE, "Verdant Aura", ref _cachedVerdantAuraIcon);
         }
 
         private static Sprite LoadIconFromResource(string resourceName, string iconType, ref Sprite cachedSprite)
@@ -373,9 +390,15 @@ namespace ValheimClassObelisk
 
             var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
             statusEffect.name = "SE_Stormstride";
-            statusEffect.m_name = "Stormstride";
-            statusEffect.m_tooltip = "+20% movement speed";
+            statusEffect.m_name = "Storm Strider";
+            statusEffect.m_tooltip = "+20% movement speed and jump height";
+            statusEffect.m_icon = GetStormstriderIcon();
             statusEffect.m_speedModifier = STORMSTRIDE_SPEED_BONUS;
+            // m_jumpModifier is added on top of the base jump velocity (SEMan.ApplyStatusEffectJumpMods
+            // passes the same un-modified baseJump to every active effect, confirmed via decompile),
+            // so the Y-only 0.2 here is a straight +20% jump height - X/Z are left at 0 so this
+            // doesn't also affect horizontal jump distance.
+            statusEffect.m_jumpModifier = new Vector3(0f, STORMSTRIDE_JUMP_BONUS, 0f);
             statusEffect.m_ttl = ARCHMAGE_AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);
@@ -392,6 +415,7 @@ namespace ValheimClassObelisk
             statusEffect.name = "SE_VerdantAura";
             statusEffect.m_name = "Verdant Aura";
             statusEffect.m_tooltip = "Heals you and nearby allies over time";
+            statusEffect.m_icon = GetVerdantAuraIcon();
             statusEffect.m_ttl = ARCHMAGE_AURA_DURATION;
 
             seman.AddStatusEffect(statusEffect, resetTime: true);

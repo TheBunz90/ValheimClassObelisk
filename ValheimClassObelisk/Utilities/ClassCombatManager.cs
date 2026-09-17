@@ -936,6 +936,43 @@ public static class CombatDebugCommands
             }
         );
 
+        new Terminal.ConsoleCommand("moveweight", "Diagnose weight/movement-penalty perks (Woodsman's Carry, Colossus, Duelist's Balance, Balanced Grip, Shield Bearer)",
+            delegate (Terminal.ConsoleEventArgs args)
+            {
+                var player = Player.m_localPlayer;
+                if (player == null)
+                {
+                    args.Context.AddString("No local player found!");
+                    return;
+                }
+
+                var weapon = player.GetCurrentWeapon();
+                var weaponName = weapon?.m_shared?.m_name ?? "None";
+
+                args.Context.AddString($"Current weapon: {weaponName}");
+                if (weapon != null)
+                {
+                    args.Context.AddString($"  Raw m_shared.m_movementModifier: {weapon.m_shared.m_movementModifier:F3}");
+                    args.Context.AddString($"  Raw m_shared.m_weight: {weapon.m_shared.m_weight:F2}");
+                    args.Context.AddString($"  Effective GetWeight(): {weapon.GetWeight():F2}");
+                }
+
+                args.Context.AddString($"Player.GetEquipmentMovementModifier(): {player.GetEquipmentMovementModifier():F3}");
+
+                var inventory = player.GetInventory();
+                if (inventory != null)
+                {
+                    args.Context.AddString($"Inventory total weight: {inventory.GetTotalWeight():F2} / max {player.GetMaxCarryWeight():F2} (Encumbered: {player.IsEncumbered()})");
+                }
+
+                var playerData = PlayerClassManager.GetPlayerData(player);
+                if (playerData != null)
+                {
+                    args.Context.AddString($"Active classes: {string.Join(", ", playerData.activeClasses)}");
+                }
+            }
+        );
+
         new Terminal.ConsoleCommand("classlevels", "Show all class levels and damage bonuses",
             delegate (Terminal.ConsoleEventArgs args)
             {

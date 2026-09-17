@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+
+- Fixed Executioner's Woodsman's Carry (Level 20), Rending Rhythm (Level 30), Hemorrhage (Level 40), and Execute's low-health bonus (Level 50) not applying at all - the class was missing a required registration attribute, so those four perks silently never activated since Executioner was first introduced. Only the flat "+8%/+15% axe damage" portions of Chopper's Training and Execute were ever actually working. All five perk tiers now function as described.
+
 ## 1.1.0
 
 **⚠️ SPOILERS AHEAD.** This release is a complete rework of every class's perks, plus two brand-new classes. Every perk below is listed in full detail. If you'd rather discover them for yourself in-game, stop reading now and skip to 1.0.5.

@@ -8,6 +8,7 @@ using Logger = Jotunn.Logger;
 /// and finishing power against weakened enemies. Axes previously lived under Sword Master
 /// (see ClassCombatManager.IsSwordWeapon's history); this is their own class now.
 /// </summary>
+[HarmonyPatch]
 public static class ExecutionerPerkManager
 {
     public static bool HasExecutionerPerk(Player player, int requiredLevel)

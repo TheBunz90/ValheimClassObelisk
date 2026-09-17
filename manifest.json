@@ -1,6 +1,6 @@
 {
   "name": "ValheimWeaponClasses",
-  "version_number": "1.1.0",
+  "version_number": "1.1.1",
   "website_url": "https://github.com/TheBunz90/ValheimClassObelisk",
   "description": "Adds a craftable Class Obelisk letting players choose from 10 combat classes, each leveling from combat XP and unlocking passive perks every 10 levels.",
   "dependencies": [

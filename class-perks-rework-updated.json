@@ -1,0 +1,324 @@
+{
+  "classes": [
+    {
+      "className": "Archer",
+      "intro": "Expert marksmen with disciplined bow technique and practical crossbow mastery.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Practiced Aim",
+          "description": "+7% bow and crossbow damage."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Magic Shot",
+          "description": "25% chance to not consume arrows or bolts."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Combat Rhythm",
+          "description": "Bow hits grant Arrow Slinger for 6s, reducing draw time by 25%. Crossbow hits grant Quick Crank for 6s, reducing reload time by 25%."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Storm Fletching",
+          "description": "Bow and crossbow attacks deal bonus lightning damage equal to 12% of weapon damage."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Deadeye",
+          "description": "+15% bow and crossbow damage. Hits beyond 25m gain an additional +10% damage."
+        }
+      ],
+      "outro": "Best for players who want ranged weapons to feel steady early, distinct by weapon type mid-game, and deadly at mastery."
+    },
+    {
+      "className": "Assassin",
+      "intro": "Stealthy fighters who use knives, positioning, and toxins to end fights quickly.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Cutthroat",
+          "description": "+7% knife damage."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Silent Hands",
+          "description": "Knife attacks and stealth movement consume 15% less stamina."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Assassination",
+          "description": "First knife hit from stealth deals +50% damage. After a stealth hit, knife attack speed is increased by 20% for 5s."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Venom Coating",
+          "description": "Knife hits apply stacking poison damage over time, up to 3 stacks. Poison damage scales with knife skill."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Twist the Knife",
+          "description": "+15% knife damage against poisoned targets. Poisoned enemies deal 10% less damage to you."
+        }
+      ],
+      "outro": "Best for players who want the class to build from light knife mastery into stealth burst and poison execution."
+    },
+    {
+      "className": "Brawler",
+      "intro": "Bare-knuckle fighters who turn momentum, toughness, and close-range pressure into damage.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Bare-Knuckle Training",
+          "description": "+8% unarmed damage."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Light on Your Feet",
+          "description": "Unarmed attacks consume 10% less stamina and jumping while unarmed consumes 10% less stamina."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "One-Two Combo",
+          "description": "Every 3rd consecutive unarmed hit deals +50% damage and restores 5% stamina. Combo resets after 4s without an unarmed hit."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Iron Fist",
+          "description": "Unarmed attacks deal bonus spirit damage equal to 10% of weapon damage equivalent."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Rage",
+          "description": "After taking unblocked damage, enter Rage for 5s: +20% unarmed damage and +20% attack speed. 20s cooldown."
+        }
+      ],
+      "outro": "Best for players who want fists to start modestly, become combo-driven, and finish with a clear mastery burst."
+    },
+    {
+      "className": "Bulwark",
+      "intro": "Defensive specialists who control combat through shields, blocks, and retaliatory force.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Shield Wall",
+          "description": "+8% block power and -8% block stamina cost."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Shield Bearer",
+          "description": "Shield impose no movement speed penalties."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Perfect Guard",
+          "description": "Blocking within the first moment of an incoming hit restores 8 stamina and empowers your next attack or shield bash within 4s for +20% stagger."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Thorns",
+          "description": "Blocked attacks return pierce damage equal to 20% of the original blocked damage."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Reverb!",
+          "description": "After blocking 200 damage, release a 5m shockwave dealing 200 blunt damage and high stagger. 10s cooldown."
+        }
+      ],
+      "outro": "Best for players who want shield progression to feel defensive first, then increasingly forceful and reactive."
+    },
+    {
+      "className": "Crusher",
+      "intro": "Heavy blunt weapon specialists who break armor, shake crowds, and turn slow weapons into decisive hits.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Bonebreaker",
+          "description": "+8% blunt damage with clubs, maces, and two-handed hammers."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Colossus",
+          "description": "Ignore movement speed penalties from blunt weapons and reduce blunt weapon equip weight by 50%."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Thundering Blows",
+          "description": "One-handed mace heavy attacks create a 3m shockwave for 25% weapon damage. Two-handed hammer attacks create a 3m aftershock on direct enemy hits for 20% weapon damage."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Cold Steel",
+          "description": "Blunt attacks deal bonus frost damage equal to 12% of weapon damage."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Earthshaker",
+          "description": "+15% blunt damage. Staggering an enemy grants +10% attack speed with blunt weapons for 5s."
+        }
+      ],
+      "outro": "Best for players who want both maces and two-handed hammers to receive a meaningful version of each perk tier."
+    },
+    {
+      "className": "Lancer",
+      "intro": "Spear and polearm specialists who win through reach, spacing, throws, and sweeping control.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Reach Advantage",
+          "description": "+8% pierce damage with spears and polearms."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Balanced Grip",
+          "description": "Thrown spears are easier to recover with a 20% larger pickup radius, and polearms impose no movement penalties."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Spear Storm",
+          "description": "Spear hits build up to 5 stacks; each stack grants +3% attack speed for 5s. Polearm hits build up to 5 stacks; each stack grants +3% stagger damage for 5s."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Stormpoint",
+          "description": "Spear and polearm attacks deal bonus lightning damage equal to 12% of weapon damage."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Impaling Momentum",
+          "description": "+15% spear and polearm damage. Thrown spear hits beyond 15m and polearm special attacks gain an additional +10% damage."
+        }
+      ],
+      "outro": "Best for players who want spears and polearms to share a class identity while preserving their different combat rhythms."
+    },
+    {
+      "className": "SwordMaster",
+      "intro": "Blade specialists who reward clean timing, fast footwork, and precise melee pressure.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Blade Training",
+          "description": "+7% sword damage."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Duelist's Balance",
+          "description": "Sword stamina costs are reduced by 10%, and swords impose no movement speed penalties."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Riposte Training",
+          "description": "One-handed sword hits within 2s after a parry deal +30% damage. Greatsword special attacks within 2s after a parry deal +30% damage and +20% stagger."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Searing Edge",
+          "description": "Sword attacks deal bonus fire damage equal to 12% of weapon damage."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Dancing Steel",
+          "description": "+15% sword attack speed. Parrying grants an additional +10% sword damage for 5s."
+        }
+      ],
+      "outro": "Best for players who want swords and greatswords to feel precise, reactive, and rewarding without absorbing axe identity."
+    },
+    {
+      "className": "Wizard",
+      "intro": "Elemental magic specialists who turn Eitr, spell momentum, and elemental affinities into sustained magical pressure.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Eitr Weave",
+          "description": "+7% elemental magic damage."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Arcane Nourishment",
+          "description": "Eitr granted by food is increased by 15%."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Arcane Surge",
+          "description": "Dealing elemental magic damage grants +25% Eitr regeneration for 6s. Additional elemental magic damage refreshes the duration."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Arcane Efficiency",
+          "description": "Elemental magic weapon Eitr costs are reduced by 10%."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Archmage",
+          "description": "Dealing 500 damage of a single elemental affinity triggers its matching Archmage aura for 20s. Only one Archmage aura may be active at a time."
+        }
+      ],
+      "outro": "Best for players who want Elemental Magic to grow from efficient casting into sustained spell pressure and affinity-based Archmage auras."
+    },
+    {
+      "className": "Warlock",
+      "intro": "Blood magic specialists who turn health sacrifice, forbidden summons, and recovered life into dangerous sustained power.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Forbidden Knowledge",
+          "description": "+7% blood magic damage and summoned creature damage."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Blood Feast",
+          "description": "Health granted by food and food-based health regeneration are increased by 15%."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Blood Pact",
+          "description": "Sacrificing health with a blood magic weapon grants Blood Pact for 8s, increasing blood magic and summoned creature damage by 20%. Additional qualifying sacrifices refresh the duration."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Dark Efficiency",
+          "description": "Blood magic weapon Eitr costs are reduced by 10%. Health sacrifice costs are unchanged."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Sanguine Reclamation",
+          "description": "Health-sacrificing blood magic casts build Bloodwell charges. At 4 charges, gain Sanguine Reclamation for 20s: blood magic and summoned creature damage restores 5% of damage dealt as health, capped at 5 health per second."
+        }
+      ],
+      "outro": "Best for players who want Blood Magic to revolve around deliberate health sacrifice, empowered summons, and earning windows of aggressive life recovery."
+    },
+    {
+      "className": "Axemaster",
+      "intro": "Axe specialists who trade finesse for brutal chopping power, wounds, and relentless finishing pressure.",
+      "perks": [
+        {
+          "requiredLevel": 10,
+          "name": "Chopper's Training",
+          "description": "+8% axe damage with one-handed axes and battleaxes."
+        },
+        {
+          "requiredLevel": 20,
+          "name": "Woodsman's Carry",
+          "description": "Axes weigh 50% less and impose no movement speed penalties."
+        },
+        {
+          "requiredLevel": 30,
+          "name": "Rending Rhythm",
+          "description": "One-handed axe hits against the same target build up to 3 stacks; each stack grants +5% damage to that target for 5s. Battleaxe special attacks apply all 3 stacks at once."
+        },
+        {
+          "requiredLevel": 40,
+          "name": "Hemorrhage",
+          "description": "Axe attacks apply bleed, dealing slash damage over time equal to 12% of weapon damage over 5s. Reapplying bleed refreshes the duration."
+        },
+        {
+          "requiredLevel": 50,
+          "name": "Executioner",
+          "description": "+15% axe damage. Axe attacks deal an additional +10% damage against enemies below 40% health."
+        }
+      ],
+      "outro": "Best for players who enjoy heavy slashing attacks."
+    }
+  ]
+}

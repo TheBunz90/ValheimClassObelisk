@@ -1,22 +1,17 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Logger = Jotunn.Logger;
+using ValheimClassObelisk;
 
 /// <summary>
-/// Sword Master class perk system - focused on parrying, speed, and precision
+/// Sword Master class perk system - focused on parrying, speed, and precision, split between
+/// 1H swords and 2H greatswords (ClassCombatManager.IsTwoHandedWeapon).
 /// </summary>
 public static class SwordMasterPerkManager
 {
-    // Buff tracking for temporary effects
-    private static Dictionary<long, float> riposteBuffs = new Dictionary<long, float>(); // playerID -> buff end time
-    private static Dictionary<long, float> fencerFootworkBuffs = new Dictionary<long, float>(); // playerID -> movement speed buff end time
-
-    // Configuration
-    public const float RIPOSTE_DURATION = 2f;
-    public const float FENCER_FOOTWORK_DURATION = 3f;
-
     /// <summary>
     /// Check if player has Sword Master class active and at required level
     /// </summary>
@@ -31,16 +26,16 @@ public static class SwordMasterPerkManager
     }
 
     // Description metadata, shown in the class selection GUI - locked perks display as "???"
-    private const string Intro = "Masters of blade combat with exceptional swordsmanship skills.";
-    private const string Outro = "Ideal for players who prefer melee combat with finesse and precision.";
+    private const string Intro = "Blade specialists who reward clean timing, fast footwork, and precise melee pressure.";
+    private const string Outro = "Best for players who want swords and greatswords to feel precise, reactive, and rewarding.";
 
     public static readonly List<PerkInfo> Perks = new List<PerkInfo>
     {
-        new PerkInfo { RequiredLevel = 10, Name = "Riposte Training", Description = "+10% sword damage. After you parry, next sword hit within 2s deals +25% damage" },
-        new PerkInfo { RequiredLevel = 20, Name = "Dancing Steel", Description = "15% increased attack speed with swords" },
-        new PerkInfo { RequiredLevel = 30, Name = "Fencer's Footwork", Description = "-15% sword stamina cost; +10% movement speed for 3s after hits" },
-        new PerkInfo { RequiredLevel = 40, Name = "Weakpoint Cut", Description = "+15% armor penetration; +25% stagger vs. humanoids/undead" },
-        new PerkInfo { RequiredLevel = 50, Name = "Counter Attacker", Description = "+50% Parry Bonus, +40 Block Power with all swords" },
+        new PerkInfo { RequiredLevel = 10, Name = "Blade Training", Description = "+7% sword damage." },
+        new PerkInfo { RequiredLevel = 20, Name = "Duelist's Balance", Description = "Sword stamina costs are reduced by 10%, and swords impose no movement speed penalties." },
+        new PerkInfo { RequiredLevel = 30, Name = "Riposte Training", Description = "One-handed sword hits within 2s after a parry deal +30% damage. Greatsword special attacks within 2s after a parry deal +30% damage and +20% stagger." },
+        new PerkInfo { RequiredLevel = 40, Name = "Searing Edge", Description = "Sword attacks deal bonus fire damage equal to 12% of weapon damage." },
+        new PerkInfo { RequiredLevel = 50, Name = "Dancing Steel", Description = "+15% sword attack speed. Parrying grants an additional +10% sword damage for 5s." },
     };
 
     public static string GetClassDescription(Player player)
@@ -49,78 +44,80 @@ public static class SwordMasterPerkManager
         return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
     }
 
-    #region Level 10 - Riposte Training
-    /// <summary>
-    /// Lv10 – Riposte Training: after you parry, your next sword hit within 2s deals +25% damage.
-    /// The base +10% sword damage at level 10 is handled by ClassCombatManager.GetSwordMasterDamageBonus.
-    /// </summary>
-    public static float ApplyLv10_RiposteTrainingDamage(Player player, float baseDamage)
+    #region Level 30 - Riposte Training
+    public const float RIPOSTE_DURATION = 2f;
+    public const float RIPOSTE_1H_DAMAGE = 0.30f;
+    public const float RIPOSTE_2H_DAMAGE = 0.30f;
+    public const float RIPOSTE_2H_STAGGER = 0.20f;
+
+    private class RiposteData
     {
-        if (!HasSwordMasterPerk(player, 10)) return baseDamage;
-
-        long playerID = player.GetPlayerID();
-        float bonusDamage = 0f;
-
-        // Check for active riposte buff
-        if (riposteBuffs.ContainsKey(playerID) && Time.time < riposteBuffs[playerID])
-        {
-            bonusDamage += baseDamage * 0.25f; // +25% from riposte
-            // Remove the buff after use (both internal tracking and visual effect)
-            riposteBuffs.Remove(playerID);
-            RemoveRiposteStatusEffect(player);
-            player.Message(MessageHud.MessageType.TopLeft, "Riposte! +25% damage");
-        }
-
-        return baseDamage + bonusDamage;
+        public float expireTime;
+        public bool isTwoHanded;
     }
 
+    // Per-player (matches the established pattern for temporary player buffs across the mod).
+    private static readonly Dictionary<Player, RiposteData> riposteBuffs = new Dictionary<Player, RiposteData>();
+
     /// <summary>
-    /// Trigger riposte buff when player successfully parries
+    /// Trigger the Riposte buff when the player successfully parries. isTwoHanded records
+    /// whether this parry was made while wielding a greatsword, so the correct bonus (and
+    /// whether it needs a greatsword *special* attack to consume) applies when it's spent.
     /// </summary>
-    public static void TriggerRiposteBuff(Player player)
+    public static void TriggerRiposteBuff(Player player, bool isTwoHanded)
     {
-        if (!HasSwordMasterPerk(player, 10)) return;
-
-        long playerID = player.GetPlayerID();
-        float buffEndTime = Time.time + RIPOSTE_DURATION;
-
-        riposteBuffs[playerID] = buffEndTime;
-
-        // Add visual status effect
+        riposteBuffs[player] = new RiposteData { expireTime = Time.time + RIPOSTE_DURATION, isTwoHanded = isTwoHanded };
         AddRiposteStatusEffect(player);
-
-        player.Message(MessageHud.MessageType.TopLeft, "Riposte ready! Next sword hit +25% damage");
     }
 
     /// <summary>
-    /// Add visual status effect for riposte buff
+    /// Consume the Riposte buff if this hit qualifies: any 1H sword hit, or a greatsword special
+    /// attack. Returns the stagger multiplier bonus to apply (0 if not consumed or not 2H).
     /// </summary>
-    public static void AddRiposteStatusEffect(Player player)
+    public static float ConsumeRiposteBuff(Player player, bool hitIsTwoHanded, bool hitIsSpecialAttack, ref HitData hit)
+    {
+        if (!riposteBuffs.TryGetValue(player, out var data) || Time.time >= data.expireTime) return 0f;
+
+        // A greatsword's stored buff only pays out on a special attack; a 1H buff pays out on any hit.
+        if (data.isTwoHanded && !hitIsSpecialAttack) return 0f;
+
+        riposteBuffs.Remove(player);
+        RemoveRiposteStatusEffect(player);
+
+        float damageBonus = data.isTwoHanded ? RIPOSTE_2H_DAMAGE : RIPOSTE_1H_DAMAGE;
+        float multiplier = 1f + damageBonus;
+        hit.m_damage.m_damage *= multiplier;
+        hit.m_damage.m_blunt *= multiplier;
+        hit.m_damage.m_slash *= multiplier;
+        hit.m_damage.m_pierce *= multiplier;
+        hit.m_damage.m_chop *= multiplier;
+        hit.m_damage.m_fire *= multiplier;
+        hit.m_damage.m_frost *= multiplier;
+        hit.m_damage.m_lightning *= multiplier;
+        hit.m_damage.m_poison *= multiplier;
+        hit.m_damage.m_spirit *= multiplier;
+
+        player.Message(MessageHud.MessageType.TopLeft, $"Riposte! +{damageBonus * 100f:F0}% damage");
+
+        return data.isTwoHanded ? RIPOSTE_2H_STAGGER : 0f;
+    }
+
+    private static void AddRiposteStatusEffect(Player player)
     {
         try
         {
             var seman = player.GetSEMan();
             if (seman == null) return;
 
-            // Remove existing riposte effect if present
             RemoveRiposteStatusEffect(player);
 
-            // Get current weapon icon
             var weapon = player.GetCurrentWeapon();
-            Sprite weaponIcon = weapon?.GetIcon();
+            Sprite weaponIcon = weapon?.GetIcon() ?? GetDefaultSwordIcon();
 
-            // Fallback to a default icon if weapon has no icon
-            if (weaponIcon == null)
-            {
-                // Try to get a sword icon from known items, or use a default
-                weaponIcon = GetDefaultSwordIcon();
-            }
-
-            // Create status effect
             var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
             statusEffect.name = "SE_RiposteReady";
             statusEffect.m_name = "Riposte Ready";
-            statusEffect.m_tooltip = "Next sword attack deals +25% damage";
+            statusEffect.m_tooltip = "Next qualifying sword attack deals bonus damage";
             statusEffect.m_icon = weaponIcon;
             statusEffect.m_ttl = RIPOSTE_DURATION;
             statusEffect.m_startMessage = "";
@@ -128,7 +125,6 @@ public static class SwordMasterPerkManager
             statusEffect.m_stopMessage = "";
             statusEffect.m_stopMessageType = MessageHud.MessageType.Center;
 
-            // Add the status effect
             seman.AddStatusEffect(statusEffect, resetTime: true);
         }
         catch (System.Exception ex)
@@ -137,9 +133,6 @@ public static class SwordMasterPerkManager
         }
     }
 
-    /// <summary>
-    /// Remove riposte status effect
-    /// </summary>
     private static void RemoveRiposteStatusEffect(Player player)
     {
         try
@@ -155,40 +148,18 @@ public static class SwordMasterPerkManager
         }
     }
 
-    /// <summary>
-    /// Get a default sword icon as fallback
-    /// </summary>
     private static Sprite GetDefaultSwordIcon()
     {
         try
         {
-            // Try to find a sword prefab and get its icon
-            var swordPrefab = ObjectDB.instance?.GetItemPrefab("SwordBronze");
-            if (swordPrefab != null)
-            {
-                var itemDrop = swordPrefab.GetComponent<ItemDrop>();
-                if (itemDrop?.m_itemData?.GetIcon() != null)
-                {
-                    return itemDrop.m_itemData.GetIcon();
-                }
-            }
-
-            // If that fails, try other sword types
-            string[] swordNames = { "SwordIron", "SwordSilver", "SwordBlackmetal", "Knife" };
+            string[] swordNames = { "SwordBronze", "SwordIron", "SwordSilver", "SwordBlackmetal", "Knife" };
             foreach (string swordName in swordNames)
             {
                 var prefab = ObjectDB.instance?.GetItemPrefab(swordName);
-                if (prefab != null)
-                {
-                    var itemDrop = prefab.GetComponent<ItemDrop>();
-                    if (itemDrop?.m_itemData?.GetIcon() != null)
-                    {
-                        return itemDrop.m_itemData.GetIcon();
-                    }
-                }
+                var icon = prefab?.GetComponent<ItemDrop>()?.m_itemData?.GetIcon();
+                if (icon != null) return icon;
             }
-
-            return null; // No fallback found
+            return null;
         }
         catch
         {
@@ -197,167 +168,133 @@ public static class SwordMasterPerkManager
     }
     #endregion
 
-    #region Level 20 - Dancing Steel
-    /// <summary>
-    /// Lv20 – Dancing Steel: 15% increased attack speed with swords
-    /// Apply this when calculating attack speed
-    /// </summary>
-    public static float ApplyLv20_DancingSteelAttackSpeed(Player player, float baseSpeed)
-    {
-        if (!HasSwordMasterPerk(player, 20)) return baseSpeed;
+    #region Level 40 - Searing Edge
+    public const float SEARING_EDGE_FIRE_PERCENT = 0.12f;
 
-        return baseSpeed * 1.15f; // 15% faster attack speed
+    public static void ApplySearingEdgeFire(ref HitData hit, float weaponDamage)
+    {
+        hit.m_damage.m_fire += weaponDamage * SEARING_EDGE_FIRE_PERCENT;
     }
     #endregion
 
-    #region Level 30 - Fencer's Footwork
-    /// <summary>
-    /// Lv30 – Fencer's Footwork: -15% sword attack stamina cost; +10% movement speed for 3s after hitting with a sword
-    /// </summary>
-    public static float ApplyLv30_FencerFootworkStamina(Player player, float staminaCost)
-    {
-        if (!HasSwordMasterPerk(player, 30)) return staminaCost;
+    #region Level 50 - Dancing Steel
+    public const float DANCING_STEEL_ATTACK_SPEED = 1.15f;
+    public const string DANCING_STEEL_AS_KEY = "SwordMaster_DancingSteel_AS";
+    public const float DANCING_STEEL_PARRY_DAMAGE = 0.10f;
+    public const float DANCING_STEEL_PARRY_DURATION = 5f;
 
-        return staminaCost * 0.85f; // 15% stamina reduction
+    private static readonly Dictionary<Player, float> dancingSteelParryExpire = new Dictionary<Player, float>();
+
+    /// <summary>
+    /// Keeps the persistent attack-speed multiplier registered/cleared based on whether the
+    /// player currently has a sword equipped and is Level 50 - called every tick from the
+    /// periodic update rather than only on equip/unequip, since attack-speed sources need to
+    /// react to level-ups and class deactivation too, not just gear changes.
+    /// </summary>
+    public static void RefreshDancingSteelAttackSpeed(Player player)
+    {
+        if (player == null) return;
+
+        var weapon = player.GetCurrentWeapon();
+        bool shouldApply = HasSwordMasterPerk(player, 50) && ClassCombatManager.IsSwordWeapon(weapon);
+
+        if (shouldApply) AnimationSpeedManager.Set(player, DANCING_STEEL_AS_KEY, DANCING_STEEL_ATTACK_SPEED);
+        else AnimationSpeedManager.Clear(player, DANCING_STEEL_AS_KEY);
+    }
+
+    public static void TriggerDancingSteelParryBonus(Player player)
+    {
+        dancingSteelParryExpire[player] = Time.time + DANCING_STEEL_PARRY_DURATION;
     }
 
     /// <summary>
-    /// Apply Fencer's Footwork movement speed bonus
+    /// Applies Dancing Steel's flat +10% directly to the hit if the parry-window buff is active -
+    /// mutates in place (like ConsumeRiposteBuff) rather than returning a new total, since this
+    /// can run after Riposte Training has already modified the same hit and a ratio computed
+    /// against a stale pre-Riposte baseline would be wrong.
     /// </summary>
-    public static float ApplyLv30_FencerFootworkMovementSpeed(Player player, float baseSpeed)
+    public static void ApplyDancingSteelParryDamage(Player player, ref HitData hit)
     {
-        if (!HasSwordMasterPerk(player, 30)) return baseSpeed;
+        if (!dancingSteelParryExpire.TryGetValue(player, out var expire) || Time.time >= expire) return;
 
-        long playerID = player.GetPlayerID();
-
-        // Check if player has active footwork buff
-        if (fencerFootworkBuffs.ContainsKey(playerID) && Time.time < fencerFootworkBuffs[playerID])
-        {
-            return baseSpeed * 1.10f; // 10% movement speed bonus
-        }
-
-        return baseSpeed;
-    }
-
-    /// <summary>
-    /// Trigger Fencer's Footwork movement speed buff on sword hit
-    /// </summary>
-    public static void TriggerFencerFootworkBuff(Player player)
-    {
-        if (!HasSwordMasterPerk(player, 30)) return;
-
-        long playerID = player.GetPlayerID();
-        float buffEndTime = Time.time + FENCER_FOOTWORK_DURATION;
-
-        fencerFootworkBuffs[playerID] = buffEndTime;
-    }
-    #endregion
-
-    #region Level 40 - Weakpoint Cut
-    /// <summary>
-    /// Lv40 – Weakpoint Cut: +15% extra damage as True Damage; +25% stagger damage vs. humanoids/undead
-    /// </summary>
-    public static void ApplyLv40_WeakpointCutTrueDamage(Player player, Character target, ref HitData hit)
-    {
-        if (!HasSwordMasterPerk(player, 40)) return;
-
-        // Calculate 15% of original damage as true damage
-        float originalTotalDamage = hit.GetTotalDamage();
-        float trueDamageAmount = originalTotalDamage * 0.15f;
-
-        // Add true damage that bypasses armor
-        hit.m_damage.m_damage += trueDamageAmount;
-    }
-
-    /// <summary>
-    /// Apply Weakpoint Cut stagger bonus against humanoids/undead
-    /// </summary>
-    public static float ApplyLv40_WeakpointCutStagger(Player player, Character target, float baseStagger)
-    {
-        if (!HasSwordMasterPerk(player, 40)) return baseStagger;
-
-        // Check if target is humanoid or undead
-        if (IsHumanoidOrUndead(target))
-        {
-            return baseStagger * 1.25f; // 25% more stagger damage
-        }
-
-        return baseStagger;
-    }
-
-    /// <summary>
-    /// Check if character is humanoid or undead for Weakpoint Cut
-    /// </summary>
-    private static bool IsHumanoidOrUndead(Character character)
-    {
-        if (character == null) return false;
-
-        string name = character.name.ToLower();
-        return name.Contains("skeleton") || name.Contains("draugr") || name.Contains("greydwarf") ||
-               name.Contains("troll") || name.Contains("fuling") || name.Contains("cultist") ||
-               character is Player; // Players count as humanoids
-    }
-    #endregion
-
-    #region Level 50 - Counter Attacker
-    /// <summary>
-    /// Lv50 – Counter Attacker: +50% Parry Bonus, +40 Block Power with all swords
-    /// </summary>
-    public static float ApplyLv50_CounterAttackerParryBonus(Player player, float baseParryBonus)
-    {
-        if (!HasSwordMasterPerk(player, 50)) return baseParryBonus;
-
-        return baseParryBonus * 1.50f; // 50% increased parry bonus
-    }
-
-    /// <summary>
-    /// Apply Counter Attacker block power bonus
-    /// </summary>
-    public static float ApplyLv50_CounterAttackerBlockPower(Player player, float baseBlockPower)
-    {
-        if (!HasSwordMasterPerk(player, 50)) return baseBlockPower;
-
-        return baseBlockPower + 40f; // +40 flat block power
+        float multiplier = 1f + DANCING_STEEL_PARRY_DAMAGE;
+        hit.m_damage.m_damage *= multiplier;
+        hit.m_damage.m_blunt *= multiplier;
+        hit.m_damage.m_slash *= multiplier;
+        hit.m_damage.m_pierce *= multiplier;
+        hit.m_damage.m_chop *= multiplier;
+        hit.m_damage.m_fire *= multiplier;
+        hit.m_damage.m_frost *= multiplier;
+        hit.m_damage.m_lightning *= multiplier;
+        hit.m_damage.m_poison *= multiplier;
+        hit.m_damage.m_spirit *= multiplier;
     }
     #endregion
 
     #region Utility Methods
     /// <summary>
-    /// Check if player has active riposte buff
+    /// Clean up expired buffs. Reflection targets (GetCurrentBlocker/m_blockTimer) are cached
+    /// once here - matching BulwarkPerkManager's approach - rather than re-resolved per call.
     /// </summary>
-    public static bool HasActiveRiposteBuff(long playerID)
+    private static MethodInfo _getCurrentBlockerMethod;
+    private static FieldInfo _blockTimerField;
+
+    public static ItemDrop.ItemData GetCurrentBlocker(Humanoid humanoid)
     {
-        return riposteBuffs.ContainsKey(playerID) && Time.time < riposteBuffs[playerID];
+        if (humanoid == null) return null;
+
+        try
+        {
+            if (_getCurrentBlockerMethod == null)
+            {
+                _getCurrentBlockerMethod = typeof(Humanoid).GetMethod("GetCurrentBlocker", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (_getCurrentBlockerMethod == null)
+                {
+                    Logger.LogError("[Sword Master] Could not find GetCurrentBlocker method via reflection");
+                    return null;
+                }
+            }
+
+            return (ItemDrop.ItemData)_getCurrentBlockerMethod.Invoke(humanoid, null);
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error calling GetCurrentBlocker via reflection: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
-    /// Check if player has active fencer's footwork buff
+    /// A block counts as "perfect"/timed (a parry) when the blocker has a timed-block bonus and
+    /// the block landed within the first ~0.25s of the hit, matching vanilla's own parry window.
     /// </summary>
-    public static bool HasActiveFencerFootworkBuff(long playerID)
+    public static bool WasTimedBlock(Humanoid humanoid, ItemDrop.ItemData blocker)
     {
-        return fencerFootworkBuffs.ContainsKey(playerID) && Time.time < fencerFootworkBuffs[playerID];
+        if (blocker == null) return false;
+
+        if (_blockTimerField == null)
+        {
+            _blockTimerField = typeof(Humanoid).GetField("m_blockTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (_blockTimerField == null)
+            {
+                Logger.LogWarning("[Sword Master] Could not access m_blockTimer field - Riposte Training's timed-block detection is disabled");
+                return false;
+            }
+        }
+
+        float blockTimer = (float)_blockTimerField.GetValue(humanoid);
+        return blocker.m_shared.m_timedBlockBonus > 1f && blockTimer != -1f && blockTimer < 0.25f;
     }
 
-    /// <summary>
-    /// Clean up expired buffs
-    /// </summary>
     public static void UpdateBuffs()
     {
         float currentTime = Time.time;
 
-        // Clean up expired riposte buffs
-        var expiredRiposte = riposteBuffs.Where(kvp => kvp.Value < currentTime).Select(kvp => kvp.Key).ToList();
-        foreach (var playerID in expiredRiposte)
-        {
-            riposteBuffs.Remove(playerID);
-        }
+        var expiredRiposte = riposteBuffs.Where(kvp => kvp.Key == null || currentTime >= kvp.Value.expireTime).Select(kvp => kvp.Key).ToList();
+        foreach (var player in expiredRiposte) riposteBuffs.Remove(player);
 
-        // Clean up expired fencer's footwork buffs
-        var expiredFootwork = fencerFootworkBuffs.Where(kvp => kvp.Value < currentTime).Select(kvp => kvp.Key).ToList();
-        foreach (var playerID in expiredFootwork)
-        {
-            fencerFootworkBuffs.Remove(playerID);
-        }
+        var expiredParry = dancingSteelParryExpire.Where(kvp => kvp.Key == null || currentTime >= kvp.Value).Select(kvp => kvp.Key).ToList();
+        foreach (var player in expiredParry) dancingSteelParryExpire.Remove(player);
     }
     #endregion
 }
@@ -368,9 +305,38 @@ public static class SwordMasterPerkManager
 [HarmonyPatch]
 public static class SwordMasterPerkPatches
 {
+    // Per-player tracking of whether the current attack is a special/secondary attack, needed
+    // for Riposte Training's greatsword-special-only consumption rule.
+    private static readonly Dictionary<Player, bool> pendingSpecialAttack = new Dictionary<Player, bool>();
+
+    [HarmonyPatch(typeof(Humanoid), "StartAttack")]
+    [HarmonyPrefix]
+    public static void Humanoid_StartAttack_SwordMaster_Prefix(Humanoid __instance, bool secondaryAttack)
+    {
+        try
+        {
+            if (!(__instance is Player player)) return;
+
+            var weapon = player.GetCurrentWeapon();
+            if (weapon == null || !ClassCombatManager.IsSwordWeapon(weapon))
+            {
+                pendingSpecialAttack.Remove(player);
+                return;
+            }
+
+            pendingSpecialAttack[player] = secondaryAttack;
+        }
+        catch (System.Exception ex)
+        {
+            Logger.LogError($"Error in Humanoid_StartAttack_SwordMaster_Prefix: {ex.Message}");
+        }
+    }
+
     #region Damage Patches
     /// <summary>
-    /// Apply Sword Master damage bonuses when using swords
+    /// Apply Riposte Training's consumable bonus (Level 30), Dancing Steel's parry-window bonus
+    /// (Level 50), and Searing Edge's fire damage (Level 40). Blade Training's flat +7% (Level
+    /// 10) lives only in ClassCombatManager.GetSwordMasterDamageBonus - not duplicated here.
     /// </summary>
     [HarmonyPatch(typeof(Character), "Damage")]
     [HarmonyPrefix]
@@ -378,43 +344,32 @@ public static class SwordMasterPerkPatches
     {
         try
         {
+            if (hit.m_skill == Skills.SkillType.None) return;
             if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
 
-            // Only apply to sword damage
             var weapon = player.GetCurrentWeapon();
             if (!ClassCombatManager.IsSwordWeapon(weapon)) return;
-
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster)) return;
+            if (!SwordMasterPerkManager.HasSwordMasterPerk(player, 1)) return;
 
             float originalDamage = hit.GetTotalDamage();
 
-            // Apply Riposte Training damage bonus (Level 10)
-            float modifiedDamage = SwordMasterPerkManager.ApplyLv10_RiposteTrainingDamage(player, originalDamage);
-
-            if (modifiedDamage > originalDamage)
+            if (SwordMasterPerkManager.HasSwordMasterPerk(player, 30))
             {
-                float multiplier = modifiedDamage / originalDamage;
-                // Apply multiplier to all damage types (physical and elemental)
-                hit.m_damage.m_damage *= multiplier;
-                hit.m_damage.m_blunt *= multiplier;
-                hit.m_damage.m_slash *= multiplier;
-                hit.m_damage.m_pierce *= multiplier;
-                hit.m_damage.m_chop *= multiplier;
-                hit.m_damage.m_pickaxe *= multiplier;
-                hit.m_damage.m_fire *= multiplier;
-                hit.m_damage.m_frost *= multiplier;
-                hit.m_damage.m_lightning *= multiplier;
-                hit.m_damage.m_poison *= multiplier;
-                hit.m_damage.m_spirit *= multiplier;
+                bool isTwoHanded = ClassCombatManager.IsTwoHandedWeapon(weapon);
+                bool isSpecial = pendingSpecialAttack.TryGetValue(player, out var special) && special;
+                float staggerBonus = SwordMasterPerkManager.ConsumeRiposteBuff(player, isTwoHanded, isSpecial, ref hit);
+                if (staggerBonus > 0f) hit.m_staggerMultiplier *= 1f + staggerBonus;
             }
 
-            // Apply Weakpoint Cut true damage (Level 40) - this bypasses armor entirely
-            SwordMasterPerkManager.ApplyLv40_WeakpointCutTrueDamage(player, __instance, ref hit);
+            if (SwordMasterPerkManager.HasSwordMasterPerk(player, 50))
+            {
+                SwordMasterPerkManager.ApplyDancingSteelParryDamage(player, ref hit);
+            }
 
-            // Apply Weakpoint Cut stagger bonus (Level 40)
-            hit.m_staggerMultiplier = SwordMasterPerkManager.ApplyLv40_WeakpointCutStagger(player, __instance, hit.m_staggerMultiplier);
-
+            if (SwordMasterPerkManager.HasSwordMasterPerk(player, 40))
+            {
+                SwordMasterPerkManager.ApplySearingEdgeFire(ref hit, originalDamage);
+            }
         }
         catch (System.Exception ex)
         {
@@ -425,8 +380,7 @@ public static class SwordMasterPerkPatches
 
     #region Parry Patches
     /// <summary>
-    /// Trigger riposte buff when player successfully parries (not just blocks) using Humanoid.BlockAttack
-    /// We need to check if it was a timed block (parry) by accessing the block timer
+    /// Trigger Riposte Training's buff when the player successfully parries (not just blocks).
     /// </summary>
     [HarmonyPatch(typeof(Humanoid), "BlockAttack")]
     [HarmonyPostfix]
@@ -434,157 +388,35 @@ public static class SwordMasterPerkPatches
     {
         try
         {
-            if (!__result || !(__instance is Player player))
-            {
-                return; // Only proceed if block was successful and it's a player
-            }
+            if (!__result || !(__instance is Player player)) return;
 
-            // Check if player has sword equipped and sword master class
             var weapon = player.GetCurrentWeapon();
-            if (!ClassCombatManager.IsSwordWeapon(weapon))
+            if (!ClassCombatManager.IsSwordWeapon(weapon)) return;
+            if (!SwordMasterPerkManager.HasSwordMasterPerk(player, 30) && !SwordMasterPerkManager.HasSwordMasterPerk(player, 50)) return;
+
+            var blocker = SwordMasterPerkManager.GetCurrentBlocker(__instance);
+            if (!SwordMasterPerkManager.WasTimedBlock(__instance, blocker)) return;
+
+            if (SwordMasterPerkManager.HasSwordMasterPerk(player, 30))
             {
-                return;
+                SwordMasterPerkManager.TriggerRiposteBuff(player, ClassCombatManager.IsTwoHandedWeapon(weapon));
             }
 
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster))
+            if (SwordMasterPerkManager.HasSwordMasterPerk(player, 50))
             {
-                return;
+                SwordMasterPerkManager.TriggerDancingSteelParryBonus(player);
             }
-
-            // Get the current blocker item to check for timed block capability
-            var currentBlocker = GetCurrentBlocker(__instance);
-            if (currentBlocker == null)
-            {
-                return;
-            }
-
-            // Check if this was a parry (timed block)
-            // A parry occurs when:
-            // 1. The weapon has a timed block bonus > 1
-            // 2. The block timer is active (not -1)
-            // 3. The block timer is less than 0.25 seconds
-            bool wasParry = false;
-
-            // Try to access the m_blockTimer field using reflection
-            var blockTimerField = typeof(Humanoid).GetField("m_blockTimer",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-            if (blockTimerField != null)
-            {
-                float blockTimer = (float)blockTimerField.GetValue(__instance);
-
-                // Check if it was a timed block (parry) - matching Valheim's logic
-                wasParry = currentBlocker.m_shared.m_timedBlockBonus > 1f &&
-                          blockTimer != -1f &&
-                          blockTimer < 0.25f;
-            }
-            else
-            {
-                Logger.LogWarning("[SWORD MASTER] Could not access m_blockTimer field - falling back to detecting all blocks");
-                // Fallback: if we can't access the timer, don't trigger on blocks
-                return;
-            }
-
-            // Only trigger riposte buff on successful parry, not regular blocks
-            if (wasParry)
-            {
-                SwordMasterPerkManager.TriggerRiposteBuff(player);
-            }
-
         }
         catch (System.Exception ex)
         {
             Logger.LogError($"Error in Humanoid_BlockAttack_SwordMaster_Postfix: {ex.Message}");
         }
     }
-
-    /// <summary>
-    /// Helper method to get the current blocker item (shield or weapon) using reflection
-    /// </summary>
-    private static ItemDrop.ItemData GetCurrentBlocker(Humanoid humanoid)
-    {
-        try
-        {
-            // Try to call GetCurrentBlocker method using reflection
-            var getBlockerMethod = typeof(Humanoid).GetMethod("GetCurrentBlocker",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.Public);
-
-            if (getBlockerMethod != null)
-            {
-                return (ItemDrop.ItemData)getBlockerMethod.Invoke(humanoid, null);
-            }
-
-            // Fallback: use reflection to access protected fields
-            var leftItemField = typeof(Humanoid).GetField("m_leftItem",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            var rightItemField = typeof(Humanoid).GetField("m_rightItem",
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-            if (leftItemField != null)
-            {
-                var leftItem = (ItemDrop.ItemData)leftItemField.GetValue(humanoid);
-                // Shields are typically in left hand
-                if (leftItem != null && leftItem.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Shield)
-                {
-                    return leftItem;
-                }
-            }
-
-            if (rightItemField != null)
-            {
-                var rightItem = (ItemDrop.ItemData)rightItemField.GetValue(humanoid);
-                // Some weapons can block (especially swords)
-                if (rightItem != null && rightItem.m_shared.m_blockPower > 0)
-                {
-                    return rightItem;
-                }
-            }
-
-            return null;
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in GetCurrentBlocker: {ex.Message}");
-            return null;
-        }
-    }
-    #endregion
-
-    #region Hit Trigger Patches
-    /// <summary>
-    /// Trigger Fencer's Footwork on sword hits
-    /// </summary>
-    [HarmonyPatch(typeof(Character), "Damage")]
-    [HarmonyPostfix]
-    public static void Character_Damage_SwordMaster_Postfix(Character __instance, HitData hit)
-    {
-        try
-        {
-            if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
-
-            // Only trigger on sword hits
-            var weapon = player.GetCurrentWeapon();
-            if (!ClassCombatManager.IsSwordWeapon(weapon)) return;
-
-            var playerData = PlayerClassManager.GetPlayerData(player);
-            if (playerData == null || !playerData.IsClassActive(PlayerClass.SwordMaster)) return;
-
-            // Trigger Fencer's Footwork movement buff
-            SwordMasterPerkManager.TriggerFencerFootworkBuff(player);
-
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in Character_Damage_SwordMaster_Postfix: {ex.Message}");
-        }
-    }
     #endregion
 
     #region Stamina Patches
     /// <summary>
-    /// Apply Fencer's Footwork stamina reduction when using stamina for sword attacks
+    /// Apply Duelist's Balance stamina reduction (Level 20) when using stamina for sword attacks.
     /// </summary>
     [HarmonyPatch(typeof(Player), "UseStamina")]
     [HarmonyPrefix]
@@ -593,14 +425,12 @@ public static class SwordMasterPerkPatches
         try
         {
             if (__instance == null) return;
+            if (!SwordMasterPerkManager.HasSwordMasterPerk(__instance, 20)) return;
 
-            // Check if this is a sword attack
             var weapon = __instance.GetCurrentWeapon();
             if (!ClassCombatManager.IsSwordWeapon(weapon)) return;
 
-            // Apply Fencer's Footwork stamina reduction (Level 30)
-            v = SwordMasterPerkManager.ApplyLv30_FencerFootworkStamina(__instance, v);
-
+            v *= 0.90f; // 10% stamina reduction
         }
         catch (System.Exception ex)
         {
@@ -611,54 +441,33 @@ public static class SwordMasterPerkPatches
 
     #region Movement Speed Patches
     /// <summary>
-    /// Apply Fencer's Footwork movement speed bonus
+    /// Duelist's Balance (Level 20): cancels an equipped sword's own movement-speed penalty
+    /// without touching the item's shared data, mirroring ExecutionerPerkManager's Woodsman's Carry.
     /// </summary>
-    [HarmonyPatch(typeof(Player), "GetJogSpeedFactor")]
+    [HarmonyPatch(typeof(Player), "GetEquipmentMovementModifier")]
     [HarmonyPostfix]
-    public static void Player_GetJogSpeedFactor_SwordMaster_Postfix(Player __instance, ref float __result)
+    public static void Player_GetEquipmentMovementModifier_SwordMaster_Postfix(Player __instance, ref float __result)
     {
         try
         {
-            if (__instance == null) return;
+            if (!SwordMasterPerkManager.HasSwordMasterPerk(__instance, 20)) return;
 
-            __result = SwordMasterPerkManager.ApplyLv30_FencerFootworkMovementSpeed(__instance, __result);
+            var weapon = __instance.GetCurrentWeapon();
+            if (weapon == null || !ClassCombatManager.IsSwordWeapon(weapon)) return;
 
+            float weaponPenalty = weapon.m_shared.m_movementModifier;
+            if (weaponPenalty < 0f) __result -= weaponPenalty;
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error in Player_GetJogSpeedFactor_SwordMaster_Postfix: {ex.Message}");
-        }
-    }
-    #endregion
-
-    #region Block Power Patches
-    /// <summary>
-    /// Apply Counter Attacker block power bonus - specify exact method signature
-    /// </summary>
-    [HarmonyPatch(typeof(ItemDrop.ItemData), "GetBlockPower", new System.Type[] { typeof(float) })]
-    [HarmonyPostfix]
-    public static void ItemData_GetBlockPower_SwordMaster_Postfix(ItemDrop.ItemData __instance, ref float __result, float skillFactor)
-    {
-        try
-        {
-            if (__instance == null || !ClassCombatManager.IsSwordWeapon(__instance)) return;
-
-            var player = Player.m_localPlayer;
-            if (player == null) return;
-
-            __result = SwordMasterPerkManager.ApplyLv50_CounterAttackerBlockPower(player, __result);
-
-        }
-        catch (System.Exception ex)
-        {
-            Logger.LogError($"Error in ItemData_GetBlockPower_SwordMaster_Postfix: {ex.Message}");
+            Logger.LogError($"Error in Player_GetEquipmentMovementModifier_SwordMaster_Postfix: {ex.Message}");
         }
     }
     #endregion
 
     #region Periodic Cleanup
     /// <summary>
-    /// Clean up expired buffs every 1 second
+    /// Clean up expired buffs and refresh Dancing Steel's persistent attack-speed state every tick.
     /// </summary>
     [HarmonyPatch(typeof(Game), "Update")]
     [HarmonyPostfix]
@@ -666,7 +475,9 @@ public static class SwordMasterPerkPatches
     {
         try
         {
-            // Piggyback on existing cleanup from other perk managers
+            var player = Player.m_localPlayer;
+            if (player != null) SwordMasterPerkManager.RefreshDancingSteelAttackSpeed(player);
+
             if (Time.time % 1f < Time.deltaTime)
             {
                 SwordMasterPerkManager.UpdateBuffs();

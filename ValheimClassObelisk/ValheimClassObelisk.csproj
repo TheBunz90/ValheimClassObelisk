@@ -107,6 +107,8 @@
     <Compile Include="TestingResources\ApiDiscoveryCommands.cs" />
     <Compile Include="PerkManagers\ArcherPerkManager.cs" />
     <Compile Include="PerkManagers\AssassinPerkManager.cs" />
+    <Compile Include="PerkManagers\ExecutionerPerkManager.cs" />
+    <Compile Include="PerkManagers\WarlockPerkManager.cs" />
     <Compile Include="TestingResources\BowTestingCommands.cs" />
     <Compile Include="PerkManagers\BrawlerPerkManager.cs" />
     <Compile Include="Utilities\ClassCombatManager.cs" />
@@ -140,6 +142,12 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Resources\Icons\Reverb_sprite.rgba" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\Icons\bloodwell_128.rgba" />
+    <EmbeddedResource Include="Resources\Icons\stormstrider_128.rgba" />
+    <EmbeddedResource Include="Resources\Icons\verdant_aura_128.rgba" />
+    <EmbeddedResource Include="Resources\Icons\sanguine_reclamation_128.rgba" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

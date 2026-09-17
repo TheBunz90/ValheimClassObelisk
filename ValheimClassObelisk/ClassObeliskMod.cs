@@ -23,7 +23,7 @@ internal class ClassObeliskMod : BaseUnityPlugin
 {
     public const string PluginGUID = "com.bunzboi.valheimweaponclass";
     public const string PluginName = "ValheimWeaponClasses";
-    public const string PluginVersion = "1.0.5";
+    public const string PluginVersion = "1.1.0";
 
     private GameObject TestPanel;
 
@@ -153,7 +153,9 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         "Brawler",
         "Wizard",
         "Lancer",
-        "Bulwark"
+        "Bulwark",
+        "Executioner",
+        "Warlock"
     };
 
     // Per-class description providers backed by the PerkManagers - builds each class's
@@ -167,7 +169,9 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         { "Brawler", BrawlerPerkManager.GetClassDescription },
         { "Wizard", WizardPerkManager.GetClassDescription },
         { "Lancer", LancerPerkManager.GetClassDescription },
-        { "Bulwark", BulwarkPerkManager.GetClassDescription }
+        { "Bulwark", BulwarkPerkManager.GetClassDescription },
+        { "Executioner", ExecutionerPerkManager.GetClassDescription },
+        { "Warlock", WarlockPerkManager.GetClassDescription }
     };
 
     private void Start()
@@ -255,7 +259,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
             CreateWoodenGUIPanel();
 
             // Create class selection buttons in 2 columns
-            CreateTwoColumnClassButtons(player);
+            CreateClassButtonGrid(player);
 
             // Create the description window
             CreateDescriptionWindow(player);
@@ -341,7 +345,7 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
         GUIManager.BlockInput(state);
     }
 
-    private void CreateTwoColumnClassButtons(Player player)
+    private void CreateClassButtonGrid(Player player)
     {
         // Create container for buttons
         var buttonContainer = new GameObject("ButtonContainer");
@@ -349,25 +353,30 @@ public class ClassObeliskInteract : MonoBehaviour, Hoverable, Interactable
 
         var containerRect = buttonContainer.AddComponent<RectTransform>();
         containerRect.anchorMin = new Vector2(0.05f, 0.65f);  // Positioned above description window
-        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 4 columns
+        containerRect.anchorMax = new Vector2(0.95f, 0.85f);  // Takes up width for 5 columns
         containerRect.offsetMin = Vector2.zero;
         containerRect.offsetMax = Vector2.zero;
 
-        // Create buttons in 4 columns, 2 rows
-        float buttonWidth = 180f;  // Adjusted for 4 columns
-        float buttonHeight = 50f;  // Slightly taller for better readability
-        float columnSpacing = 25f; // Spacing between columns
-        float rowSpacing = 15f;    // Spacing between rows
+        // 5 columns x 2 rows (10 classes) - a clean grid rather than an uneven 3x4 with an empty
+        // slot. Only 2 rows now, so there's more headroom than the previous 3x3 layout had within
+        // this container's ~180px height, well clear of the description window below it.
+        const int columns = 5;
+        float buttonWidth = 210f;
+        float buttonHeight = 48f;
+        float columnSpacing = 25f;
+        float rowSpacing = 16f;
 
-        // Calculate starting positions for centered layout with 4 columns
-        float totalWidth = (buttonWidth * 4) + (columnSpacing * 3);
+        int rows = Mathf.CeilToInt(ClassNames.Length / (float)columns);
+
+        // Calculate starting positions for a grid centered in the container
+        float totalWidth = (buttonWidth * columns) + (columnSpacing * (columns - 1));
         float startX = -totalWidth / 2f + buttonWidth / 2f;
-        float startY = 25f; // Start from center of container
+        float startY = (buttonHeight + rowSpacing) * (rows - 1) / 2f;
 
         for (int i = 0; i < ClassNames.Length; i++)
         {
-            int col = i % 4; // 0, 1, 2, or 3 (4 columns)
-            int row = i / 4; // 0 or 1 (2 rows)
+            int col = i % columns;
+            int row = i / columns;
 
             float x = startX + (col * (buttonWidth + columnSpacing));
             float y = startY - (row * (buttonHeight + rowSpacing));

@@ -1,5 +1,89 @@
 # Changelog
 
+## 1.1.0
+
+**⚠️ SPOILERS AHEAD.** This release is a complete rework of every class's perks, plus two brand-new classes. Every perk below is listed in full detail. If you'd rather discover them for yourself in-game, stop reading now and skip to 1.0.5.
+
+Every class's perk kit has been redesigned from the ground up onto a consistent 5-tier structure (a passive damage bonus at 10, a defensive/utility perk at 20, an active proc at 30, a bonus elemental damage type at 40, and a capstone at 50). Along the way this fixed a number of long-standing bugs: several classes' Level 10 damage bonuses were silently being applied twice, several movement-penalty-removal and weight perks were mutating the shared item data of every copy of that weapon in the world (rather than just the wearer's), and several buffs (combo counters, Rage, elemental damage tracking) were tracked globally instead of per-player, so one player's damage could trigger another player's buff.
+
+Two new classes have joined the roster, bringing the total from 8 to 10:
+- **Executioner** (Axes & Battleaxes) - axes have been split out of Sword Master into their own dedicated class.
+- **Warlock** (Blood Magic Staves) - Blood Magic has been split out of Wizard into its own class built around health-sacrifice casting, Bloodwell charges, and life-stealing summons. Wizard is now a pure Elemental Magic specialist.
+
+Also: Warlock's Bloodwell and Sanguine Reclamation buffs and Wizard's Storm Strider and Verdant Aura buffs now have their own dedicated icons instead of falling back to your currently equipped weapon's icon, and Storm Strider now also grants +20% jump height on top of its movement speed bonus.
+
+### Sword Master (Swords)
+- Level 10 - Blade Training: +7% sword damage.
+- Level 20 - Duelist's Balance: Sword stamina costs are reduced by 10%, and swords impose no movement speed penalties.
+- Level 30 - Riposte Training: One-handed sword hits within 2s after a parry deal +30% damage. Greatsword special attacks within 2s after a parry deal +30% damage and +20% stagger.
+- Level 40 - Searing Edge: Sword attacks deal bonus fire damage equal to 12% of weapon damage.
+- Level 50 - Dancing Steel: +15% sword attack speed. Parrying grants an additional +10% sword damage for 5s.
+
+### Executioner (Axes & Battleaxes) — NEW CLASS
+- Level 10 - Chopper's Training: +8% axe damage with one-handed axes and battleaxes.
+- Level 20 - Woodsman's Carry: Axes weigh 50% less and impose no movement speed penalties.
+- Level 30 - Rending Rhythm: One-handed axe hits against the same target build up to 3 stacks; each stack grants +5% damage to that target for 5s. Battleaxe special attacks apply all 3 stacks at once.
+- Level 40 - Hemorrhage: Axe attacks apply bleed, dealing slash damage over time equal to 12% of weapon damage over 5s. Reapplying bleed refreshes the duration.
+- Level 50 - Execute: +15% axe damage. Axe attacks deal an additional +10% damage against enemies below 40% health.
+
+### Archer (Bows & Crossbows)
+- Level 10 - Practiced Aim: +7% bow and crossbow damage.
+- Level 20 - Magic Shot: 25% chance to not consume arrows or bolts.
+- Level 30 - Combat Rhythm: Bow hits grant Arrow Slinger for 6s, reducing draw time by 25%. Crossbow hits grant Quick Crank for 6s, reducing reload time by 25%.
+- Level 40 - Storm Fletching: Bow and crossbow attacks deal bonus lightning damage equal to 12% of weapon damage.
+- Level 50 - Deadeye: +15% bow and crossbow damage. Hits beyond 25m gain an additional +10% damage.
+
+### Crusher (Maces & Hammers)
+- Level 10 - Bonebreaker: +8% blunt damage with clubs, maces, and two-handed hammers.
+- Level 20 - Colossus: Blunt weapons weigh 50% less and impose no movement speed penalties.
+- Level 30 - Thundering Blows: One-handed mace heavy attacks create a 3m shockwave for 25% weapon damage. Two-handed hammer attacks create a 3m aftershock on direct enemy hits for 20% weapon damage.
+- Level 40 - Cold Steel: Blunt attacks deal bonus frost damage equal to 12% of weapon damage.
+- Level 50 - Earthshaker: +15% blunt damage. Staggering an enemy grants +10% attack speed with blunt weapons for 5s.
+
+### Assassin (Knives)
+- Level 10 - Cutthroat: +7% knife damage.
+- Level 20 - Silent Hands: Knife attacks and stealth movement consume 15% less stamina. Additionally, you move at normal movement speed while crouched.
+- Level 30 - Assassination: First knife hit from stealth deals +50% damage. After a stealth hit, knife attack speed is increased by 20% for 5s.
+- Level 40 - Venom Coating: Knife hits apply stacking poison damage over time, up to 3 stacks. Poison damage scales with knife skill.
+- Level 50 - Twist the Knife: +15% knife damage against poisoned targets. Poisoned enemies deal 10% less damage to you.
+
+### Brawler (Unarmed)
+- Level 10 - Bare-Knuckle Training: +8% unarmed damage.
+- Level 20 - Light on Your Feet: Unarmed attacks consume 10% less stamina and jumping while unarmed consumes 10% less stamina.
+- Level 30 - One-Two Combo: Every 3rd consecutive unarmed hit deals +50% damage and restores 5% stamina. Combo resets after 4s without an unarmed hit.
+- Level 40 - Iron Fist: Unarmed attacks deal bonus spirit damage equal to 10% of weapon damage equivalent.
+- Level 50 - Rage: After taking damage, enter Rage for 5s: +10% unarmed damage and +20% attack speed. 20s cooldown.
+
+### Bulwark (Shields)
+- Level 10 - Shield Wall: +8% block power and -8% block stamina cost.
+- Level 20 - Shield Bearer: Shields impose no movement speed penalties.
+- Level 30 - Perfect Guard: Blocking within the first moment of an incoming hit restores 8 stamina and empowers your next attack or shield bash within 4s for +20% stagger.
+- Level 40 - Thorns: Blocked attacks return pierce damage equal to 20% of the original blocked damage.
+- Level 50 - Reverb!: After blocking 200 damage, release a 5m shockwave dealing 200 blunt damage and high stagger. 10s cooldown.
+
+### Lancer (Spears & Polearms)
+- Level 10 - Reach Advantage: +8% pierce damage with spears and polearms.
+- Level 20 - Balanced Grip: Thrown spears automatically return to the player after reaching their target, and polearms impose no movement penalties.
+- Level 30 - Spear Storm: Spear hits build up to 5 stacks; each stack grants +3% attack speed for 5s. Polearm hits build up to 5 stacks; each stack grants +3% stagger damage for 5s.
+- Level 40 - Stormpoint: Spear and polearm attacks deal bonus lightning damage equal to 12% of weapon damage.
+- Level 50 - Impaling Momentum: +15% spear and polearm damage. Thrown spear hits beyond 15m and polearm special attacks gain an additional +10% damage.
+
+### Wizard (Elemental Magic Staves)
+- Level 10 - Eitr Weave: +7% elemental magic damage.
+- Level 20 - Arcane Nourishment: Eitr granted by food is increased by 15%.
+- Level 30 - Arcane Surge: Dealing elemental magic damage grants +25% Eitr regeneration for 6s. Additional elemental magic damage refreshes the duration.
+- Level 40 - Arcane Efficiency: Elemental magic weapon Eitr costs are reduced by 10%.
+- Level 50 - Archmage: Dealing 500 damage of a single elemental affinity (fire, frost, lightning, or poison/nature) triggers its matching aura - Immolation Aura, Frost Armor, Storm Strider, or Verdant Aura - for 20s. Only one Archmage aura may be active at a time, and damage dealt while one is active isn't tracked.
+
+### Warlock (Blood Magic Staves) — NEW CLASS
+- Level 10 - Forbidden Knowledge: +7% blood magic damage and summoned creature damage.
+- Level 20 - Blood Feast: Health granted by food and food-based health regeneration are increased by 15%.
+- Level 30 - Blood Pact: Sacrificing health with a blood magic weapon grants Blood Pact for 8s, increasing blood magic and summoned creature damage by 20%. Additional qualifying sacrifices refresh the duration.
+- Level 40 - Dark Efficiency: Blood magic weapon Eitr costs are reduced by 10%. Health sacrifice costs are unchanged.
+- Level 50 - Sanguine Reclamation: Health-sacrificing blood magic casts build Bloodwell charges. At 4 charges, gain Sanguine Reclamation for 20s: blood magic and summoned creature damage restores 5% of damage dealt as health, capped at 5 health per second.
+
+Warlock starts at level 0 for everyone - there's no XP carried over from the old combined Wizard, the same way Executioner started fresh when it split out of Sword Master.
+
 ## 1.0.5
 
 - Fixed leveling up only ever advancing one level per XP award, even when a kill granted enough XP to cross multiple level thresholds at once - a class's level now gets set to whatever its total XP actually corresponds to. Perk-unlock notifications are also fixed to announce every perk tier crossed in a multi-level jump (e.g. going from 38 to 42 now still announces the level-40 perk), not just whether the final level happens to land exactly on one.

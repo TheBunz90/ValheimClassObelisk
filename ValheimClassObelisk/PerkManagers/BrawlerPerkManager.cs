@@ -1,6 +1,6 @@
-﻿// BrawlerPerkManager.cs (updated)
+// BrawlerPerkManager.cs
 // NOTE: Be sure your PNG is added as an Embedded Resource at: Resources/Icons/rage_icon.png
-//       And confirm the resource name below matches your project’s root namespace + folders.
+//       And confirm the resource name below matches your project's root namespace + folders.
 
 using HarmonyLib;
 using UnityEngine;
@@ -8,6 +8,7 @@ using Logger = Jotunn.Logger;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace ValheimClassObelisk
@@ -16,45 +17,38 @@ namespace ValheimClassObelisk
     public static class BrawlerPerkManager
     {
         // ==============================
-        // Brawler Modifier values
+        // Brawler configuration
         // ==============================
-        private static float ONE_TWO_COMBO_DAMAGE = 1.0f;
-        private static float ONE_TWO_COMBO_STAMINA = 0.05f;
-        private static float BREAK_GUARD_DAMAGE = 0.5f;
-        private static float IRON_FIST_DAMAGE = 0.1f;
-        private static float IRON_FIST_SPEED = 2.50f;
-        private static float IRON_SKIN_ARMOR = 0.25f;
-        private static float RAGE_DURATION = 5.0f;
-        private static float RAGE_DAMAGE_REDUCTION = 0.5f;
-        private static float RAGE_ATTACK_SPEED = 1.5f;
-        private static float RAGE_DAMAGE_BUFF = 0.25f;
-        private static float RAGE_COOLDOWN_TIME = 30.0f;
+        private const float LIGHT_ON_FEET_STAMINA_REDUCTION = 0.10f;
+        private const float ONE_TWO_COMBO_DAMAGE_BONUS = 0.50f;
+        private const float ONE_TWO_COMBO_STAMINA_RESTORE = 0.05f;
+        private const float ONE_TWO_COMBO_RESET_WINDOW = 4f;
+        private const float IRON_FIST_SPIRIT_PERCENT = 0.10f;
+        private const float RAGE_DURATION = 5f;
+        private const float RAGE_DAMAGE_BONUS = 0.10f;
+        private const float RAGE_ATTACK_SPEED = 1.20f; // +20% attack speed
+        private const float RAGE_COOLDOWN = 20f;
 
-        // ==============================
-        // Brawler Attributes
-        // ==============================
-        private static int conPunches = 0;
-        private static float rageEndTime;
-        private static float rageInternalCD;
-        private static bool rageIsActive = false;
-        private static bool ironFistIsActive = false;
-
-        // ==============================
-        // Constant strings / keys
-        // ==============================
-        private static string RAGE_AS_KEY = "Brawler_RageFist_AS";
-        private static string IRON_FIST_AS_KEY = "Brawler_IronFist_AS";
+        private const string RAGE_AS_KEY = "Brawler_RageFist_AS";
 
         // Embedded resource name for the Rage icon.
-        // IMPORTANT: Replace "ValheimClassObelisk" below if your project root namespace differs.
-        // Example folder structure: Resources/Icons/rage_icon.png
-        // => "ValheimClassObelisk.Resources.Icons.rage_icon.png"
         private const string RAGE_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.rage_viking_128.rgba";
-
-        [ThreadStatic] private static bool _inEquipHooks;
-
-        // Cache the loaded Rage icon so we don't recreate it repeatedly
         private static Sprite _cachedRageIcon;
+
+        // Per-player state (module-level statics here would leak between players in multiplayer)
+        private class ComboData
+        {
+            public int hits = 0;
+            public float lastHitTime = 0f;
+        }
+        private static readonly Dictionary<Player, ComboData> comboTracking = new Dictionary<Player, ComboData>();
+
+        private class RageData
+        {
+            public float endTime = 0f;
+            public float cooldownEndTime = 0f;
+        }
+        private static readonly Dictionary<Player, RageData> rageTracking = new Dictionary<Player, RageData>();
 
         #region Brawler Services
         public static bool HasBrawlerPerk(Player player, int requiredLevel)
@@ -68,16 +62,16 @@ namespace ValheimClassObelisk
         }
 
         // Description metadata, shown in the class selection GUI - locked perks display as "???"
-        private const string Intro = "Bare-knuckle brawlers with unmatched unarmed combat skills.";
-        private const string Outro = "For players who want to fight with their fists like a true Viking warrior.";
+        private const string Intro = "Bare-knuckle fighters who turn momentum, toughness, and close-range pressure into damage.";
+        private const string Outro = "Best for players who want fists to start modestly, become combo-driven, and finish with a clear mastery burst.";
 
         public static readonly List<PerkInfo> Perks = new List<PerkInfo>
         {
-            new PerkInfo { RequiredLevel = 10, Name = "One-Two Combo", Description = "Every 3rd consecutive punch deals +100% damage and restores 5% stamina" },
-            new PerkInfo { RequiredLevel = 20, Name = "Break Guard", Description = "Fist attacks deal +50% stagger damage" },
-            new PerkInfo { RequiredLevel = 30, Name = "Iron Fist", Description = "Fist attacks deal extra damage equal to 10% max health; +20% attack speed" },
-            new PerkInfo { RequiredLevel = 40, Name = "Tough", Description = "When not wearing chest piece, gain +25% physical damage resistance" },
-            new PerkInfo { RequiredLevel = 50, Name = "Rage", Description = "After unblocked damage, enter 5s rage: +50% attack speed, +50% damage resist, +25% fist damage (15s cooldown)" },
+            new PerkInfo { RequiredLevel = 10, Name = "Bare-Knuckle Training", Description = "+8% unarmed damage." },
+            new PerkInfo { RequiredLevel = 20, Name = "Light on Your Feet", Description = "Unarmed attacks consume 10% less stamina and jumping while unarmed consumes 10% less stamina." },
+            new PerkInfo { RequiredLevel = 30, Name = "One-Two Combo", Description = "Every 3rd consecutive unarmed hit deals +50% damage and restores 5% stamina. Combo resets after 4s without an unarmed hit." },
+            new PerkInfo { RequiredLevel = 40, Name = "Iron Fist", Description = "Unarmed attacks deal bonus spirit damage equal to 10% of weapon damage equivalent." },
+            new PerkInfo { RequiredLevel = 50, Name = "Rage", Description = "After taking damage, enter Rage for 5s: +10% unarmed damage and +20% attack speed. 20s cooldown." },
         };
 
         public static string GetClassDescription(Player player)
@@ -86,9 +80,6 @@ namespace ValheimClassObelisk
             return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
         }
 
-        // ------------------------------------------------------------
-        // Loads and returns the Rage icon Sprite from the embedded PNG
-        // ------------------------------------------------------------
         private static Sprite GetRageIcon()
         {
             if (_cachedRageIcon != null) return _cachedRageIcon;
@@ -104,7 +95,6 @@ namespace ValheimClassObelisk
                         return null;
                     }
 
-                    // Read header (width, height)
                     byte[] header = new byte[8];
                     int read = s.Read(header, 0, 8);
                     if (read != 8)
@@ -113,12 +103,10 @@ namespace ValheimClassObelisk
                         return null;
                     }
 
-                    // little-endian UInt32 width/height
                     int width = BitConverter.ToInt32(header, 0);
                     int height = BitConverter.ToInt32(header, 4);
                     int expectedBytes = width * height * 4;
 
-                    // Read raw RGBA32 pixels
                     byte[] pixels = new byte[expectedBytes];
                     int off = 0;
                     while (off < expectedBytes)
@@ -133,20 +121,13 @@ namespace ValheimClassObelisk
                         return null;
                     }
 
-                    // Create Texture2D and upload raw data (no ImageConversion needed)
                     Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
                     tex.wrapMode = TextureWrapMode.Clamp;
                     tex.filterMode = FilterMode.Bilinear;
                     tex.LoadRawTextureData(pixels);
                     tex.Apply(false, false);
 
-                    // Create UI sprite
-                    _cachedRageIcon = Sprite.Create(
-                        tex,
-                        new Rect(0, 0, width, height),
-                        new Vector2(0.5f, 0.5f),
-                        100f // pixels per unit; fine for inventory/status icons
-                    );
+                    _cachedRageIcon = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f);
                     return _cachedRageIcon;
                 }
             }
@@ -157,59 +138,67 @@ namespace ValheimClassObelisk
             }
         }
 
-        public static float IronFistDamage(Player player)
-        {
-            // Calculate bonus damage from the player's max HP
-            float damage = 0f;
-            if (player == null) return damage;
-
-            float maxHealth = player.GetMaxHealth();
-            damage = maxHealth * IRON_FIST_DAMAGE;
-
-            return damage;
-        }
-
-        public static HitData ModDamage(HitData hit, float mod)
-        {
-            // Multiplies all damage types by 'mod'
-            if (hit == null || mod == 0f) return hit;
-            hit.m_damage.m_damage *= mod;
-            hit.m_damage.m_slash *= mod;
-            hit.m_damage.m_pierce *= mod;
-            hit.m_damage.m_blunt *= mod;
-            hit.m_damage.m_fire *= mod;
-            hit.m_damage.m_frost *= mod;
-            hit.m_damage.m_spirit *= mod;
-            hit.m_damage.m_poison *= mod;
-            return hit;
-        }
-
         public static HitData ModPhysicalDamage(HitData hit, float mod)
         {
-            // Multiplies physical damage types by 'mod' only
-            if (hit == null || mod == 0f) return hit;
+            if (hit == null) return hit;
             hit.m_damage.m_damage *= mod;
             hit.m_damage.m_slash *= mod;
             hit.m_damage.m_pierce *= mod;
             hit.m_damage.m_blunt *= mod;
             return hit;
         }
+        #endregion
 
-        public static void ApplyRageAttackSpeed(Player player)
+        #region Level 30 - One-Two Combo
+        /// <summary>
+        /// Returns the damage bonus (0 or ONE_TWO_COMBO_DAMAGE_BONUS) for this hit and advances
+        /// the combo counter. Per-player, with a 4s reset window (the old version never reset,
+        /// so a slow, interrupted trickle of hits could still "combo").
+        /// </summary>
+        private static float AdvanceOneTwoCombo(Player player)
         {
-            // Activate Rage state and set the AnimationSpeed modifier
-            rageIsActive = true;
-            rageEndTime = Time.time + RAGE_DURATION;
-            rageInternalCD = Time.time + RAGE_COOLDOWN_TIME;
-            AnimationSpeedManager.Set(player, RAGE_AS_KEY, RAGE_ATTACK_SPEED);
+            if (!comboTracking.TryGetValue(player, out var combo) || Time.time - combo.lastHitTime > ONE_TWO_COMBO_RESET_WINDOW)
+            {
+                combo = new ComboData();
+                comboTracking[player] = combo;
+            }
 
-            // Also apply a visible status effect with the embedded icon
+            combo.lastHitTime = Time.time;
+            combo.hits++;
+
+            if (combo.hits >= 3)
+            {
+                combo.hits = 0;
+                float maxStamina = player.GetMaxStamina();
+                player.AddStamina(maxStamina * ONE_TWO_COMBO_STAMINA_RESTORE);
+                return ONE_TWO_COMBO_DAMAGE_BONUS;
+            }
+
+            return 0f;
+        }
+        #endregion
+
+        #region Level 50 - Rage
+        private static bool IsRageActive(Player player)
+        {
+            return rageTracking.TryGetValue(player, out var data) && Time.time < data.endTime;
+        }
+
+        private static void TriggerRage(Player player)
+        {
+            if (!rageTracking.TryGetValue(player, out var data))
+            {
+                data = new RageData();
+                rageTracking[player] = data;
+            }
+
+            data.endTime = Time.time + RAGE_DURATION;
+            data.cooldownEndTime = Time.time + RAGE_COOLDOWN;
+
+            AnimationSpeedManager.Set(player, RAGE_AS_KEY, RAGE_ATTACK_SPEED);
             ApplyRageBuffIcon(player);
         }
 
-        // ------------------------------------------------------------------
-        // Creates and applies a temporary SE_Stats "Rage" with our custom icon
-        // ------------------------------------------------------------------
         private static void ApplyRageBuffIcon(Player player)
         {
             try
@@ -217,18 +206,16 @@ namespace ValheimClassObelisk
                 var seman = player.GetSEMan();
                 if (seman == null) return;
 
-                seman.RemoveStatusEffect("SE_Rage".GetStableHashCode(), true);
+                seman.RemoveStatusEffect("SE_Rage".GetStableHashCode(), quiet: true);
 
                 var statusEffect = ScriptableObject.CreateInstance<SE_Stats>();
                 statusEffect.name = "SE_Rage";
                 statusEffect.m_name = "Rage";
-                statusEffect.m_tooltip = "+50% Attack Speed, +50% Physical Resist, +25% Damage.";
+                statusEffect.m_tooltip = "+10% unarmed damage, +20% attack speed.";
                 statusEffect.m_ttl = RAGE_DURATION;
-
-                // Use the embedded .rgba sprite
                 statusEffect.m_icon = GetRageIcon();
 
-                seman.AddStatusEffect(statusEffect, true);
+                seman.AddStatusEffect(statusEffect, resetTime: true);
             }
             catch (Exception ex)
             {
@@ -236,168 +223,116 @@ namespace ValheimClassObelisk
             }
         }
 
-        public static bool ShouldApplyIronFist(Player player)
-        {
-            if (player == null) return false;
-            var current = player.GetCurrentWeapon();
-            bool hasPerk = HasBrawlerPerk(player, 30);
-            bool isFistWeapon = ClassCombatManager.IsUnarmedAttack(current);
-            return hasPerk && isFistWeapon;
-        }
-
         public static void CleanupBuffs()
         {
-            // Reconcile expiring state; clear the Rage attack speed when TTL passes
             float currentTime = Time.time;
-            Player player = Player.m_localPlayer;
-            if (rageIsActive && rageEndTime < currentTime)
+            var expired = rageTracking.Where(kvp => kvp.Value.endTime < currentTime && kvp.Value.endTime > 0f).Select(kvp => kvp.Key).ToList();
+            foreach (var player in expired)
             {
-                rageIsActive = false;
-                AnimationSpeedManager.Clear(player, RAGE_AS_KEY);
+                rageTracking[player].endTime = 0f; // mark handled without losing the cooldown timer
+                if (player != null)
+                {
+                    AnimationSpeedManager.Clear(player, RAGE_AS_KEY);
+                }
             }
         }
-
         #endregion
 
         #region Harmony Patches
-        // Summary
-        // Apply Damage mod and OnHit effects in here.
         [HarmonyPatch(typeof(Character), "Damage")]
         [HarmonyPrefix]
         public static void Brawler_Damage_Prefix(Character __instance, ref HitData hit)
         {
             try
             {
-                Character attacker = hit.GetAttacker();
-                Character target = __instance;
-                float damageMult = 1f;
-                float reduceMult = 1f;
-
-                float additionalDamage = 0f;
-                bool isPlayer = attacker is Player;
-                Player player = attacker as Player;
-                if (isPlayer)
+                // Offensive bonuses: the attacker's own Brawler level/unarmed status.
+                if (hit.GetAttacker() is Player attacker && __instance != null && !(__instance is Player))
                 {
-                    // One-Two-Combo perk: every 3rd punch increases damage and gives stamina
-                    if (HasBrawlerPerk(player, 10))
+                    var weapon = attacker.GetCurrentWeapon();
+                    if (ClassCombatManager.IsUnarmedAttack(weapon))
                     {
-                        if (conPunches == 2)
+                        var playerData = PlayerClassManager.GetPlayerData(attacker);
+                        if (playerData != null && playerData.IsClassActive(PlayerClass.Brawler))
                         {
-                            conPunches = 0;
-                            damageMult += ONE_TWO_COMBO_DAMAGE;
-                            float maxStamina = player.GetMaxStamina();
-                            float extraStamina = maxStamina * ONE_TWO_COMBO_STAMINA;
-                            player.AddStamina(extraStamina);
-                        }
-                        else
-                        {
-                            conPunches++;
-                        }
-                    }
+                            float bonus = 0f;
 
-                    // Iron Fist perk: add bonus damage based on max HP
-                    if (HasBrawlerPerk(player, 30)) additionalDamage += IronFistDamage(player);
+                            // One-Two Combo (Level 30)
+                            if (HasBrawlerPerk(attacker, 30))
+                            {
+                                bonus += AdvanceOneTwoCombo(attacker);
+                            }
 
-                    // Rage perk: live damage buff + start Rage state
-                    if (HasBrawlerPerk(player, 50))
-                    {
-                        damageMult += rageIsActive ? RAGE_DAMAGE_BUFF : 0f;
+                            // Rage (Level 50): live damage buff while active
+                            if (HasBrawlerPerk(attacker, 50) && IsRageActive(attacker))
+                            {
+                                bonus += RAGE_DAMAGE_BONUS;
+                            }
+
+                            if (bonus > 0f)
+                            {
+                                ModPhysicalDamage(hit, 1f + bonus);
+                            }
+
+                            // Iron Fist (Level 40): bonus spirit damage from the current physical total
+                            if (HasBrawlerPerk(attacker, 40))
+                            {
+                                float physicalDamage = hit.m_damage.GetTotalPhysicalDamage();
+                                hit.m_damage.m_spirit += physicalDamage * IRON_FIST_SPIRIT_PERCENT;
+                            }
+                        }
                     }
                 }
 
-                if (target == Player.m_localPlayer)
+                // Defensive trigger: Rage activates whenever the player takes damage (Level 50),
+                // regardless of whether they were blocking.
+                if (__instance is Player targetPlayer && hit.GetTotalDamage() > 0)
                 {
-                    // Iron Skin
-                    if (HasBrawlerPerk(player, 40)) reduceMult -= IRON_SKIN_ARMOR;
-
-                    // Rage: reduce incoming physical damage while active
-                    if (HasBrawlerPerk(player, 50) && rageIsActive)
+                    if (HasBrawlerPerk(targetPlayer, 50) && !IsRageActive(targetPlayer))
                     {
-                        var currentTime = Time.time;
-                        if (rageIsActive) reduceMult -= RAGE_DAMAGE_REDUCTION;
-                        else if (currentTime > rageInternalCD) ApplyRageAttackSpeed(player);
+                        bool onCooldown = rageTracking.TryGetValue(targetPlayer, out var data) && Time.time < data.cooldownEndTime;
+                        if (!onCooldown)
+                        {
+                            TriggerRage(targetPlayer);
+                        }
                     }
-
-                    ModPhysicalDamage(hit, reduceMult);
-                }
-
-                // Apply additive bonus (e.g., Iron Fist) AFTER multipliers
-                if (additionalDamage > 0f)
-                {
-                    hit.m_damage.m_blunt += additionalDamage; // fists are blunt in Valheim
                 }
             }
             catch (System.Exception ex)
             {
-                Logger.LogError($"Error in Character_Damage_Assassin_Prefix: {ex.Message}");
+                Logger.LogError($"Error in Brawler_Damage_Prefix: {ex.Message}");
             }
         }
 
-        [HarmonyPatch(typeof(Humanoid), "EquipItem")]
-        [HarmonyPostfix]
-        public static void Humanoid_EquipItem_Postfix(Humanoid __instance, ItemDrop.ItemData item, bool triggerEquipEffects = true)
+        /// <summary>
+        /// Light on Your Feet (Level 20). Player.UseStamina is the single funnel for stamina
+        /// costs in this codebase - both unarmed attacks and jumping (Player.OnJump computes
+        /// jump stamina inline and passes it straight to UseStamina, there's no separate
+        /// jump-stamina method to patch) go through here, so one check on "currently unarmed"
+        /// covers both cases the perk description calls out.
+        /// </summary>
+        [HarmonyPatch(typeof(Player), "UseStamina")]
+        [HarmonyPrefix]
+        public static void Player_UseStamina_Brawler_Prefix(Player __instance, ref float v)
         {
             try
             {
-                if (_inEquipHooks) return;
-                _inEquipHooks = true;
+                if (!HasBrawlerPerk(__instance, 20)) return;
+                if (!ClassCombatManager.IsUnarmedAttack(__instance.GetCurrentWeapon())) return;
 
-                var player = Player.m_localPlayer;
-                if (player == null || __instance != player) return;
-
-                bool wantIronFist = ShouldApplyIronFist(player);
-                if (!wantIronFist && ironFistIsActive)
-                {
-                    ironFistIsActive = false;
-                    AnimationSpeedManager.Clear(player, IRON_FIST_AS_KEY);
-                }
+                v *= (1f - LIGHT_ON_FEET_STAMINA_REDUCTION);
             }
             catch (System.Exception ex)
             {
-                Logger.LogError($"Error in Player_EquipItem_Brawler_Patch_Prefix: {ex.Message}");
-            }
-            finally
-            {
-                _inEquipHooks = false;
-            }
-        }
-
-        [HarmonyPatch(typeof(Humanoid), "UnequipItem")]
-        [HarmonyPostfix]
-        public static void Humanoid_UnequipItem_Postfix(Humanoid __instance, ItemDrop.ItemData item, bool triggerEquipEffects = true)
-        {
-            try
-            {
-                if (_inEquipHooks) return;
-                _inEquipHooks = true;
-
-                var player = Player.m_localPlayer;
-                if (player == null || __instance != player) return;
-
-                bool wantIronFist = ShouldApplyIronFist(player);
-                if (wantIronFist && !ironFistIsActive)
-                {
-                    ironFistIsActive = true;
-                    AnimationSpeedManager.Set(player, IRON_FIST_AS_KEY, IRON_FIST_SPEED);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"[Brawler] UnequipItem postfix error: {ex}");
-            }
-            finally
-            {
-                _inEquipHooks = false;
+                Logger.LogError($"Error in Player_UseStamina_Brawler_Prefix: {ex.Message}");
             }
         }
 
         [HarmonyPatch(typeof(Game), "Update")]
         [HarmonyPostfix]
-        public static void Game_Update_Assassin_Postfix()
+        public static void Game_Update_Brawler_Postfix()
         {
             try
             {
-                // Periodically clean up expiring buffs (once a second)
                 if (Time.time % 1f < Time.deltaTime)
                 {
                     CleanupBuffs();
@@ -408,7 +343,6 @@ namespace ValheimClassObelisk
                 Logger.LogError($"Error in Game_Update_Brawler_Postfix: {ex.Message}");
             }
         }
-
         #endregion
     }
 }

@@ -1,45 +1,17 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using UnityEngine;
 using Logger = Jotunn.Logger;
-using System;
-using System.IO;
-using System.Reflection;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace ValheimClassObelisk
 {
+    /// <summary>
+    /// Lancer class perk system - focused on spears and polearms, split between 1H thrown/thrust
+    /// spears and 2H sweeping polearms (ClassCombatManager.IsPolearmWeapon / IsTwoHandedWeapon).
+    /// </summary>
     [HarmonyPatch]
     public static class LancerPerkManager
     {
-        // Initialize Constants
-        private static float REACH_ADVANTAGE_DAMAGE = 0.15f; // 15% pierce damage bonus
-        private static float REACH_ADVANTAGE_STAMINA = 0.15f; // 15% stamina reduction
-        private static float SPEAR_STORM_DAMAGE_PER_STACK = 0.05f; // 5% damage per stack
-        private static float SPEAR_STORM_DURATION = 5.0f; // 5 seconds
-        private static int SPEAR_STORM_MAX_STACKS = 5; // Maximum 5 stacks
-        private static float DISRUPTIVE_STRIKES_CHANCE = 0.5f; // 50% chance
-        private static float DISRUPTIVE_STRIKES_DURATION = 3.0f; // 3 seconds disable
-        private static float IMPRESSIVE_THROW_MAX_DISTANCE = 100f; // 100 meters
-        private static float IMPRESSIVE_THROW_MAX_MULTIPLIER = 3.0f; // 300% damage
-
-        // Initialize trackers
-        private static Dictionary<Player, float> _lastThrownSpearTime = new Dictionary<Player, float>();
-        private static Dictionary<Player, Vector3> _lastThrownSpearPosition = new Dictionary<Player, Vector3>();
-
-        // Icon Resources (you'll need to add these to your project)
-        //private const string REACH_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.reach_advantage_128.rgba";
-        private const string STORM_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.SpearStorm.rgba";
-        //private const string DISRUPT_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.disruptive_strikes_128.rgba";
-        //private const string TELEPORT_ICON_RESOURCE = "ValheimClassObelisk.Resources.Icons.spear_teleport_128.rgba";
-
-        // Sprites
-        //private static Sprite _cachedReachIcon;
-        private static Sprite _cachedStormIcon;
-        //private static Sprite _cachedDisruptIcon;
-        //private static Sprite _cachedTeleportIcon;
-
-        #region Lancer Service Classes
         public static bool HasLancerPerk(Player player, int requiredLevel)
         {
             if (player == null) return false;
@@ -51,16 +23,16 @@ namespace ValheimClassObelisk
         }
 
         // Description metadata, shown in the class selection GUI - locked perks display as "???"
-        private const string Intro = "Spear specialists with superior reach and polearm technique.";
-        private const string Outro = "Perfect for players who like versatile polearm combat and tactical positioning.";
+        private const string Intro = "Spear and polearm specialists who win through reach, spacing, throws, and sweeping control.";
+        private const string Outro = "Best for players who want spears and polearms to share a class identity while preserving their different combat rhythms.";
 
         public static readonly List<PerkInfo> Perks = new List<PerkInfo>
         {
-            new PerkInfo { RequiredLevel = 10, Name = "Reach Advantage", Description = "+15% pierce damage; -15% stamina cost when attacking." },
-            new PerkInfo { RequiredLevel = 20, Name = "Spear Storm", Description = "Successful hits apply a stacking buff. Each stack causes your attacks to deal 5% additional damage as lightning damage for 5 seconds. Stacks up to 5 times, stacks refresh on hit." },
-            new PerkInfo { RequiredLevel = 30, Name = "Disruptive Strikes", Description = "Hits have a 50% chance to disable the targets movement." },
-            new PerkInfo { RequiredLevel = 40, Name = "Impressive Throw", Description = "Damage increases the further the target is away from you. Up to 300% for 100 meters away." },
-            new PerkInfo { RequiredLevel = 50, Name = "Spear Of Relocation", Description = "When a thrown spear connects with an enemy you teleport to that enemy." },
+            new PerkInfo { RequiredLevel = 10, Name = "Reach Advantage", Description = "+8% pierce damage with spears and polearms." },
+            new PerkInfo { RequiredLevel = 20, Name = "Balanced Grip", Description = "Thrown spears automatically return to the player after reaching their target, and polearms impose no movement penalties." },
+            new PerkInfo { RequiredLevel = 30, Name = "Spear Storm", Description = "Spear hits build up to 5 stacks; each stack grants +3% attack speed for 5s. Polearm hits build up to 5 stacks; each stack grants +3% stagger damage for 5s." },
+            new PerkInfo { RequiredLevel = 40, Name = "Stormpoint", Description = "Spear and polearm attacks deal bonus lightning damage equal to 12% of weapon damage." },
+            new PerkInfo { RequiredLevel = 50, Name = "Impaling Momentum", Description = "+15% spear and polearm damage. Thrown spear hits beyond 15m and polearm special attacks gain an additional +10% damage." },
         };
 
         public static string GetClassDescription(Player player)
@@ -69,448 +41,393 @@ namespace ValheimClassObelisk
             return PerkDescriptionBuilder.Build(Intro, Perks, Outro, level);
         }
 
-        public static HitData ApplyReachAdvantage(HitData hit)
+        #region Level 20 - Balanced Grip (Spear Recall)
+        public const float SPEAR_RECALL_TIMEOUT = 10f;
+
+        private class PendingRecall
         {
-            if (hit == null) return hit;
-
-            // Apply 15% pierce damage bonus
-            float mult = 1f + REACH_ADVANTAGE_DAMAGE;
-            hit.m_damage.m_pierce *= mult;
-
-            return hit;
+            public Player owner;
+            public ItemDrop.ItemData item;
+            public float deadline;
         }
 
-        public static float ApplyReachAdvantageStamina(float staminaCost)
+        // Keyed by the actual Projectile instance so multiple spears in flight at once (e.g. two
+        // Lancers, or one player throwing again before the first lands) are tracked independently.
+        // A destroyed Projectile remains a valid dictionary key (Unity's "fake null" only affects
+        // member access, not object identity/hashing), so lookups from SpawnOnHit still resolve.
+        private static readonly Dictionary<Projectile, PendingRecall> pendingRecalls = new Dictionary<Projectile, PendingRecall>();
+
+        /// <summary>
+        /// Called from Projectile.Setup's postfix at the moment a spear is thrown - starts the
+        /// 10s fallback clock immediately, independent of whatever happens to the projectile
+        /// object afterward (hit, bounce, lost off a cliff, vanilla's own shorter TTL, etc.).
+        /// </summary>
+        public static void TrackThrownSpear(Projectile projectile, Player owner, ItemDrop.ItemData item)
         {
-            // Reduce stamina cost by 15%
-            return staminaCost * (1f - REACH_ADVANTAGE_STAMINA);
+            pendingRecalls[projectile] = new PendingRecall { owner = owner, item = item, deadline = Time.time + SPEAR_RECALL_TIMEOUT };
         }
 
-        public static void ApplySpearStorm(Player player, Character target)
+        /// <summary>
+        /// Called from Projectile.SpawnOnHit's prefix when a tracked spear lands on anything.
+        /// Returns true (and removes the tracking entry) if this projectile was being tracked.
+        /// </summary>
+        public static bool TryConsumeRecall(Projectile projectile, out Player owner, out ItemDrop.ItemData item)
+        {
+            owner = null;
+            item = null;
+            if (!pendingRecalls.TryGetValue(projectile, out var data)) return false;
+
+            pendingRecalls.Remove(projectile);
+            owner = data.owner;
+            item = data.item;
+            return true;
+        }
+
+        /// <summary>
+        /// Grants the recalled spear directly back to the player's inventory (it's the exact same
+        /// ItemData reference Attack.ConsumeItem removed when the spear was thrown - durability,
+        /// quality, everything intact) rather than leaving a pickup on the ground. Falls back to
+        /// dropping it at the player's feet only if the inventory is genuinely full.
+        /// </summary>
+        public static void RecallSpearToPlayer(Player player, ItemDrop.ItemData item)
+        {
+            if (player == null || item == null) return;
+
+            if (!player.GetInventory().AddItem(item))
+            {
+                ItemDrop.DropItem(item, 1, player.transform.position, player.transform.rotation);
+            }
+
+            player.Message(MessageHud.MessageType.TopLeft, $"{item.m_shared.m_name} returns to you!");
+        }
+
+        /// <summary>
+        /// Fallback for spears that never trigger SpawnOnHit at all (flew into the void, expired
+        /// via vanilla's own TTL without a hit, got stuck somewhere weird) - force the recall once
+        /// the 10s deadline passes, regardless of the underlying projectile's fate.
+        /// </summary>
+        public static void ProcessSpearRecallTimeouts()
+        {
+            List<Projectile> expired = null;
+            foreach (var kvp in pendingRecalls)
+            {
+                if (Time.time >= kvp.Value.deadline)
+                {
+                    if (expired == null) expired = new List<Projectile>();
+                    expired.Add(kvp.Key);
+                }
+            }
+
+            if (expired == null) return;
+
+            foreach (var projectile in expired)
+            {
+                var data = pendingRecalls[projectile];
+                pendingRecalls.Remove(projectile);
+
+                // Best-effort: if the projectile is still alive (just hasn't hit anything yet),
+                // clear its own spawn-item reference too, so a later vanilla TTL-expiry SpawnOnHit
+                // call (if the prefab has m_spawnOnTtl set) can't also drop a ground duplicate of
+                // the spear we're about to grant directly to the player.
+                if (projectile != null) projectile.m_spawnItem = null;
+
+                RecallSpearToPlayer(data.owner, data.item);
+            }
+        }
+        #endregion
+
+        #region Level 30 - Spear Storm
+        private const float SPEAR_STORM_PER_STACK = 0.03f;
+        private const float SPEAR_STORM_DURATION = 5f;
+        private const int SPEAR_STORM_MAX_STACKS = 5;
+        private const string SPEAR_STORM_AS_KEY = "Lancer_SpearStorm_AS";
+
+        private class StackData
+        {
+            public int stacks;
+            public float expireTime;
+        }
+
+        // Separate stack tracks per weapon sub-type (spear vs polearm), matching
+        // ExecutionerPerkManager.rendingRhythmStacks' per-key, self-expiring dictionary pattern.
+        private static readonly Dictionary<Player, StackData> spearStacks = new Dictionary<Player, StackData>();
+        private static readonly Dictionary<Player, StackData> polearmStacks = new Dictionary<Player, StackData>();
+
+        private static void AddStack(Dictionary<Player, StackData> tracker, Player player)
+        {
+            if (!tracker.TryGetValue(player, out var data) || Time.time >= data.expireTime)
+            {
+                data = new StackData();
+                tracker[player] = data;
+            }
+
+            data.stacks = Mathf.Min(data.stacks + 1, SPEAR_STORM_MAX_STACKS);
+            data.expireTime = Time.time + SPEAR_STORM_DURATION;
+        }
+
+        private static int GetStacks(Dictionary<Player, StackData> tracker, Player player)
+        {
+            if (!tracker.TryGetValue(player, out var data) || Time.time >= data.expireTime) return 0;
+            return data.stacks;
+        }
+
+        /// <summary>
+        /// Keeps the spear-branch attack-speed multiplier registered/cleared to match current
+        /// stack count, called every tick from the periodic update (same reasoning as Sword
+        /// Master's Dancing Steel refresh - stacks decaying over time need this, not just hits).
+        /// </summary>
+        public static void RefreshSpearStormAttackSpeed(Player player)
         {
             if (player == null) return;
 
-            SEMan seman = player.GetSEMan();
-            string statusName = "SE_SpearStorm";
-
-            // Check if player already has the buff
-            var existingEffect = seman.GetStatusEffect(statusName.GetStableHashCode());
-            if (existingEffect != null)
-            {
-                // Refresh duration and add stack
-                var spearStormEffect = existingEffect as SE_SpearStorm;
-                if (spearStormEffect != null)
-                {
-                    spearStormEffect.AddStack();
-                    spearStormEffect.RefreshDuration();
-                }
-            }
-            else
-            {
-                // Create new spear storm effect
-                var statusEffect = ScriptableObject.CreateInstance<SE_SpearStorm>();
-                statusEffect.name = statusName;
-                statusEffect.m_name = "Spear Storm";
-                statusEffect.m_tooltip = "Damage increased by successful hits";
-                statusEffect.m_ttl = SPEAR_STORM_DURATION;
-                statusEffect.m_icon = GetStormIcon();
-
-                seman.AddStatusEffect(statusEffect, resetTime: false);
-            }
+            int stacks = GetStacks(spearStacks, player);
+            if (stacks > 0) AnimationSpeedManager.Set(player, SPEAR_STORM_AS_KEY, 1f + stacks * SPEAR_STORM_PER_STACK);
+            else AnimationSpeedManager.Clear(player, SPEAR_STORM_AS_KEY);
         }
 
-        public static void ApplyDisruptiveStrikes(Character target)
+        public static float GetPolearmStormStaggerBonus(Player player)
         {
-            if (target == null || target.IsDead()) return;
-
-            // Apply movement disable effect
-            SEMan seman = target.GetSEMan();
-            string statusName = "SE_MovementDisabled";
-
-            var statusEffect = ScriptableObject.CreateInstance<SE_MovementDisabled>();
-            statusEffect.name = statusName;
-            statusEffect.m_name = "Movement Disabled";
-            statusEffect.m_tooltip = "Cannot move due to disruptive strike";
-            statusEffect.m_ttl = DISRUPTIVE_STRIKES_DURATION;
-            //statusEffect.m_icon = GetDisruptIcon();
-
-            seman.AddStatusEffect(statusEffect, resetTime: true);
+            return GetStacks(polearmStacks, player) * SPEAR_STORM_PER_STACK;
         }
 
-        public static float CalculateImpressiveThrowDamage(Vector3 throwerPosition, Vector3 targetPosition)
+        public static void ProcessSpearStormHit(Player player, bool isPolearm)
         {
-            float distance = Vector3.Distance(throwerPosition, targetPosition);
-            float distanceRatio = Mathf.Clamp01(distance / IMPRESSIVE_THROW_MAX_DISTANCE);
-
-            // Linear scaling from 1x to 3x damage based on distance
-            float result = 1f + (distanceRatio * (IMPRESSIVE_THROW_MAX_MULTIPLIER - 1f));
-
-            return result;
-        }
-
-        public static void HandleSpearOfRelocation(Player player, Character target)
-        {
-            if (player == null || target == null) return;
-
-            // Teleport player to target location
-            Vector3 targetPosition = target.transform.position;
-            Vector3 teleportPosition = targetPosition + Vector3.back * 2f; // Teleport slightly behind target
-
-            player.transform.position = teleportPosition;
-            player.GetComponent<Rigidbody>().velocity = Vector3.zero;
+            AddStack(isPolearm ? polearmStacks : spearStacks, player);
         }
         #endregion
 
-        #region Icon Loading Methods
+        #region Level 40 - Stormpoint
+        public const float STORMPOINT_LIGHTNING_PERCENT = 0.12f;
 
-        private static Sprite GetStormIcon()
+        public static void ApplyStormpointLightning(ref HitData hit, float weaponDamage)
         {
-            if (_cachedStormIcon != null) return _cachedStormIcon;
-            return LoadIconFromResource(STORM_ICON_RESOURCE, "Storm", ref _cachedStormIcon);
-        }
-
-        private static Sprite LoadIconFromResource(string resourceName, string iconType, ref Sprite cachedSprite)
-        {
-            try
-            {
-                var asm = Assembly.GetExecutingAssembly();
-                using (Stream s = asm.GetManifestResourceStream(resourceName))
-                {
-                    if (s == null)
-                    {
-                        Jotunn.Logger.LogWarning($"[Lancer] Embedded icon not found: {resourceName}");
-                        return null;
-                    }
-
-                    // Read header (width, height)
-                    byte[] header = new byte[8];
-                    int read = s.Read(header, 0, 8);
-                    if (read != 8)
-                    {
-                        Jotunn.Logger.LogWarning($"[Lancer] {iconType} icon header corrupt.");
-                        return null;
-                    }
-
-                    // little-endian UInt32 width/height
-                    int width = BitConverter.ToInt32(header, 0);
-                    int height = BitConverter.ToInt32(header, 4);
-                    int expectedBytes = width * height * 4;
-
-                    // Read raw RGBA32 pixels
-                    byte[] pixels = new byte[expectedBytes];
-                    int off = 0;
-                    while (off < expectedBytes)
-                    {
-                        int n = s.Read(pixels, off, expectedBytes - off);
-                        if (n <= 0) break;
-                        off += n;
-                    }
-                    if (off != expectedBytes)
-                    {
-                        Jotunn.Logger.LogWarning($"[Lancer] {iconType} icon pixel data incomplete ({off}/{expectedBytes}).");
-                        return null;
-                    }
-
-                    // Create Texture2D and upload raw data
-                    Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
-                    tex.wrapMode = TextureWrapMode.Clamp;
-                    tex.filterMode = FilterMode.Bilinear;
-                    tex.LoadRawTextureData(pixels);
-                    tex.Apply(false, false);
-
-                    // Create UI sprite
-                    cachedSprite = Sprite.Create(
-                        tex,
-                        new Rect(0, 0, width, height),
-                        new Vector2(0.5f, 0.5f),
-                        100f
-                    );
-                    return cachedSprite;
-                }
-            }
-            catch (Exception ex)
-            {
-                Jotunn.Logger.LogError($"[Lancer] Failed to load {iconType} icon: {ex}");
-                return null;
-            }
+            hit.m_damage.m_lightning += weaponDamage * STORMPOINT_LIGHTNING_PERCENT;
         }
         #endregion
 
-        #region Lancer Patch Classes
-        // Summary
-        // Apply damage modifications and on-hit effects for Lancer perks
+        #region Level 50 - Impaling Momentum
+        public const float IMPALING_MOMENTUM_BONUS = 0.10f;
+        public const float IMPALING_MOMENTUM_THROW_DISTANCE = 15f;
+        #endregion
+    }
+
+    /// <summary>
+    /// Harmony patches to integrate Lancer perks with game systems
+    /// </summary>
+    [HarmonyPatch]
+    public static class LancerPerkPatches
+    {
+        // Per-player tracking of whether the current attack is a special/secondary attack, needed
+        // for Impaling Momentum's polearm-special-attack bonus.
+        private static readonly Dictionary<Player, bool> pendingSpecialAttack = new Dictionary<Player, bool>();
+
+        [HarmonyPatch(typeof(Humanoid), "StartAttack")]
+        [HarmonyPrefix]
+        public static void Humanoid_StartAttack_Lancer_Prefix(Humanoid __instance, bool secondaryAttack)
+        {
+            try
+            {
+                if (!(__instance is Player player)) return;
+
+                var weapon = player.GetCurrentWeapon();
+                if (weapon == null || !ClassCombatManager.IsSpearWeapon(weapon))
+                {
+                    pendingSpecialAttack.Remove(player);
+                    return;
+                }
+
+                pendingSpecialAttack[player] = secondaryAttack;
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Humanoid_StartAttack_Lancer_Prefix: {ex.Message}");
+            }
+        }
+
+        #region Damage Patches
+        /// <summary>
+        /// Apply Stormpoint's instant lightning bonus (Level 40), Spear Storm's polearm stagger
+        /// bonus (Level 30), and Impaling Momentum's conditional +10% (Level 50). Reach Advantage's
+        /// flat +8% (Level 10) and Impaling Momentum's flat +15% (Level 50) live only in
+        /// ClassCombatManager.GetLancerDamageBonus - not duplicated here.
+        /// </summary>
         [HarmonyPatch(typeof(Character), "Damage")]
         [HarmonyPrefix]
-        public static void Lancer_Damage_Prefix(Character __instance, ref HitData hit)
+        public static void Character_Damage_Lancer_Prefix(Character __instance, ref HitData hit)
         {
             try
             {
-                Character attacker = hit.GetAttacker();
-                Character target = __instance;
+                if (hit.m_skill == Skills.SkillType.None) return;
+                if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
 
-                bool isPlayer = attacker is Player;
-                Player player = attacker as Player;
+                var weapon = player.GetCurrentWeapon();
+                if (!ClassCombatManager.IsSpearWeapon(weapon)) return;
+                if (!LancerPerkManager.HasLancerPerk(player, 1)) return;
 
-                if (isPlayer && ClassCombatManager.IsSpearWeapon(player.GetCurrentWeapon()))
+                bool isPolearm = ClassCombatManager.IsPolearmWeapon(weapon);
+                float originalDamage = hit.GetTotalDamage();
+
+                if (LancerPerkManager.HasLancerPerk(player, 30) && isPolearm)
                 {
-                    // Level 10 - Reach Advantage: +15% pierce damage
-                    if (HasLancerPerk(player, 10))
-                    {
-                        hit = ApplyReachAdvantage(hit);
-                    }
+                    float staggerBonus = LancerPerkManager.GetPolearmStormStaggerBonus(player);
+                    if (staggerBonus > 0f) hit.m_staggerMultiplier *= 1f + staggerBonus;
+                }
 
-                    // Level 20 - Spear Storm: +5% Lightning Damage per stack
-                    if (HasLancerPerk(player, 20))
-                    {
-                        var seman = player.GetSEMan();
-                        var statusName = "SE_SpearStorm".GetStableHashCode();
-                        if (seman != null && seman.HaveStatusEffect(statusName))
-                        {
-                            SE_SpearStorm spearStorm = (SE_SpearStorm) seman.GetStatusEffect(statusName);
-                            var stormStacks = spearStorm ? spearStorm.currentStacks : 0f;
-                            float lightningMod = stormStacks * SPEAR_STORM_DAMAGE_PER_STACK;
-                            hit.m_damage.m_lightning = hit.m_damage.GetTotalDamage() * lightningMod;
-                        }
-                    }
+                if (LancerPerkManager.HasLancerPerk(player, 40))
+                {
+                    LancerPerkManager.ApplyStormpointLightning(ref hit, originalDamage);
+                }
 
-                    // Level 40 - Impressive Throw: Distance-based damage (for thrown weapons)
-                    if (HasLancerPerk(player, 40) && hit.m_skill == Skills.SkillType.Spears)
+                if (LancerPerkManager.HasLancerPerk(player, 50))
+                {
+                    // A melee spear thrust can't reach beyond ~2-3m, so a hit landing beyond 15m
+                    // is necessarily a thrown spear - distance itself is a sufficient signal,
+                    // no separate Projectile-path detection needed.
+                    float distance = Vector3.Distance(player.transform.position, __instance.transform.position);
+                    bool qualifies = isPolearm
+                        ? (pendingSpecialAttack.TryGetValue(player, out var special) && special)
+                        : distance > LancerPerkManager.IMPALING_MOMENTUM_THROW_DISTANCE;
+
+                    if (qualifies)
                     {
-                        // Check if this is a thrown attack (you may need to adjust this condition)
-                        float distanceMultiplier = CalculateImpressiveThrowDamage(player.transform.position, target.transform.position);
-                        hit.m_damage.Modify(distanceMultiplier);
+                        float multiplier = 1f + LancerPerkManager.IMPALING_MOMENTUM_BONUS;
+                        hit.m_damage.m_damage *= multiplier;
+                        hit.m_damage.m_blunt *= multiplier;
+                        hit.m_damage.m_slash *= multiplier;
+                        hit.m_damage.m_pierce *= multiplier;
+                        hit.m_damage.m_chop *= multiplier;
+                        hit.m_damage.m_fire *= multiplier;
+                        hit.m_damage.m_frost *= multiplier;
+                        hit.m_damage.m_lightning *= multiplier;
+                        hit.m_damage.m_poison *= multiplier;
+                        hit.m_damage.m_spirit *= multiplier;
                     }
                 }
             }
             catch (System.Exception ex)
             {
-                Logger.LogError($"Error in Lancer_Damage_Prefix: {ex.Message}");
+                Logger.LogError($"Error in Character_Damage_Lancer_Prefix: {ex.Message}");
             }
         }
 
-        // Summary
-        // Apply post-damage effects for Lancer perks
-        [HarmonyPatch(typeof(Character), "Damage")]
-        [HarmonyPostfix]
-        public static void Lancer_Damage_Postfix(Character __instance, ref HitData hit)
-        {
-            try
-            {
-                Character attacker = hit.GetAttacker();
-                Character target = __instance;
-
-                bool isPlayer = attacker is Player;
-                Player player = attacker as Player;
-
-                if (isPlayer && ClassCombatManager.IsSpearWeapon(player.GetCurrentWeapon()) && hit.GetTotalDamage() > 0)
-                {
-                    // Level 20 - Spear Storm: Stacking damage buff on successful hits
-                    if (HasLancerPerk(player, 20))
-                    {
-                        ApplySpearStorm(player, target);
-                    }
-
-                    // Level 30 - Disruptive Strikes: 50% chance to disable movement
-                    if (HasLancerPerk(player, 30))
-                    {
-                        if (UnityEngine.Random.Range(0f, 1f) <= DISRUPTIVE_STRIKES_CHANCE)
-                        {
-                            ApplyDisruptiveStrikes(target);
-                        }
-                    }
-
-                    // Level 50 - Spear of Relocation: Teleport on thrown spear hit
-                    //if (HasLancerPerk(player, 50) && hit.m_skill == Skills.SkillType.Spears)
-                    //{
-                    //    // Check if this was a thrown attack (you may need to adjust this condition)
-                    //    HandleSpearOfRelocation(player, target);
-                    //}
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Lancer_Damage_Postfix: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Apply Relocation Effect if Spear Hits an enemy
-        [HarmonyPatch(typeof(Projectile), "OnHit")]
-        [HarmonyPrefix]
-        public static void Projectile_OnHit_Prefix(Projectile __instance, Collider collider, Vector3 hitPoint, Character ___m_owner)
-        {
-            try
-            {
-                if (__instance == null || collider == null) return;
-
-                // Check if this is a thrown spear hitting a valid target
-                var hitCharacter = collider.GetComponent<Character>();
-                if (hitCharacter == null || hitCharacter is Player) return;
-
-                // The projectile's own owner/skill (set once in Projectile.Setup and never
-                // touched again) is the only reliable way to know who threw this and with
-                // what. The previous FindProjectileOwner helper fell back to "whichever
-                // player is within 100m" when a projectile had no resolvable ZDO owner -
-                // which includes any monster-thrown projectile, misattributing it to a
-                // nearby Lancer. Also gate on the throw actually being a spear, not just
-                // any projectile a player happens to have thrown. (m_owner is private on the
-                // real Projectile class, hence the Harmony ___m_owner field-injection
-                // parameter above.)
-                if (!(___m_owner is Player thrower)) return;
-                if (__instance.m_skill != Skills.SkillType.Spears) return;
-
-                // Only trigger for players with Lancer class active
-                var playerData = PlayerClassManager.GetPlayerData(thrower);
-                if (playerData == null || !playerData.IsClassActive(PlayerClass.Lancer) || !HasLancerPerk(thrower, 50)) return;
-
-                HandleSpearOfRelocation(thrower, hitCharacter);
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Projectile_OnHit_Prefix (Lancer): {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Apply stamina cost reduction for Reach Advantage
-        [HarmonyPatch(typeof(Player), "UseStamina")]
-        [HarmonyPrefix]
-        public static void Lancer_UseStamina_Prefix(Player __instance, ref float v)
-        {
-            try
-            {
-                if (HasLancerPerk(__instance, 10) && ClassCombatManager.IsSpearWeapon(__instance.GetCurrentWeapon()))
-                {
-                    // Apply stamina reduction for spear attacks
-                    v = ApplyReachAdvantageStamina(v);
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Lancer_UseStamina_Prefix: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Refresh lancer passive buffs whenever the player deals damage (covers post-level-up refresh)
+        /// <summary>
+        /// Advance Spear Storm's stack count (Level 30) after a successful hit.
+        /// </summary>
         [HarmonyPatch(typeof(Character), "Damage")]
         [HarmonyPostfix]
-        public static void Lancer_LevelUp_Postfix(Character __instance, HitData hit)
+        public static void Character_Damage_Lancer_Postfix(Character __instance, HitData hit)
         {
             try
             {
+                if (hit.m_skill == Skills.SkillType.None) return;
+                if (!(hit.GetAttacker() is Player player) || __instance == null || __instance is Player) return;
                 if (hit.GetTotalDamage() <= 0) return;
-                if (hit.GetAttacker() is Player player && __instance != null && !(__instance is Player))
-                {
-                    ApplyAllLancerPassiveBuffs(player);
-                }
+
+                var weapon = player.GetCurrentWeapon();
+                if (!ClassCombatManager.IsSpearWeapon(weapon)) return;
+                if (!LancerPerkManager.HasLancerPerk(player, 30)) return;
+
+                LancerPerkManager.ProcessSpearStormHit(player, ClassCombatManager.IsPolearmWeapon(weapon));
             }
             catch (System.Exception ex)
             {
-                Logger.LogError($"Error in Lancer_LevelUp_Postfix: {ex.Message}");
+                Logger.LogError($"Error in Character_Damage_Lancer_Postfix: {ex.Message}");
             }
-        }
-
-        // Summary
-        // Apply lancer buffs when player spawns
-        [HarmonyPatch(typeof(Player), "OnSpawned")]
-        [HarmonyPostfix]
-        public static void Lancer_PlayerSpawn_Postfix(Player __instance)
-        {
-            try
-            {
-                // Apply all lancer passive buffs on spawn
-                ApplyAllLancerPassiveBuffs(__instance);
-            }
-            catch (System.Exception ex)
-            {
-                Logger.LogError($"Error in Lancer_PlayerSpawn_Postfix: {ex.Message}");
-            }
-        }
-
-        // Summary
-        // Method to apply all lancer passive buffs based on current level
-        private static void ApplyAllLancerPassiveBuffs(Player player)
-        {
-            if (player == null) return;
-
-            // Currently no persistent passive buffs for Lancer, but this is where you'd add them
-            // For example, if you had a passive speed boost or armor bonus
-
-            // Future passive buffs can be added here for other levels
-            // if (HasLancerPerk(player, 10)) ApplyReachAdvantagePassive(player);
         }
         #endregion
 
-        #region Status Effects
-        public class SE_SpearStorm : SE_Stats
+        #region Spear Recall Patches
+        /// <summary>
+        /// Balanced Grip (Level 20): starts tracking a thrown spear the moment it's launched.
+        /// Only 1H spears are thrown (polearms are melee-only, and IsSpearWeapon covers both),
+        /// so this explicitly excludes polearms rather than relying on IsTwoHandedWeapon alone.
+        /// </summary>
+        [HarmonyPatch(typeof(Projectile), "Setup", new System.Type[] { typeof(Character), typeof(Vector3), typeof(float), typeof(HitData), typeof(ItemDrop.ItemData), typeof(ItemDrop.ItemData) })]
+        [HarmonyPostfix]
+        public static void Projectile_Setup_Lancer_Postfix(Projectile __instance, Character owner, ItemDrop.ItemData item)
         {
-            public int currentStacks = 1;
-
-            public override void Setup(Character character)
+            try
             {
-                base.Setup(character);
-                m_ttl = SPEAR_STORM_DURATION;
+                if (!(owner is Player player) || item == null) return;
+                if (!ClassCombatManager.IsSpearWeapon(item) || ClassCombatManager.IsPolearmWeapon(item)) return;
+                if (!LancerPerkManager.HasLancerPerk(player, 20)) return;
+
+                LancerPerkManager.TrackThrownSpear(__instance, player, item);
             }
-
-            public void AddStack()
+            catch (System.Exception ex)
             {
-                if (currentStacks < SPEAR_STORM_MAX_STACKS)
-                {
-                    currentStacks++;
-                    UpdateTooltip();
-                }
-            }
-
-            public void RefreshDuration()
-            {
-                m_ttl = SPEAR_STORM_DURATION;
-                m_time = 0f;
-            }
-
-            public float GetCurrentDamageBonus()
-            {
-                return currentStacks * SPEAR_STORM_DAMAGE_PER_STACK;
-            }
-
-            private void UpdateTooltip()
-            {
-                m_tooltip = $"Damage increased by {(GetCurrentDamageBonus() * 100):F0}% ({currentStacks}/{SPEAR_STORM_MAX_STACKS} stacks)";
-            }
-
-            public override void UpdateStatusEffect(float dt)
-            {
-                base.UpdateStatusEffect(dt);
-                UpdateTooltip();
+                Logger.LogError($"Error in Projectile_Setup_Lancer_Postfix: {ex.Message}");
             }
         }
 
-        public class SE_MovementDisabled : SE_Stats
+        /// <summary>
+        /// Balanced Grip (Level 20): intercepts a tracked spear's landing. Vanilla's own
+        /// SpawnOnHit is what turns a landed thrown spear into a ground pickup (m_spawnItem,
+        /// set from Setup's item param since spears have m_respawnItemOnHit) - null it out before
+        /// the original runs so that specific drop is skipped while every other spawn-on-hit
+        /// effect (impact VFX, m_randomSpawnOnHit, etc.) still fires normally, then hand the item
+        /// straight to the player's inventory instead.
+        /// </summary>
+        [HarmonyPatch(typeof(Projectile), "SpawnOnHit")]
+        [HarmonyPrefix]
+        public static void Projectile_SpawnOnHit_Lancer_Prefix(Projectile __instance)
         {
-            public override void Setup(Character character)
+            try
             {
-                base.Setup(character);
+                if (!LancerPerkManager.TryConsumeRecall(__instance, out var owner, out var item)) return;
 
-                // Disable movement by setting speed modifier to 0
-                m_speedModifier = -1f; // This should make speed 0
-                m_ttl = DISRUPTIVE_STRIKES_DURATION;
+                __instance.m_spawnItem = null;
+                LancerPerkManager.RecallSpearToPlayer(owner, item);
             }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Projectile_SpawnOnHit_Lancer_Prefix: {ex.Message}");
+            }
+        }
+        #endregion
 
-            //public override void UpdateStatusEffect(float dt)
-            //{
-            //    base.UpdateStatusEffect(dt);
+        #region Movement Speed Patches
+        /// <summary>
+        /// Balanced Grip (Level 20): cancels an equipped polearm's own movement-speed penalty -
+        /// 1H spears already have none in vanilla, so this only needs to key off polearms.
+        /// </summary>
+        [HarmonyPatch(typeof(Player), "GetEquipmentMovementModifier")]
+        [HarmonyPostfix]
+        public static void Player_GetEquipmentMovementModifier_Lancer_Postfix(Player __instance, ref float __result)
+        {
+            try
+            {
+                if (!LancerPerkManager.HasLancerPerk(__instance, 20)) return;
 
-            //    // Ensure character cannot move
-            //    if (m_character != null)
-            //    {
-            //        var rigidbody = m_character.GetComponent<Rigidbody>();
-            //        if (rigidbody != null)
-            //        {
-            //            // Stop any movement
-            //            rigidbody.velocity = new Vector3(0, rigidbody.velocity.y, 0);
-            //        }
-            //    }
-            //}
+                var weapon = __instance.GetCurrentWeapon();
+                if (weapon == null || !ClassCombatManager.IsPolearmWeapon(weapon)) return;
+
+                float weaponPenalty = weapon.m_shared.m_movementModifier;
+                if (weaponPenalty < 0f) __result -= weaponPenalty;
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Player_GetEquipmentMovementModifier_Lancer_Postfix: {ex.Message}");
+            }
+        }
+        #endregion
+
+        #region Periodic Updates
+        [HarmonyPatch(typeof(Game), "Update")]
+        [HarmonyPostfix]
+        public static void Game_Update_Lancer_Postfix()
+        {
+            try
+            {
+                var player = Player.m_localPlayer;
+                if (player != null) LancerPerkManager.RefreshSpearStormAttackSpeed(player);
+
+                LancerPerkManager.ProcessSpearRecallTimeouts();
+            }
+            catch (System.Exception ex)
+            {
+                Logger.LogError($"Error in Game_Update_Lancer_Postfix: {ex.Message}");
+            }
         }
         #endregion
     }

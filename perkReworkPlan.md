@@ -23,11 +23,3 @@ Axes are currently being grouped into SwordMaster since there is not a class for
 
 -------------------------------------------
 
-Couple open questions, does my current implementation of poison in the assassin class actually do poison damage? Does it apply the poison visual / sound effects? If not could it be re-worked to do that?
-
-Same thing about burning, do we have a way to apply burning effects / control how much burn damage is applied by the burn effect we inflict?
-
-Also could we use the current implementation of poison to do "bleed" damage. Meaning just slashing damage-over-time effect? This could be useful for new perk designs in the future if it's something we've already got developed.
-
--------------------------------------------------
-

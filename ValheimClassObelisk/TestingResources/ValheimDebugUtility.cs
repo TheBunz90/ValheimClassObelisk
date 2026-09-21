@@ -250,6 +250,90 @@ public static class ValheimDebugUtility
                 }
             );
 
+            new Terminal.ConsoleCommand("listcreatures", "Dump every loaded creature prefab's real internal name, localized display name, and base health to a file - ground truth for mapping design-doc creature names to actual prefabs",
+                delegate (Terminal.ConsoleEventArgs args)
+                {
+                    if (ZNetScene.instance == null)
+                    {
+                        args.Context.AddString("ZNetScene not ready yet - try again once you've spawned into a world.");
+                        return;
+                    }
+
+                    var output = new List<string>();
+                    output.Add("PrefabName | DisplayName (localization key) | BaseHealth | HasMonsterAI | HasAnimalAI | HasHumanoid | Faction");
+                    output.Add("");
+
+                    int count = 0;
+                    foreach (string prefabName in ZNetScene.instance.GetPrefabNames().OrderBy(n => n))
+                    {
+                        try
+                        {
+                            var prefab = ZNetScene.instance.GetPrefab(prefabName);
+                            var character = prefab?.GetComponent<Character>();
+                            if (character == null) continue;
+
+                            count++;
+                            bool hasMonsterAI = prefab.GetComponent<MonsterAI>() != null;
+                            bool hasAnimalAI = prefab.GetComponent<AnimalAI>() != null;
+                            bool hasHumanoid = prefab.GetComponent<Humanoid>() != null;
+                            // GetMaxHealthBase() (not GetMaxHealth()) - this is a raw prefab asset,
+                            // never Awake()-initialized, so m_nview is null and GetMaxHealth()'s
+                            // m_nview.GetZDO() read would throw. GetMaxHealthBase() only touches the
+                            // plain m_health field.
+                            output.Add($"{prefabName} | {character.m_name} | {character.GetMaxHealthBase():F0} | {hasMonsterAI} | {hasAnimalAI} | {hasHumanoid} | {character.GetFaction()}");
+                        }
+                        catch (Exception ex)
+                        {
+                            output.Add($"{prefabName} | ERROR: {ex.Message}");
+                        }
+                    }
+
+                    WriteToLogFile("creature_prefabs.txt", output);
+                    args.Context.AddString($"Wrote {count} creature prefabs to DebugLogs/creature_prefabs.txt");
+                }
+            );
+
+            new Terminal.ConsoleCommand("checkprefab", "Inspect a specific prefab's components (checkprefab <name>) - use when a creature/object doesn't show up in listcreatures, to see what it actually has instead of Character",
+                delegate (Terminal.ConsoleEventArgs args)
+                {
+                    if (args.Length < 2)
+                    {
+                        args.Context.AddString("Usage: checkprefab <prefabName>");
+                        return;
+                    }
+                    if (ZNetScene.instance == null)
+                    {
+                        args.Context.AddString("ZNetScene not ready yet - try again once you've spawned into a world.");
+                        return;
+                    }
+
+                    string prefabName = args.Args[1];
+                    var prefab = ZNetScene.instance.GetPrefab(prefabName);
+                    if (prefab == null)
+                    {
+                        args.Context.AddString($"No prefab named '{prefabName}' found in ZNetScene.");
+                        return;
+                    }
+
+                    args.Context.AddString($"Prefab '{prefabName}' found. Components:");
+                    foreach (var component in prefab.GetComponents<Component>())
+                    {
+                        args.Context.AddString($"  {component.GetType().Name}");
+                    }
+
+                    var character = prefab.GetComponent<Character>();
+                    var wnt = prefab.GetComponent<WearNTear>();
+                    if (character != null)
+                    {
+                        args.Context.AddString($"Has Character: name={character.m_name}, baseHealth={character.GetMaxHealthBase():F0}");
+                    }
+                    if (wnt != null)
+                    {
+                        args.Context.AddString($"Has WearNTear: health={wnt.m_health:F0} (destructible piece, not Character - a different XP hook would be needed)");
+                    }
+                }
+            );
+
             new Terminal.ConsoleCommand("debugpath", "Show debug log directory path",
                 delegate (Terminal.ConsoleEventArgs args)
                 {

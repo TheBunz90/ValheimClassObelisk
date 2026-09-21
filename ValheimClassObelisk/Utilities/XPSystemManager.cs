@@ -29,65 +29,11 @@ public static class ClassXPManager
 
     internal static class XPRequirements
     {
-        // This is the canonical cumulative "total XP required to reach level N" table.
-        // Regenerated for the 1.0.4 leveling-pace rebalance: total(n) = round(71.93 * n^1.85),
-        // scaled so level 50 requires exactly 100,000 XP (was 1,089,861) and the level-1-to-50
-        // growth ratio (~51x) roughly matches how mob health scales across biomes, instead of
-        // wildly outpacing it (the old table grew 625x over the same range).
-        private static readonly SortedDictionary<int, int> _thresholds =
-            new SortedDictionary<int, int>
-            {
-                {  1,      72 },
-                {  2,     259 },
-                {  3,     549 },
-                {  4,     935 },
-                {  5,    1413 },
-                {  6,    1979 },
-                {  7,    2632 },
-                {  8,    3370 },
-                {  9,    4190 },
-                { 10,    5092 },
-                { 11,    6074 },
-                { 12,    7135 },
-                { 13,    8274 },
-                { 14,    9489 },
-                { 15,   10781 },
-                { 16,   12149 },
-                { 17,   13591 },
-                { 18,   15106 },
-                { 19,   16696 },
-                { 20,   18357 },
-                { 21,   20091 },
-                { 22,   21897 },
-                { 23,   23774 },
-                { 24,   25721 },
-                { 25,   27739 },
-                { 26,   29827 },
-                { 27,   31984 },
-                { 28,   34210 },
-                { 29,   36504 },
-                { 30,   38867 },
-                { 31,   41298 },
-                { 32,   43796 },
-                { 33,   46361 },
-                { 34,   48994 },
-                { 35,   51693 },
-                { 36,   54458 },
-                { 37,   57290 },
-                { 38,   60187 },
-                { 39,   63150 },
-                { 40,   66178 },
-                { 41,   69272 },
-                { 42,   72430 },
-                { 43,   75652 },
-                { 44,   78939 },
-                { 45,   82290 },
-                { 46,   85705 },
-                { 47,   89184 },
-                { 48,   92726 },
-                { 49,   96331 },
-                { 50,  100000 },
-            };
+        // Cumulative "total XP required to reach level N" now lives in XPConfigManager, as
+        // individually synced/editable ConfigEntries seeded from the v1.0 playtest design
+        // (docs/player_xp_milestones.json - 25,450 total XP at level 50), replacing the old
+        // hardcoded 100,000-XP curve. This class keeps the same public API so the rest of the
+        // codebase (XPCurveHelper etc.) doesn't need to change, just delegates to the config now.
 
         /// <summary>
         /// Total XP required to *reach* a level (cumulative threshold).
@@ -96,11 +42,7 @@ public static class ClassXPManager
         public static int GetTotalXPForLevel(int level)
         {
             if (level <= 0) return 0;
-
-            int maxKnownLevel = _thresholds.Keys.Max();
-            if (level >= maxKnownLevel) return _thresholds[maxKnownLevel];
-
-            return _thresholds.TryGetValue(level, out int total) ? total : 0;
+            return (int)XPConfigManager.GetTotalXPForLevel(level);
         }
 
         /// <summary>
@@ -121,10 +63,11 @@ public static class ClassXPManager
         /// </summary>
         public static int GetLevelFromTotalXP(float totalXP)
         {
+            int maxLevel = GetMaxLevel();
             int current = 0;
-            foreach (var kv in _thresholds)
+            for (int level = 1; level <= maxLevel; level++)
             {
-                if (totalXP >= kv.Value) current = kv.Key; else break;
+                if (totalXP >= GetTotalXPForLevel(level)) current = level; else break;
             }
             return current;
         }
@@ -135,7 +78,7 @@ public static class ClassXPManager
         /// </summary>
         public static (float current, float required) GetProgress(float totalXP, int currentLevel)
         {
-            int maxLevel = _thresholds.Keys.Max();
+            int maxLevel = GetMaxLevel();
             int nextLevel = Math.Min(currentLevel + 1, maxLevel);
 
             int xpForCurrent = (currentLevel <= 0) ? 0 : GetTotalXPForLevel(currentLevel);
@@ -147,7 +90,7 @@ public static class ClassXPManager
         }
 
         /// <summary>Maximum level defined by the table.</summary>
-        public static int GetMaxLevel() => _thresholds.Keys.Max();
+        public static int GetMaxLevel() => XPConfigManager.GetMaxLevel();
     }
 
 
@@ -204,6 +147,19 @@ public static class ClassXPManager
     }
 
     // Award kill bonus XP when a creature dies
+    /// <summary>
+    /// Strips Unity's "(Clone)" instantiation suffix off a live Character's name to recover its
+    /// real prefab name - e.g. "Greydwarf_Elite(Clone)" -> "Greydwarf_Elite" - for looking it up
+    /// in XPConfigManager's creature table.
+    /// </summary>
+    private static string GetPrefabName(Character character)
+    {
+        if (character == null) return null;
+        string name = character.name;
+        int cloneIndex = name.IndexOf("(Clone)", StringComparison.Ordinal);
+        return cloneIndex >= 0 ? name.Substring(0, cloneIndex) : name;
+    }
+
     public static void AwardKillBonusXP(Character deadCreature)
     {
         if (deadCreature == null || !creatureDamageTracker.ContainsKey(deadCreature))
@@ -219,15 +175,33 @@ public static class ClassXPManager
             return;
         }
 
-        // Calculate kill bonus based on creature's max health, using the snapshot taken
-        // while it was still alive (see creatureMaxHealthTracker) so star-scaled health
-        // is captured correctly. Falls back to GetMaxHealth() in case no hit was tracked.
-        float maxHealth = creatureMaxHealthTracker.TryGetValue(deadCreature, out float trackedMaxHealth)
-            ? trackedMaxHealth
-            : deadCreature.GetMaxHealth();
-        float baseKillBonus = maxHealth * KillBonusMultiplier;
+        // Base XP now comes from the hand-balanced creature table (XPConfigManager), keyed by the
+        // creature's real prefab name - not a flat health-based formula. GetLevel() (1 = 0-star,
+        // 2 = 1-star, 3 = 2-star; confirmed via decompile: SetupMaxHealth does
+        // GetMaxHealthBase() * level) reads a plain cached field, not the ZDO, so it's still valid
+        // after OnDeath tears the ZDO down - unlike GetMaxHealth(), which is why maxHealth still
+        // needs the pre-death snapshot below for the fallback path.
+        string prefabName = GetPrefabName(deadCreature);
+        int starCount = Mathf.Max(0, deadCreature.GetLevel() - 1);
+        float starMultiplier = XPConfigManager.GetStarMultiplier(starCount);
 
-        DevLog.Log($"Creature {deadCreature.name} died. Max health: {maxHealth}, base kill bonus: {baseKillBonus}");
+        float baseXP = XPConfigManager.GetBaseXPForCreature(prefabName, out bool foundInTable);
+        if (!foundInTable)
+        {
+            // Not in the hand-balanced table (not in the design doc, or a vanilla variant not yet
+            // mapped) - fall back to the old health-based formula rather than award 0, and log it
+            // at warning level (not DevLog - this should be visible in Release builds too) so gaps
+            // surface during real play instead of silently under-rewarding a creature forever.
+            float maxHealth = creatureMaxHealthTracker.TryGetValue(deadCreature, out float trackedMaxHealth)
+                ? trackedMaxHealth
+                : deadCreature.GetMaxHealth();
+            baseXP = maxHealth * KillBonusMultiplier;
+            Logger.LogWarning($"[XP] '{prefabName}' isn't in the creature XP table - falling back to health-based XP ({baseXP:F0}). Consider adding it to the XP config.");
+        }
+
+        float baseKillBonus = baseXP * starMultiplier;
+
+        DevLog.Log($"Creature {deadCreature.name} (prefab={prefabName}) died. Star count: {starCount}, base XP: {baseXP}, star multiplier: {starMultiplier}, kill bonus: {baseKillBonus}");
 
         // Award XP to each player based on classes they used
         foreach (var playerEntry in playerDamageByClass)

@@ -23,7 +23,7 @@ internal class ClassObeliskMod : BaseUnityPlugin
 {
     public const string PluginGUID = "com.bunzboi.valheimweaponclass";
     public const string PluginName = "ValheimWeaponClasses";
-    public const string PluginVersion = "1.1.1";
+    public const string PluginVersion = "1.1.2";
 
     private GameObject TestPanel;
 
@@ -44,6 +44,11 @@ internal class ClassObeliskMod : BaseUnityPlugin
 
         _harmony = new Harmony(PluginGUID);
         _harmony.PatchAll();
+
+        // SynchronizationManager is one of Jotunn's own managers, already initialized before our
+        // Awake() runs (Jotunn is a hard BepInEx dependency, loaded first) - safe to bind and
+        // register the XP config here.
+        XPConfigManager.Initialize();
 
         // Try multiple registration approaches
         PrefabManager.OnVanillaPrefabsAvailable += AddClassObelisk;

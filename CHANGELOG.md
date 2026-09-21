@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.2
+
+- Reworked how kill XP is calculated. Previously every creature's kill bonus was just its max health times a flat multiplier, which made durable, low-danger creatures (Stone Golems, Abominations) feel irrational to fight compared to rapidly farming trivial early-game mobs. Every creature, boss, and named encounter now has its own hand-balanced XP value instead, weighted by biome progression, danger, and actual time/effort to kill - not just raw HP. Star-scaling is more generous too: a 1-star kill is now worth 2.25x instead of 2x, and a 2-star kill is 4x instead of 3x, since tougher enemies also carry more risk, not just more health.
+- Rebalanced the Level 1-50 curve down from 100,000 total XP to 25,450, so a first class reaching max level lines up with roughly Mountain-biome progression instead of requiring extreme grinding, while later biomes (especially Ashlands and Deep North) now award dramatically more XP - intentional, so leveling a second or third class after unlocking dual-classing gets progressively faster as you progress, rather than staying just as slow as your first class was.
+- Deer, Seals, and Mistlands' Hares now award a small 5 XP per kill instead of 0 - passive wildlife still isn't a great grind, but no longer feels like a complete waste of a kill.
+- Existing characters are automatically and one-time adjusted so this rebalance can't hand out unearned levels: each class's level is preserved exactly as it was, and only its stored XP number is recalculated to match what the new curve requires for that same level. This can only ever lower a stored XP number to fit the new curve, never take away a level you'd already earned.
+- All of the above - every creature/boss/encounter's XP value, every level's XP requirement, and both star multipliers - are now individually configurable in a new settings file, and a multiplayer server's values automatically override each connecting player's local settings, so server admins can retune the pace for everyone without every player needing to edit their own config by hand.
+
 ## 1.1.1
 
 - Fixed Executioner's Woodsman's Carry (Level 20), Rending Rhythm (Level 30), Hemorrhage (Level 40), and Execute's low-health bonus (Level 50) not applying at all - the class was missing a required registration attribute, so those four perks silently never activated since Executioner was first introduced. Only the flat "+8%/+15% axe damage" portions of Chopper's Training and Execute were ever actually working. All five perk tiers now function as described.

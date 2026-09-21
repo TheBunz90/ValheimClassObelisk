@@ -34,6 +34,13 @@ public class PlayerClassData
     [SerializeField] private List<float> _classXPValues = new List<float>();
     [SerializeField] private List<bool> _classUnlockedValues = new List<bool>();
 
+    // Bumped whenever an XP curve / creature-table change could meaningfully shift what level a
+    // character's stored raw XP number corresponds to (e.g. the v1.1.x rebalance from a
+    // 100,000-XP to a 25,450-XP level-50 curve). 0 on any save written before this field existed -
+    // Unity's JsonUtility leaves missing fields at their C# default when deserializing an old save,
+    // which is exactly the "needs migration" signal. See PlayerClassManager.MigrateXPCurveIfNeeded.
+    public int xpCurveMigrationVersion = 0;
+
     public PlayerClassData()
     {
         InitializeAllClasses();
@@ -248,6 +255,52 @@ public static class PlayerClassManager
     {
         playerData[playerId] = data;
         Debug.Log($"[MANAGER] Directly set class data for player ID: {playerId}");
+    }
+
+    // Bump this whenever a future XP curve / creature-table change should re-trigger the
+    // level-preserving migration below for anyone still on an older stored version.
+    private const int CurrentXPCurveMigrationVersion = 1;
+
+    /// <summary>
+    /// One-time, per-character migration for the XP curve rebalance that dropped level 50 from
+    /// 100,000 to 25,450 cumulative XP. Without this, a character's already-accumulated raw XP
+    /// number would be re-evaluated against the new, much smaller thresholds on load and could
+    /// land many levels ahead of where they actually were - handing out unearned levels/perks and
+    /// undercutting the mod's own hidden-perk discovery design.
+    ///
+    /// Deliberately does NOT try to reconstruct "what level would this XP have been under the old
+    /// curve" - classLevels is already the authoritative, live-tracked level per class
+    /// (CheckForLevelUp keeps it in sync with classXP on every XP award, under whatever curve was
+    /// active at the time), so the stored level is trusted as-is and just floored back down to
+    /// match that SAME level's new threshold. That also means this same logic safely handles any
+    /// future curve change in either direction, not just this one - no legacy curve snapshot needs
+    /// to be kept around, and it only ever lowers XP, never deletes progress a player is still
+    /// ahead of under the new curve.
+    /// </summary>
+    public static void MigrateXPCurveIfNeeded(PlayerClassData data, string playerName)
+    {
+        if (data == null || data.xpCurveMigrationVersion >= CurrentXPCurveMigrationVersion) return;
+
+        foreach (string className in data.classLevels.Keys.ToList())
+        {
+            int level = data.classLevels[className];
+            if (level <= 0) continue;
+
+            float oldXP = data.classXP.TryGetValue(className, out float xp) ? xp : 0f;
+            float newFloorXP = XPCurveHelper.GetTotalXPForLevel(level);
+
+            // Only ever adjust DOWN to the new floor. If some future curve change needed MORE XP
+            // for the same level instead of less, silently deleting XP a player already earned
+            // would be the wrong call - better to leave it alone and let them just be ahead of the
+            // new curve within that level.
+            if (newFloorXP < oldXP)
+            {
+                data.classXP[className] = newFloorXP;
+                Logger.LogInfo($"[XP Migration] {playerName}: {className} level {level} - adjusted stored XP {oldXP:F0} -> {newFloorXP:F0} to match the new level curve.");
+            }
+        }
+
+        data.xpCurveMigrationVersion = CurrentXPCurveMigrationVersion;
     }
 
     // Called when a "CO_SetActiveClasses" RPC is received - overwrites just the active
@@ -624,6 +677,10 @@ public static class Player_Load_Patch
                     var playerData = JsonUtility.FromJson<PlayerClassData>(jsonData);
                     playerData.RestoreFromSerialization();
 
+                    // One-time per-character XP curve migration (see MigrateXPCurveIfNeeded) -
+                    // must run before this data is stored/used anywhere else this session.
+                    PlayerClassManager.MigrateXPCurveIfNeeded(playerData, __instance.GetPlayerName());
+
                     // Store in the manager's dictionary
                     long playerId = __instance.GetPlayerID();
                     PlayerClassManager.SetPlayerDataDirectly(playerId, playerData);
@@ -761,15 +818,42 @@ public static class PCMTestCommands
     public static void InitTerminal_Postfix()
     {
         
-        new Terminal.ConsoleCommand("resetclass", "reset the active class to level 0",
+        new Terminal.ConsoleCommand("resetclass", "Reset all currently active classes to level 0 (resetclass [className] to reset just one)",
             delegate (Terminal.ConsoleEventArgs args)
             {
                 Player player = Player.m_localPlayer;
-                if (player != null)
+                if (player == null) return;
+
+                var playerData = PlayerClassManager.GetPlayerData(player);
+                if (playerData == null || playerData.activeClasses.Count == 0)
                 {
-                    string activeClass = PlayerClassManager.GetActiveClassesString(player);
-                    PlayerClassManager.ResetActiveClassProgress(player, activeClass);
+                    args.Context.AddString("No active classes to reset!");
+                    return;
                 }
+
+                // Optional single-class target (e.g. "resetclass Executioner"); with no argument,
+                // reset every currently active class - previously this joined ALL active class
+                // names into one comma-separated string ("Brawler, Executioner") and tried to
+                // reset THAT as if it were a single class, which never matched anything once more
+                // than one class was active, so it silently did nothing.
+                if (args.Length >= 2)
+                {
+                    string requested = args.Args[1];
+                    if (!playerData.activeClasses.Contains(requested))
+                    {
+                        args.Context.AddString($"'{requested}' is not currently active. Active classes: {string.Join(", ", playerData.activeClasses)}");
+                        return;
+                    }
+                    PlayerClassManager.ResetActiveClassProgress(player, requested);
+                    args.Context.AddString($"Reset {requested} to level 0.");
+                    return;
+                }
+
+                foreach (string className in playerData.activeClasses.ToList())
+                {
+                    PlayerClassManager.ResetActiveClassProgress(player, className);
+                }
+                args.Context.AddString($"Reset {playerData.activeClasses.Count} active class(es) to level 0: {string.Join(", ", playerData.activeClasses)}");
             }
         );
     }

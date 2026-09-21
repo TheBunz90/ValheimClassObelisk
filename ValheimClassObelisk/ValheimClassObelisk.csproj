@@ -124,6 +124,7 @@
     <Compile Include="TestingResources\ValheimDebugUtility.cs" />
     <Compile Include="PerkManagers\WizardPerkManager.cs" />
     <Compile Include="Utilities\XPSystemManager.cs" />
+    <Compile Include="Utilities\XPConfigManager.cs" />
     <Compile Include="UI\ActiveClassesTextsDialogPatch.cs" />
     <Compile Include="Utilities\DevLog.cs" />
   </ItemGroup>

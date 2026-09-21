@@ -1,0 +1,477 @@
+{
+  "schema_version": 1,
+  "status": "v1.0 playtest baseline",
+  "star_multipliers": {
+    "0_star": 1.0,
+    "1_star": 2.25,
+    "2_star": 4.0
+  },
+  "rules": {
+    "passive_creatures": "0 XP",
+    "player_participation": "Meaningful damage participation required; killing blow not required.",
+    "neutral_npcs": "Do not reward deliberate neutral-NPC hostility purely for XP; final implementation remains open.",
+    "boss_repeat_kills": "Always full XP; no first-kill bonus or repeat-kill penalty.",
+    "boss_encounter_components": "0 independent XP when their combat value is incorporated into the boss reward.",
+    "deep_north": "Intentionally permitted to be the strongest XP-farming region."
+  },
+  "creatures": [
+    {
+      "name": "Neck",
+      "biome": "Meadows",
+      "category": "standard_creature",
+      "base_xp": 2
+    },
+    {
+      "name": "Greyling",
+      "biome": "Meadows",
+      "category": "standard_creature",
+      "base_xp": 3
+    },
+    {
+      "name": "Boar",
+      "biome": "Meadows",
+      "category": "standard_creature",
+      "base_xp": 3
+    },
+    {
+      "name": "Deer",
+      "biome": "Meadows",
+      "category": "standard_creature",
+      "base_xp": 0,
+      "xp_rule": "passive_creature_zero_xp"
+    },
+    {
+      "name": "Greydwarf",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 7
+    },
+    {
+      "name": "Skeleton",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 9
+    },
+    {
+      "name": "Ghost",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 12
+    },
+    {
+      "name": "Greydwarf Shaman",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 14
+    },
+    {
+      "name": "Rancid Remains",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 18
+    },
+    {
+      "name": "Greydwarf Brute",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 22
+    },
+    {
+      "name": "Troll",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 80
+    },
+    {
+      "name": "Bear",
+      "biome": "Black Forest",
+      "category": "standard_creature",
+      "base_xp": 95
+    },
+    {
+      "name": "Surtling",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 4
+    },
+    {
+      "name": "Blob",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 18
+    },
+    {
+      "name": "Leech",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 18
+    },
+    {
+      "name": "Draugr",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 25
+    },
+    {
+      "name": "Wraith",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 35
+    },
+    {
+      "name": "Oozer",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 40
+    },
+    {
+      "name": "Draugr Elite",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 45
+    },
+    {
+      "name": "Kvastur",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 110
+    },
+    {
+      "name": "Abomination",
+      "biome": "Swamp",
+      "category": "standard_creature",
+      "base_xp": 150
+    },
+    {
+      "name": "Bat",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 8
+    },
+    {
+      "name": "Ulv",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 22
+    },
+    {
+      "name": "Drake",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 30
+    },
+    {
+      "name": "Wolf",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 30
+    },
+    {
+      "name": "Cultist",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 60
+    },
+    {
+      "name": "Fenring",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 75
+    },
+    {
+      "name": "Stone Golem",
+      "biome": "Mountain",
+      "category": "standard_creature",
+      "base_xp": 250
+    },
+    {
+      "name": "Deathsquito",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 25
+    },
+    {
+      "name": "Fuling",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 45
+    },
+    {
+      "name": "Growth",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 55
+    },
+    {
+      "name": "Fuling Shaman",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 55
+    },
+    {
+      "name": "Fuling Berserker",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 175
+    },
+    {
+      "name": "Lox",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 175
+    },
+    {
+      "name": "Vile",
+      "biome": "Plains",
+      "category": "standard_creature",
+      "base_xp": 275
+    },
+    {
+      "name": "Seeker Brood",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 12
+    },
+    {
+      "name": "Tick",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 25
+    },
+    {
+      "name": "Seeker",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 75
+    },
+    {
+      "name": "Dvergr Rogue",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 90,
+      "xp_rule": "subject_to_neutral_creature_hostility_rule"
+    },
+    {
+      "name": "Dvergr Mage",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 125,
+      "xp_rule": "subject_to_neutral_creature_hostility_rule"
+    },
+    {
+      "name": "Seeker Soldier",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 325
+    },
+    {
+      "name": "Gjall",
+      "biome": "Mistlands",
+      "category": "standard_creature",
+      "base_xp": 350
+    },
+    {
+      "name": "Volture",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 55
+    },
+    {
+      "name": "Charred Twitcher",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 60
+    },
+    {
+      "name": "Charred Marksman",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 65
+    },
+    {
+      "name": "Lava Blob",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 75
+    },
+    {
+      "name": "Skugg",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 90
+    },
+    {
+      "name": "Charred Warrior",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 120
+    },
+    {
+      "name": "Charred Warlock",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 160
+    },
+    {
+      "name": "Asksvin",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 175
+    },
+    {
+      "name": "Bonemaw",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 225
+    },
+    {
+      "name": "Fallen Valkyrie",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 375
+    },
+    {
+      "name": "Morgen",
+      "biome": "Ashlands",
+      "category": "standard_creature",
+      "base_xp": 500
+    },
+    {
+      "name": "Baby Seal",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 0,
+      "xp_rule": "passive_creature_zero_xp"
+    },
+    {
+      "name": "Seal",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 0,
+      "xp_rule": "passive_creature_zero_xp"
+    },
+    {
+      "name": "Shadow",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 0,
+      "xp_rule": "unkillable_or_nonstandard_zero_xp"
+    },
+    {
+      "name": "Elaking",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 150
+    },
+    {
+      "name": "Moose",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 250
+    },
+    {
+      "name": "Hexen",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 275
+    },
+    {
+      "name": "Krigen",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 375
+    },
+    {
+      "name": "Barka",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 600
+    },
+    {
+      "name": "Gammeltroll",
+      "biome": "Deep North",
+      "category": "standard_creature",
+      "base_xp": 800
+    }
+  ],
+  "special_encounters": [
+    {
+      "name": "Brenna",
+      "region": "Black Forest",
+      "category": "named_miniboss",
+      "base_xp": 200
+    },
+    {
+      "name": "Geirrhafa",
+      "region": "Mountain",
+      "category": "named_miniboss",
+      "base_xp": 500
+    },
+    {
+      "name": "Zil & Thungr",
+      "region": "Plains",
+      "category": "named_miniboss_encounter",
+      "base_xp": 750
+    },
+    {
+      "name": "Lord Reto",
+      "region": "Ashlands",
+      "category": "named_miniboss",
+      "base_xp": 1500
+    },
+    {
+      "name": "Fallen Warrior",
+      "region": "Deep North",
+      "category": "special_encounter",
+      "base_xp": 300
+    },
+    {
+      "name": "Kall Aspects",
+      "region": "Deep North",
+      "category": "boss_encounter_component",
+      "base_xp": 0
+    }
+  ],
+  "bosses": [
+    {
+      "name": "Eikthyr",
+      "biome": "Meadows",
+      "base_xp": 250
+    },
+    {
+      "name": "The Elder",
+      "biome": "Black Forest",
+      "base_xp": 500
+    },
+    {
+      "name": "Bonemass",
+      "biome": "Swamp",
+      "base_xp": 1000
+    },
+    {
+      "name": "Moder",
+      "biome": "Mountain",
+      "base_xp": 1500
+    },
+    {
+      "name": "Yagluth",
+      "biome": "Plains",
+      "base_xp": 2000
+    },
+    {
+      "name": "The Queen",
+      "biome": "Mistlands",
+      "base_xp": 3500
+    },
+    {
+      "name": "Fader",
+      "biome": "Ashlands",
+      "base_xp": 5000
+    },
+    {
+      "name": "Kall Fimbulbringer",
+      "biome": "Deep North",
+      "base_xp": 8000
+    }
+  ]
+}

@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "status": "v1.0 playtest baseline",
+  "max_level": 50,
+  "total_xp_to_level_50": 25450,
+  "perk_milestones": [
+    {
+      "level": 10,
+      "cumulative_xp": 585
+    },
+    {
+      "level": 20,
+      "cumulative_xp": 3475
+    },
+    {
+      "level": 30,
+      "cumulative_xp": 9350
+    },
+    {
+      "level": 40,
+      "cumulative_xp": 16900
+    },
+    {
+      "level": 50,
+      "cumulative_xp": 25450,
+      "unlocks": "Final perk + dual-class eligibility"
+    }
+  ],
+  "design_targets": {
+    "first_level_50": "Average player primarily using one class reaches Level 50 around Mountain progression.",
+    "dedicated_farming": "May reach Level 50 earlier.",
+    "endgame": "Later biomes intentionally accelerate additional class leveling; Deep North is an XP oasis.",
+    "multi_level_awards": "Supported by existing implementation."
+  },
+  "levels": [
+    {
+      "level": 1,
+      "xp_to_next_level": 25,
+      "cumulative_xp": 0
+    },
+    {
+      "level": 2,
+      "xp_to_next_level": 35,
+      "cumulative_xp": 25
+    },
+    {
+      "level": 3,
+      "xp_to_next_level": 45,
+      "cumulative_xp": 60
+    },
+    {
+      "level": 4,
+      "xp_to_next_level": 55,
+      "cumulative_xp": 105
+    },
+    {
+      "level": 5,
+      "xp_to_next_level": 65,
+      "cumulative_xp": 160
+    },
+    {
+      "level": 6,
+      "xp_to_next_level": 75,
+      "cumulative_xp": 225
+    },
+    {
+      "level": 7,
+      "xp_to_next_level": 85,
+      "cumulative_xp": 300
+    },
+    {
+      "level": 8,
+      "xp_to_next_level": 95,
+      "cumulative_xp": 385
+    },
+    {
+      "level": 9,
+      "xp_to_next_level": 105,
+      "cumulative_xp": 480
+    },
+    {
+      "level": 10,
+      "xp_to_next_level": 150,
+      "cumulative_xp": 585
+    },
+    {
+      "level": 11,
+      "xp_to_next_level": 180,
+      "cumulative_xp": 735
+    },
+    {
+      "level": 12,
+      "xp_to_next_level": 210,
+      "cumulative_xp": 915
+    },
+    {
+      "level": 13,
+      "xp_to_next_level": 240,
+      "cumulative_xp": 1125
+    },
+    {
+      "level": 14,
+      "xp_to_next_level": 270,
+      "cumulative_xp": 1365
+    },
+    {
+      "level": 15,
+      "xp_to_next_level": 300,
+      "cumulative_xp": 1635
+    },
+    {
+      "level": 16,
+      "xp_to_next_level": 330,
+      "cumulative_xp": 1935
+    },
+    {
+      "level": 17,
+      "xp_to_next_level": 360,
+      "cumulative_xp": 2265
+    },
+    {
+      "level": 18,
+      "xp_to_next_level": 400,
+      "cumulative_xp": 2625
+    },
+    {
+      "level": 19,
+      "xp_to_next_level": 450,
+      "cumulative_xp": 3025
+    },
+    {
+      "level": 20,
+      "xp_to_next_level": 475,
+      "cumulative_xp": 3475
+    },
+    {
+      "level": 21,
+      "xp_to_next_level": 500,
+      "cumulative_xp": 3950
+    },
+    {
+      "level": 22,
+      "xp_to_next_level": 525,
+      "cumulative_xp": 4450
+    },
+    {
+      "level": 23,
+      "xp_to_next_level": 550,
+      "cumulative_xp": 4975
+    },
+    {
+      "level": 24,
+      "xp_to_next_level": 575,
+      "cumulative_xp": 5525
+    },
+    {
+      "level": 25,
+      "xp_to_next_level": 600,
+      "cumulative_xp": 6100
+    },
+    {
+      "level": 26,
+      "xp_to_next_level": 625,
+      "cumulative_xp": 6700
+    },
+    {
+      "level": 27,
+      "xp_to_next_level": 650,
+      "cumulative_xp": 7325
+    },
+    {
+      "level": 28,
+      "xp_to_next_level": 675,
+      "cumulative_xp": 7975
+    },
+    {
+      "level": 29,
+      "xp_to_next_level": 700,
+      "cumulative_xp": 8650
+    },
+    {
+      "level": 30,
+      "xp_to_next_level": 710,
+      "cumulative_xp": 9350
+    },
+    {
+      "level": 31,
+      "xp_to_next_level": 720,
+      "cumulative_xp": 10060
+    },
+    {
+      "level": 32,
+      "xp_to_next_level": 730,
+      "cumulative_xp": 10780
+    },
+    {
+      "level": 33,
+      "xp_to_next_level": 740,
+      "cumulative_xp": 11510
+    },
+    {
+      "level": 34,
+      "xp_to_next_level": 750,
+      "cumulative_xp": 12250
+    },
+    {
+      "level": 35,
+      "xp_to_next_level": 760,
+      "cumulative_xp": 13000
+    },
+    {
+      "level": 36,
+      "xp_to_next_level": 770,
+      "cumulative_xp": 13760
+    },
+    {
+      "level": 37,
+      "xp_to_next_level": 780,
+      "cumulative_xp": 14530
+    },
+    {
+      "level": 38,
+      "xp_to_next_level": 790,
+      "cumulative_xp": 15310
+    },
+    {
+      "level": 39,
+      "xp_to_next_level": 800,
+      "cumulative_xp": 16100
+    },
+    {
+      "level": 40,
+      "xp_to_next_level": 810,
+      "cumulative_xp": 16900
+    },
+    {
+      "level": 41,
+      "xp_to_next_level": 820,
+      "cumulative_xp": 17710
+    },
+    {
+      "level": 42,
+      "xp_to_next_level": 830,
+      "cumulative_xp": 18530
+    },
+    {
+      "level": 43,
+      "xp_to_next_level": 840,
+      "cumulative_xp": 19360
+    },
+    {
+      "level": 44,
+      "xp_to_next_level": 850,
+      "cumulative_xp": 20200
+    },
+    {
+      "level": 45,
+      "xp_to_next_level": 860,
+      "cumulative_xp": 21050
+    },
+    {
+      "level": 46,
+      "xp_to_next_level": 870,
+      "cumulative_xp": 21910
+    },
+    {
+      "level": 47,
+      "xp_to_next_level": 880,
+      "cumulative_xp": 22780
+    },
+    {
+      "level": 48,
+      "xp_to_next_level": 890,
+      "cumulative_xp": 23660
+    },
+    {
+      "level": 49,
+      "xp_to_next_level": 900,
+      "cumulative_xp": 24550
+    },
+    {
+      "level": 50,
+      "xp_to_next_level": null,
+      "cumulative_xp": 25450
+    }
+  ]
+}
